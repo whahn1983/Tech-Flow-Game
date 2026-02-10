@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tech Flow Catch</title>
+  <style>
+    :root {
+      --bg1: #080d1b;
+      --bg2: #101a34;
+      --neon: #1ef7ff;
+      --accent: #8d59ff;
+      --good: #27f39f;
+      --bad: #ff5370;
+      --text: #e8f4ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at top, #1a2a55, var(--bg1) 45%, #05070f 100%);
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+    .container {
+      width: min(95vw, 760px);
+      text-align: center;
+    }
+    h1 {
+      margin: 0 0 10px;
+      letter-spacing: 1px;
+      color: var(--neon);
+      text-shadow: 0 0 10px rgba(30, 247, 255, 0.55);
+    }
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+    .chip {
+      flex: 1;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 12px;
+      padding: 10px;
+      backdrop-filter: blur(4px);
+    }
+    canvas {
+      width: 100%;
+      max-width: 760px;
+      height: auto;
+      border: 2px solid rgba(30, 247, 255, 0.4);
+      border-radius: 14px;
+      box-shadow: 0 0 24px rgba(30, 247, 255, 0.25);
+      background: linear-gradient(180deg, var(--bg2), #070b18 80%);
+    }
+    .controls {
+      margin-top: 10px;
+      opacity: 0.85;
+      font-size: 0.95rem;
+    }
+    button {
+      margin-top: 12px;
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-weight: 700;
+      color: #051426;
+      background: linear-gradient(120deg, var(--neon), #64ffda);
+      cursor: pointer;
+    }
+    button:hover { filter: brightness(1.08); }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <h1>🎧 Tech Flow Catch</h1>
+    <section class="hud">
+      <div class="chip">Score: <span id="score">0</span></div>
+      <div class="chip">Lives: <span id="lives">5</span></div>
+      <div class="chip">Level: <span id="level">1</span></div>
+    </section>
+    <canvas id="game" width="760" height="460" aria-label="Tech Flow Catch game area"></canvas>
+    <div class="controls">Move with ⬅️ ➡️ / A D. Catch code blocks, avoid bugs 🐞.</div>
+    <button id="musicBtn" type="button">Play Music</button>
+  </main>
+
+  <audio id="bgm" src="Tech Flow.mp3" loop preload="auto"></audio>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const livesEl = document.getElementById('lives');
+    const levelEl = document.getElementById('level');
+    const music = document.getElementById('bgm');
+    const musicBtn = document.getElementById('musicBtn');
+
+    let score = 0;
+    let lives = 5;
+    let level = 1;
+    const player = { x: canvas.width / 2 - 32, y: canvas.height - 36, w: 64, h: 20, speed: 8 };
+    const keys = { left: false, right: false };
+    const drops = [];
+    let spawnRate = 1100;
+    let gameOver = false;
+
+    function tryPlayMusic() {
+      music.volume = 0.55;
+      music.play().then(() => {
+        musicBtn.textContent = 'Music Playing 🎵';
+      }).catch(() => {
+        musicBtn.textContent = 'Tap to Enable Music';
+      });
+    }
+
+    musicBtn.addEventListener('click', tryPlayMusic);
+    window.addEventListener('click', tryPlayMusic, { once: true });
+    window.addEventListener('keydown', tryPlayMusic, { once: true });
+    tryPlayMusic();
+
+    function spawnDrop() {
+      if (gameOver) return;
+      const isBug = Math.random() < 0.22;
+      drops.push({
+        x: Math.random() * (canvas.width - 24),
+        y: -30,
+        size: isBug ? 28 : 24,
+        speed: 2 + Math.random() * 2 + level * 0.35,
+        isBug
+      });
+
+      setTimeout(spawnDrop, Math.max(350, spawnRate - level * 40));
+    }
+
+    function drawPlayer() {
+      const g = ctx.createLinearGradient(player.x, player.y, player.x + player.w, player.y + player.h);
+      g.addColorStop(0, '#1ef7ff');
+      g.addColorStop(1, '#8d59ff');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.roundRect(player.x, player.y, player.w, player.h, 10);
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.font = '12px monospace';
+      ctx.fillText('</>', player.x + 19, player.y + 14);
+    }
+
+    function drawDrop(drop) {
+      if (drop.isBug) {
+        ctx.font = '24px serif';
+        ctx.fillText('🐞', drop.x, drop.y);
+      } else {
+        ctx.fillStyle = '#27f39f';
+        ctx.fillRect(drop.x, drop.y, drop.size, drop.size);
+        ctx.fillStyle = '#022';
+        ctx.font = 'bold 13px monospace';
+        ctx.fillText('{}', drop.x + 2, drop.y + 17);
+      }
+    }
+
+    function resetGame() {
+      score = 0;
+      lives = 5;
+      level = 1;
+      gameOver = false;
+      drops.length = 0;
+      player.x = canvas.width / 2 - 32;
+      updateHud();
+      spawnDrop();
+      requestAnimationFrame(loop);
+    }
+
+    function updateHud() {
+      scoreEl.textContent = score;
+      livesEl.textContent = lives;
+      levelEl.textContent = level;
+    }
+
+    function update() {
+      if (keys.left) player.x -= player.speed;
+      if (keys.right) player.x += player.speed;
+      player.x = Math.max(0, Math.min(canvas.width - player.w, player.x));
+
+      for (let i = drops.length - 1; i >= 0; i--) {
+        const d = drops[i];
+        d.y += d.speed;
+
+        const hit = d.x < player.x + player.w && d.x + d.size > player.x && d.y < player.y + player.h && d.y + d.size > player.y;
+
+        if (hit) {
+          if (d.isBug) {
+            lives -= 1;
+          } else {
+            score += 10;
+            if (score % 80 === 0) level += 1;
+          }
+          drops.splice(i, 1);
+          updateHud();
+          continue;
+        }
+
+        if (d.y > canvas.height + 30) {
+          if (!d.isBug) lives -= 1;
+          drops.splice(i, 1);
+          updateHud();
+        }
+      }
+
+      if (lives <= 0) gameOver = true;
+    }
+
+    function drawBackground() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let i = 0; i < 36; i++) {
+        ctx.fillStyle = `rgba(30,247,255,${Math.random() * 0.25})`;
+        ctx.fillRect(Math.random() * canvas.width, Math.random() * canvas.height, 2, 2);
+      }
+    }
+
+    function drawGameOver() {
+      ctx.fillStyle = 'rgba(5, 8, 18, 0.78)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 42px Segoe UI';
+      ctx.fillText('Game Over', canvas.width / 2, canvas.height / 2 - 20);
+      ctx.font = '22px Segoe UI';
+      ctx.fillText(`Final Score: ${score}`, canvas.width / 2, canvas.height / 2 + 20);
+      ctx.font = '18px Segoe UI';
+      ctx.fillText('Press R to restart', canvas.width / 2, canvas.height / 2 + 56);
+      ctx.textAlign = 'left';
+    }
+
+    function loop() {
+      drawBackground();
+      update();
+
+      drawPlayer();
+      drops.forEach(drawDrop);
+
+      if (gameOver) {
+        drawGameOver();
+        return;
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') keys.left = true;
+      if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') keys.right = true;
+      if (gameOver && e.key.toLowerCase() === 'r') resetGame();
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') keys.left = false;
+      if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') keys.right = false;
+    });
+
+    if (!CanvasRenderingContext2D.prototype.roundRect) {
+      CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+        this.beginPath();
+        this.moveTo(x + r, y);
+        this.arcTo(x + w, y, x + w, y + h, r);
+        this.arcTo(x + w, y + h, x, y + h, r);
+        this.arcTo(x, y + h, x, y, r);
+        this.arcTo(x, y, x + w, y, r);
+        this.closePath();
+        return this;
+      }
+    }
+
+    updateHud();
+    spawnDrop();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
