@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tech Flow Runner</title>
+  <style>
+    :root {
+      --bg-top: #0a1330;
+      --bg-bottom: #050910;
+      --neon: #2ef8ff;
+      --accent: #8e5cff;
+      --ground: #16233f;
+      --text: #e9f6ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 15% 10%, #1b2e5f, var(--bg-top) 45%, var(--bg-bottom));
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+    .wrap {
+      width: min(96vw, 900px);
+      text-align: center;
+    }
+    h1 {
+      margin: 0 0 10px;
+      color: var(--neon);
+      text-shadow: 0 0 12px rgba(46, 248, 255, 0.6);
+      letter-spacing: 0.8px;
+    }
+    .hud {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+    .chip {
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(4px);
+    }
+    canvas {
+      width: 100%;
+      height: auto;
+      border-radius: 14px;
+      border: 2px solid rgba(46, 248, 255, 0.35);
+      box-shadow: 0 0 26px rgba(46, 248, 255, 0.25);
+      background: linear-gradient(180deg, #111f45 0%, #0a1020 70%);
+    }
+    .controls {
+      margin-top: 10px;
+      opacity: 0.9;
+    }
+    button {
+      margin-top: 12px;
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 18px;
+      font-weight: 700;
+      color: #071425;
+      background: linear-gradient(115deg, var(--neon), #75ffd4);
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <h1>🏃 Tech Flow Runner</h1>
+    <section class="hud">
+      <div class="chip">Distance: <span id="score">0</span>m</div>
+      <div class="chip">Speed: <span id="speed">1.0</span>x</div>
+      <div class="chip">Best: <span id="best">0</span>m</div>
+    </section>
+    <canvas id="game" width="900" height="420" aria-label="Tech Flow jump runner"></canvas>
+    <div class="controls">Jump with <strong>Space</strong>, <strong>W</strong>, or <strong>↑</strong>. Press <strong>R</strong> to restart.</div>
+    <button id="musicBtn" type="button">Play Music</button>
+  </main>
+
+  <audio id="bgm" src="Tech Flow.mp3" loop preload="auto"></audio>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const speedEl = document.getElementById('speed');
+    const bestEl = document.getElementById('best');
+    const music = document.getElementById('bgm');
+    const musicBtn = document.getElementById('musicBtn');
+
+    let score = 0;
+    let best = Number(localStorage.getItem('techFlowRunnerBest') || 0);
+    let speedMult = 1;
+    let baseSpeed = 4.2;
+    let gameOver = false;
+    let groundOffset = 0;
+    let sceneryOffset = 0;
+    let spawnTimer = 0;
+
+    const gravity = 0.75;
+    const player = {
+      x: 120,
+      y: 0,
+      w: 48,
+      h: 58,
+      vy: 0,
+      jumpPower: -14,
+      onGround: true
+    };
+    const groundY = canvas.height - 72;
+    player.y = groundY - player.h;
+
+    const obstacles = [];
+
+    function tryPlayMusic() {
+      music.volume = 0.55;
+      music.play().then(() => {
+        musicBtn.textContent = 'Music Playing 🎵';
+      }).catch(() => {
+        musicBtn.textContent = 'Tap to Enable Music';
+      });
+    }
+
+    musicBtn.addEventListener('click', tryPlayMusic);
+    window.addEventListener('keydown', tryPlayMusic, { once: true });
+    window.addEventListener('click', tryPlayMusic, { once: true });
+
+    function spawnObstacle() {
+      const typeRoll = Math.random();
+      if (typeRoll < 0.34) {
+        obstacles.push({ x: canvas.width + 20, y: groundY - 30, w: 28, h: 30, type: 'bug' });
+      } else if (typeRoll < 0.67) {
+        obstacles.push({ x: canvas.width + 20, y: groundY - 52, w: 36, h: 52, type: 'server' });
+      } else {
+        obstacles.push({ x: canvas.width + 20, y: groundY - 24, w: 62, h: 24, type: 'laser' });
+      }
+    }
+
+    function drawSkyline() {
+      sceneryOffset += (baseSpeed * speedMult) * 0.3;
+
+      for (let i = 0; i < 6; i++) {
+        const width = 130;
+        const x = (i * 170) - (sceneryOffset % 170);
+        const h = 110 + (i % 3) * 30;
+        ctx.fillStyle = 'rgba(141,89,255,0.22)';
+        ctx.fillRect(x, groundY - h, width, h);
+
+        ctx.fillStyle = 'rgba(46,248,255,0.6)';
+        for (let wy = groundY - h + 12; wy < groundY - 10; wy += 20) {
+          for (let wx = x + 12; wx < x + width - 10; wx += 22) {
+            ctx.fillRect(wx, wy, 8, 9);
+          }
+        }
+      }
+
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      for (let i = 0; i < 45; i++) {
+        const starX = (i * 41 + 17) % canvas.width;
+        const starY = (i * 29 + 23) % (groundY - 130);
+        ctx.fillRect((starX + sceneryOffset * 0.12) % canvas.width, starY, 2, 2);
+      }
+    }
+
+    function drawGround() {
+      groundOffset += baseSpeed * speedMult;
+      ctx.fillStyle = '#16233f';
+      ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+
+      for (let x = -(groundOffset % 42); x < canvas.width; x += 42) {
+        ctx.fillStyle = 'rgba(46,248,255,0.7)';
+        ctx.fillRect(x, groundY + 20, 24, 4);
+      }
+    }
+
+    function drawPlayer() {
+      const g = ctx.createLinearGradient(player.x, player.y, player.x + player.w, player.y + player.h);
+      g.addColorStop(0, '#2ef8ff');
+      g.addColorStop(1, '#8e5cff');
+      ctx.fillStyle = g;
+      roundRect(ctx, player.x, player.y, player.w, player.h, 10);
+      ctx.fill();
+
+      ctx.fillStyle = '#e9f6ff';
+      ctx.font = 'bold 15px monospace';
+      ctx.fillText('</>', player.x + 7, player.y + 34);
+    }
+
+    function drawObstacle(ob) {
+      if (ob.type === 'bug') {
+        ctx.font = '28px serif';
+        ctx.fillText('🐞', ob.x, ob.y + ob.h);
+      } else if (ob.type === 'server') {
+        ctx.fillStyle = '#ff5a7c';
+        roundRect(ctx, ob.x, ob.y, ob.w, ob.h, 7);
+        ctx.fill();
+        ctx.fillStyle = '#12020a';
+        ctx.fillRect(ob.x + 8, ob.y + 12, ob.w - 16, 6);
+        ctx.fillRect(ob.x + 8, ob.y + 26, ob.w - 16, 6);
+      } else {
+        const lg = ctx.createLinearGradient(ob.x, ob.y, ob.x, ob.y + ob.h);
+        lg.addColorStop(0, 'rgba(255,83,112,0.95)');
+        lg.addColorStop(1, 'rgba(255,83,112,0.25)');
+        ctx.fillStyle = lg;
+        ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
+      }
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    function resetGame() {
+      score = 0;
+      speedMult = 1;
+      baseSpeed = 4.2;
+      gameOver = false;
+      spawnTimer = 0;
+      obstacles.length = 0;
+      player.y = groundY - player.h;
+      player.vy = 0;
+      player.onGround = true;
+      updateHud();
+      requestAnimationFrame(loop);
+    }
+
+    function updateHud() {
+      scoreEl.textContent = Math.floor(score);
+      speedEl.textContent = speedMult.toFixed(1);
+      bestEl.textContent = Math.floor(best);
+    }
+
+    function update() {
+      if (gameOver) return;
+
+      score += 0.2 * speedMult;
+      speedMult = Math.min(4, 1 + score / 340);
+
+      player.vy += gravity;
+      player.y += player.vy;
+      if (player.y >= groundY - player.h) {
+        player.y = groundY - player.h;
+        player.vy = 0;
+        player.onGround = true;
+      }
+
+      spawnTimer -= 16.7;
+      if (spawnTimer <= 0) {
+        spawnObstacle();
+        spawnTimer = Math.max(470, 1200 - speedMult * 210 - Math.random() * 240);
+      }
+
+      const moveSpeed = baseSpeed * speedMult;
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        const ob = obstacles[i];
+        ob.x -= moveSpeed;
+
+        const hit = player.x < ob.x + ob.w &&
+                    player.x + player.w > ob.x &&
+                    player.y < ob.y + ob.h &&
+                    player.y + player.h > ob.y;
+
+        if (hit) {
+          gameOver = true;
+          best = Math.max(best, score);
+          localStorage.setItem('techFlowRunnerBest', String(Math.floor(best)));
+          updateHud();
+          return;
+        }
+
+        if (ob.x + ob.w < -20) {
+          obstacles.splice(i, 1);
+        }
+      }
+
+      updateHud();
+    }
+
+    function drawGameOver() {
+      ctx.fillStyle = 'rgba(3, 7, 18, 0.74)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center';
+      ctx.font = '700 44px Segoe UI';
+      ctx.fillText('Signal Lost', canvas.width / 2, canvas.height / 2 - 28);
+      ctx.font = '600 24px Segoe UI';
+      ctx.fillText(`Distance: ${Math.floor(score)}m`, canvas.width / 2, canvas.height / 2 + 12);
+      ctx.font = '500 18px Segoe UI';
+      ctx.fillText('Press R to reboot run', canvas.width / 2, canvas.height / 2 + 48);
+      ctx.textAlign = 'left';
+    }
+
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawSkyline();
+      drawGround();
+      drawPlayer();
+      obstacles.forEach(drawObstacle);
+      if (gameOver) drawGameOver();
+    }
+
+    function loop() {
+      update();
+      render();
+      if (!gameOver) requestAnimationFrame(loop);
+    }
+
+    function jump() {
+      if (!player.onGround || gameOver) return;
+      player.vy = player.jumpPower;
+      player.onGround = false;
+    }
+
+    window.addEventListener('keydown', (e) => {
+      const key = e.key.toLowerCase();
+      if (key === ' ' || key === 'arrowup' || key === 'w') {
+        e.preventDefault();
+        jump();
+      }
+      if (gameOver && key === 'r') {
+        resetGame();
+      }
+    });
+
+    canvas.addEventListener('pointerdown', jump);
+
+    updateHud();
+    tryPlayMusic();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
