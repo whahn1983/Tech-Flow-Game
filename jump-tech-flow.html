@@ -81,7 +81,7 @@
       <div class="chip">Best: <span id="best">0</span>m</div>
     </section>
     <canvas id="game" width="900" height="420" aria-label="Tech Flow jump runner"></canvas>
-    <div class="controls">Jump with <strong>Space</strong>, <strong>W</strong>, or <strong>↑</strong>. Press <strong>R</strong> to restart.</div>
+    <div class="controls">Double jump with <strong>Space</strong>, <strong>W</strong>, or <strong>↑</strong>. Press <strong>R</strong> to restart.</div>
     <button id="musicBtn" type="button">Play Music</button>
   </main>
 
@@ -113,7 +113,8 @@
       h: 58,
       vy: 0,
       jumpPower: -14,
-      onGround: true
+      onGround: true,
+      jumpsLeft: 2
     };
     const groundY = canvas.height - 72;
     player.y = groundY - player.h;
@@ -234,6 +235,7 @@
       player.y = groundY - player.h;
       player.vy = 0;
       player.onGround = true;
+      player.jumpsLeft = 2;
       updateHud();
       requestAnimationFrame(loop);
     }
@@ -256,6 +258,7 @@
         player.y = groundY - player.h;
         player.vy = 0;
         player.onGround = true;
+        player.jumpsLeft = 2;
       }
 
       spawnTimer -= 16.7;
@@ -320,9 +323,10 @@
     }
 
     function jump() {
-      if (!player.onGround || gameOver) return;
+      if (gameOver || player.jumpsLeft <= 0) return;
       player.vy = player.jumpPower;
       player.onGround = false;
+      player.jumpsLeft -= 1;
     }
 
     window.addEventListener('keydown', (e) => {
