@@ -128,7 +128,7 @@
       jumpsLeft: 2
     };
     const baseGroundY = canvas.height - 72;
-    const pitFloorY = canvas.height - 1;
+    const precipiceFloorY = canvas.height - 1;
     player.y = baseGroundY - player.h;
 
     const obstacles = [];
@@ -143,9 +143,12 @@
       minLandingBuffer: 162,
       minCaveHeadroom: player.h + 14,
       minCaveHeadroomForJumpObstacle: 124,
+      minCaveHeadroomForAnyObstacle: 112,
       minJumpClearance: player.h + 138,
       clearanceSampleStep: 8,
-      maxPitWidth: 168
+      maxPrecipiceWidth: 136,
+      precipiceAvoidanceBuffer: 80,
+      obstacleSpacingBuffer: 28
     };
 
     function tryPlayMusic() {
@@ -169,11 +172,11 @@
       step: 34,
       points: [],
       caves: [],
-      pits: [],
+      precipices: [],
       lastX: 0,
       currentY: baseGroundY,
       slope: 0,
-      nextPitAt: 420,
+      nextPrecipiceAt: 420,
       nextCaveAt: 360
     };
 
@@ -185,8 +188,8 @@
       return Math.max(min, Math.min(max, value));
     }
 
-    function isInPit(worldX) {
-      return terrain.pits.some((pit) => worldX >= pit.start && worldX <= pit.end);
+    function isInPrecipice(worldX) {
+      return terrain.precipices.some((drop) => worldX >= drop.start && worldX <= drop.end);
     }
 
     function getCaveAt(worldX) {
@@ -200,8 +203,8 @@
       return cave.baseCeiling + wave;
     }
 
-    function getPitNear(worldX, padding = 0) {
-      return terrain.pits.find((pit) => worldX >= pit.start - padding && worldX <= pit.end + padding) || null;
+    function getPrecipiceNear(worldX, padding = 0) {
+      return terrain.precipices.find((drop) => worldX >= drop.start - padding && worldX <= drop.end + padding) || null;
     }
 
     function getRequiredGroundForJumpClearance(worldX) {
@@ -235,8 +238,8 @@
     }
 
     function getTerrainHeight(worldX) {
-      if (isInPit(worldX)) {
-        return pitFloorY;
+      if (isInPrecipice(worldX)) {
+        return precipiceFloorY;
       }
 
       const points = terrain.points;
@@ -256,11 +259,11 @@
       while (terrain.lastX < maxWorldX) {
         terrain.lastX += terrain.step;
 
-        if (terrain.lastX > terrain.nextPitAt) {
-          const pitStart = terrain.lastX + rand(30, 140);
-          const pitWidth = rand(110, courseSafety.maxPitWidth);
-          terrain.pits.push({ start: pitStart, end: pitStart + pitWidth });
-          terrain.nextPitAt = pitStart + rand(440, 760);
+        if (terrain.lastX > terrain.nextPrecipiceAt) {
+          const precipiceStart = terrain.lastX + rand(40, 150);
+          const precipiceWidth = rand(80, courseSafety.maxPrecipiceWidth);
+          terrain.precipices.push({ start: precipiceStart, end: precipiceStart + precipiceWidth });
+          terrain.nextPrecipiceAt = precipiceStart + rand(460, 780);
         }
 
         if (terrain.lastX > terrain.nextCaveAt) {
@@ -299,11 +302,11 @@
     function initTerrain() {
       terrain.points.length = 0;
       terrain.caves.length = 0;
-      terrain.pits.length = 0;
+      terrain.precipices.length = 0;
       terrain.lastX = 0;
       terrain.currentY = baseGroundY;
       terrain.slope = 0;
-      terrain.nextPitAt = 420;
+      terrain.nextPrecipiceAt = 420;
       terrain.nextCaveAt = 360;
       terrain.points.push({ x: 0, y: baseGroundY });
       ensureTerrainAhead(canvas.width * 2);
@@ -311,9 +314,9 @@
 
     function createObstacle(action, worldX) {
       let groundY = getTerrainHeight(worldX);
-      if (isInPit(worldX)) {
-        const pit = terrain.pits.find((seg) => worldX >= seg.start && worldX <= seg.end);
-        worldX = (pit ? pit.end : worldX) + 50;
+      if (isInPrecipice(worldX)) {
+        const precipice = terrain.precipices.find((seg) => worldX >= seg.start && worldX <= seg.end);
+        worldX = (precipice ? precipice.end : worldX) + 50;
         groundY = getTerrainHeight(worldX);
       }
 
@@ -356,33 +359,64 @@
       return gapPx >= getMinGapPx(previousAction, nextAction);
     }
 
+    function hasNearbyObstacle(worldStart, worldEnd, ignoreObstacle = null) {
+      return obstacles.some((placed) => {
+        if (ignoreObstacle && placed === ignoreObstacle) return false;
+        const placedStart = placed.worldX - courseSafety.obstacleSpacingBuffer;
+        const placedEnd = placed.worldX + placed.w + courseSafety.obstacleSpacingBuffer;
+        return worldStart < placedEnd && worldEnd > placedStart;
+      });
+    }
+
     function isObstaclePlacementWinnable(obstacle, action) {
       const obstacleStart = obstacle.worldX;
       const obstacleEnd = obstacle.worldX + obstacle.w;
       const obstacleCenter = obstacleStart + obstacle.w * 0.5;
 
-      if (getPitNear(obstacleStart, 0) || getPitNear(obstacleEnd, 0)) {
+      if (hasNearbyObstacle(obstacleStart, obstacleEnd, obstacle)) {
         return false;
       }
 
-      const adjacentPit = terrain.pits.find((pit) => (
-        obstacleStart >= pit.end && obstacleStart - pit.end < courseSafety.minLandingBuffer
+      if (getPrecipiceNear(obstacleStart, courseSafety.precipiceAvoidanceBuffer) || getPrecipiceNear(obstacleEnd, courseSafety.precipiceAvoidanceBuffer)) {
+        return false;
+      }
+
+      const adjacentPrecipice = terrain.precipices.find((drop) => (
+        obstacleStart >= drop.end && obstacleStart - drop.end < courseSafety.minLandingBuffer
       ) || (
-        obstacleEnd <= pit.start && pit.start - obstacleEnd < courseSafety.minTakeoffBuffer
+        obstacleEnd <= drop.start && drop.start - obstacleEnd < courseSafety.minTakeoffBuffer
       ));
-      if (adjacentPit) {
+      if (adjacentPrecipice) {
         return false;
       }
 
-      const groundY = getTerrainHeight(obstacleCenter);
+      for (let sampleX = obstacleStart; sampleX <= obstacleEnd; sampleX += courseSafety.clearanceSampleStep) {
+        const groundY = getTerrainHeight(sampleX);
+        const caveCeilingY = getCaveCeilingAt(sampleX);
 
-      const caveCeilingY = getCaveCeilingAt(obstacleCenter);
-      if (caveCeilingY != null) {
-        const headroom = groundY - caveCeilingY;
-        if (headroom < courseSafety.minCaveHeadroom) {
-          return false;
+        if (caveCeilingY != null) {
+          const headroom = groundY - caveCeilingY;
+          if (headroom < courseSafety.minCaveHeadroomForAnyObstacle) {
+            return false;
+          }
+          if (action === 'jump' && headroom < courseSafety.minCaveHeadroomForJumpObstacle) {
+            return false;
+          }
         }
-        if (action === 'jump' && headroom < courseSafety.minCaveHeadroomForJumpObstacle) {
+
+        if (hasNearbyObstacle(sampleX - 8, sampleX + 8, obstacle) && caveCeilingY != null) {
+          const localHeadroom = groundY - caveCeilingY;
+          if (localHeadroom < courseSafety.minCaveHeadroom + 10) {
+            return false;
+          }
+        }
+      }
+
+      const centerGroundY = getTerrainHeight(obstacleCenter);
+      const centerCaveCeilingY = getCaveCeilingAt(obstacleCenter);
+      if (centerCaveCeilingY != null) {
+        const centerHeadroom = centerGroundY - centerCaveCeilingY;
+        if (centerHeadroom < courseSafety.minCaveHeadroom) {
           return false;
         }
       }
@@ -598,7 +632,7 @@
 
       const playerWorldCenter = worldOffset + player.x + player.w * 0.5;
       const currentGround = getTerrainHeight(playerWorldCenter);
-      if (isInPit(playerWorldCenter)) {
+      if (isInPrecipice(playerWorldCenter)) {
         player.onGround = false;
         if (player.y + player.h >= currentGround) {
           gameOver = true;
