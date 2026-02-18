@@ -495,17 +495,18 @@
 
     function drawGround() {
       groundOffset += baseSpeed * speedMult;
-      const startWorld = worldOffset - terrain.step;
-      const endWorld = worldOffset + canvas.width + terrain.step * 2;
-      const renderWorldOffset = Math.round(worldOffset);
+      const renderWorldOffset = Math.floor(worldOffset);
+      const startWorld = renderWorldOffset - terrain.step;
+      const endWorld = renderWorldOffset + canvas.width + terrain.step * 2;
+      const groundSampleStep = 6;
       ensureTerrainAhead(endWorld + 300);
 
       ctx.fillStyle = '#16233f';
       ctx.beginPath();
       ctx.moveTo(0, canvas.height);
-      for (let worldX = startWorld; worldX <= endWorld; worldX += terrain.step) {
-        const sx = Math.round(worldX - renderWorldOffset);
-        const gy = getTerrainHeight(worldX);
+      for (let sx = -terrain.step; sx <= canvas.width + terrain.step; sx += groundSampleStep) {
+        const worldX = renderWorldOffset + sx;
+        const gy = Math.round(getTerrainHeight(worldX));
         ctx.lineTo(sx, gy);
       }
       ctx.lineTo(canvas.width, canvas.height);
@@ -528,7 +529,7 @@
         ctx.moveTo(startX, 0);
         ctx.lineTo(startX, cave.baseCeiling);
         for (let sx = startX; sx <= endX; sx += 16) {
-          const worldX = worldOffset + sx;
+          const worldX = renderWorldOffset + sx;
           const wave = Math.sin((worldX * 0.04) + cave.phase) * cave.amplitude;
           ctx.lineTo(sx, cave.baseCeiling + wave);
         }
