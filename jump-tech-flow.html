@@ -114,6 +114,7 @@
     let groundOffset = 0;
     let sceneryOffset = 0;
     let spawnTimer = 0;
+    let worldOffset = 0;
 
     const gravity = 0.75;
     const player = {
@@ -126,8 +127,8 @@
       onGround: true,
       jumpsLeft: 2
     };
-    const groundY = canvas.height - 72;
-    player.y = groundY - player.h;
+    const baseGroundY = canvas.height - 72;
+    player.y = baseGroundY - player.h;
 
     const obstacles = [];
     const spawnActions = ['jump', 'stay'];
@@ -154,19 +155,125 @@
       updateHud();
     });
 
-    function createObstacle(action, x) {
+    const terrain = {
+      step: 34,
+      points: [],
+      caves: [],
+      pits: [],
+      lastX: 0,
+      currentY: baseGroundY,
+      slope: 0,
+      nextPitAt: 420,
+      nextCaveAt: 360
+    };
+
+    function rand(min, max) {
+      return min + Math.random() * (max - min);
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function isInPit(worldX) {
+      return terrain.pits.some((pit) => worldX >= pit.start && worldX <= pit.end);
+    }
+
+    function getCaveAt(worldX) {
+      return terrain.caves.find((cave) => worldX >= cave.start && worldX <= cave.end) || null;
+    }
+
+    function getTerrainHeight(worldX) {
+      if (isInPit(worldX)) {
+        return null;
+      }
+
+      const points = terrain.points;
+      let i = 0;
+      while (i < points.length - 1 && points[i + 1].x < worldX) {
+        i += 1;
+      }
+      const p1 = points[i];
+      const p2 = points[Math.min(i + 1, points.length - 1)];
+      if (!p1 || !p2) return baseGroundY;
+      if (p1.x === p2.x) return p1.y;
+      const t = (worldX - p1.x) / (p2.x - p1.x);
+      return p1.y + (p2.y - p1.y) * t;
+    }
+
+    function ensureTerrainAhead(maxWorldX) {
+      while (terrain.lastX < maxWorldX) {
+        terrain.lastX += terrain.step;
+
+        if (terrain.lastX > terrain.nextPitAt) {
+          const pitStart = terrain.lastX + rand(30, 140);
+          const pitWidth = rand(110, 190);
+          terrain.pits.push({ start: pitStart, end: pitStart + pitWidth });
+          terrain.nextPitAt = pitStart + rand(440, 760);
+        }
+
+        if (terrain.lastX > terrain.nextCaveAt) {
+          const start = terrain.lastX + rand(60, 140);
+          const length = rand(240, 430);
+          const ceiling = rand(70, 140);
+          terrain.caves.push({
+            start,
+            end: start + length,
+            baseCeiling: ceiling,
+            amplitude: rand(8, 18),
+            phase: rand(0, Math.PI * 2)
+          });
+          terrain.nextCaveAt = start + rand(520, 880);
+        }
+
+        terrain.slope += rand(-0.36, 0.36);
+        terrain.slope = clamp(terrain.slope, -1.8, 1.8);
+        terrain.currentY += terrain.slope * terrain.step * 0.25;
+        terrain.currentY += (baseGroundY - terrain.currentY) * 0.04;
+        terrain.currentY = clamp(terrain.currentY, baseGroundY - 110, baseGroundY + 44);
+
+        if (Math.random() < 0.09) {
+          terrain.currentY += rand(-26, 22);
+          terrain.currentY = clamp(terrain.currentY, baseGroundY - 110, baseGroundY + 44);
+        }
+
+        terrain.points.push({ x: terrain.lastX, y: terrain.currentY });
+      }
+    }
+
+    function initTerrain() {
+      terrain.points.length = 0;
+      terrain.caves.length = 0;
+      terrain.pits.length = 0;
+      terrain.lastX = 0;
+      terrain.currentY = baseGroundY;
+      terrain.slope = 0;
+      terrain.nextPitAt = 420;
+      terrain.nextCaveAt = 360;
+      terrain.points.push({ x: 0, y: baseGroundY });
+      ensureTerrainAhead(canvas.width * 2);
+    }
+
+    function createObstacle(action, worldX) {
+      let groundY = getTerrainHeight(worldX);
+      if (groundY == null) {
+        const pit = terrain.pits.find((seg) => worldX >= seg.start && worldX <= seg.end);
+        worldX = (pit ? pit.end : worldX) + 50;
+        groundY = getTerrainHeight(worldX);
+      }
+
       if (action === 'stay') {
-        return { x, y: groundY - 138, w: 72, h: 22, type: 'drone', action: 'stay' };
+        return { worldX, y: groundY - 138, w: 72, h: 22, type: 'drone', action: 'stay' };
       }
 
       const typeRoll = Math.random();
       if (typeRoll < 0.34) {
-        return { x, y: groundY - 30, w: 28, h: 30, type: 'bug', action: 'jump' };
+        return { worldX, y: groundY - 30, w: 28, h: 30, type: 'bug', action: 'jump' };
       }
       if (typeRoll < 0.67) {
-        return { x, y: groundY - 52, w: 36, h: 52, type: 'server', action: 'jump' };
+        return { worldX, y: groundY - 52, w: 36, h: 52, type: 'server', action: 'jump' };
       }
-      return { x, y: groundY - 24, w: 62, h: 24, type: 'laser', action: 'jump' };
+      return { worldX, y: groundY - 24, w: 62, h: 24, type: 'laser', action: 'jump' };
     }
 
     function pickRandomAction() {
@@ -196,7 +303,7 @@
 
     function scheduleNextObstacle() {
       const moveSpeed = baseSpeed * speedMult;
-      const rightMostObstacle = obstacles.reduce((maxX, ob) => Math.max(maxX, ob.x + ob.w), canvas.width + 20);
+      const rightMostObstacle = obstacles.reduce((maxX, ob) => Math.max(maxX, ob.worldX + ob.w), worldOffset + canvas.width + 20);
 
       for (let attempt = 0; attempt < 24; attempt++) {
         const nextAction = pickRandomAction();
@@ -214,8 +321,8 @@
           continue;
         }
 
-        const x = rightMostObstacle + candidateGapPx;
-        obstacles.push(createObstacle(nextAction, x));
+        const obstacleWorldX = rightMostObstacle + candidateGapPx;
+        obstacles.push(createObstacle(nextAction, obstacleWorldX));
         lastSpawnAction = nextAction;
         spawnTimer = candidateDelay;
         return;
@@ -223,8 +330,8 @@
 
       const fallbackAction = 'jump';
       const fallbackGapPx = getMinGapPx(lastSpawnAction, fallbackAction) + moveSpeed * 8;
-      const x = rightMostObstacle + fallbackGapPx;
-      obstacles.push(createObstacle(fallbackAction, x));
+      const obstacleWorldX = rightMostObstacle + fallbackGapPx;
+      obstacles.push(createObstacle(fallbackAction, obstacleWorldX));
       lastSpawnAction = fallbackAction;
       spawnTimer = (fallbackGapPx / moveSpeed) * (1000 / 60);
     }
@@ -237,10 +344,10 @@
         const x = (i * 170) - (sceneryOffset % 170);
         const h = 110 + (i % 3) * 30;
         ctx.fillStyle = 'rgba(141,89,255,0.22)';
-        ctx.fillRect(x, groundY - h, width, h);
+        ctx.fillRect(x, baseGroundY - h, width, h);
 
         ctx.fillStyle = 'rgba(46,248,255,0.6)';
-        for (let wy = groundY - h + 12; wy < groundY - 10; wy += 20) {
+        for (let wy = baseGroundY - h + 12; wy < baseGroundY - 10; wy += 20) {
           for (let wx = x + 12; wx < x + width - 10; wx += 22) {
             ctx.fillRect(wx, wy, 8, 9);
           }
@@ -250,20 +357,65 @@
       ctx.fillStyle = 'rgba(255,255,255,0.7)';
       for (let i = 0; i < 45; i++) {
         const starX = (i * 41 + 17) % canvas.width;
-        const starY = (i * 29 + 23) % (groundY - 130);
+        const starY = (i * 29 + 23) % (baseGroundY - 130);
         ctx.fillRect((starX + sceneryOffset * 0.12) % canvas.width, starY, 2, 2);
       }
     }
 
     function drawGround() {
       groundOffset += baseSpeed * speedMult;
+      const startWorld = worldOffset - terrain.step;
+      const endWorld = worldOffset + canvas.width + terrain.step * 2;
+      ensureTerrainAhead(endWorld + 300);
+
       ctx.fillStyle = '#16233f';
-      ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+      ctx.beginPath();
+      ctx.moveTo(0, canvas.height);
+      for (let worldX = startWorld; worldX <= endWorld; worldX += terrain.step) {
+        const sx = worldX - worldOffset;
+        const gy = getTerrainHeight(worldX);
+        if (gy != null) {
+          ctx.lineTo(sx, gy);
+        } else {
+          ctx.lineTo(sx, canvas.height + 24);
+        }
+      }
+      ctx.lineTo(canvas.width, canvas.height);
+      ctx.closePath();
+      ctx.fill();
 
       for (let x = -(groundOffset % 42); x < canvas.width; x += 42) {
+        const gy = getTerrainHeight(worldOffset + x + 8);
+        if (gy == null) continue;
         ctx.fillStyle = 'rgba(46,248,255,0.7)';
-        ctx.fillRect(x, groundY + 20, 24, 4);
+        ctx.fillRect(x, gy + 20, 24, 4);
       }
+
+      ctx.fillStyle = 'rgba(12, 26, 48, 0.9)';
+      terrain.caves.forEach((cave) => {
+        if (cave.end < worldOffset - 40 || cave.start > worldOffset + canvas.width + 40) return;
+        const startX = cave.start - worldOffset;
+        const endX = cave.end - worldOffset;
+        ctx.beginPath();
+        ctx.moveTo(startX, 0);
+        ctx.lineTo(startX, cave.baseCeiling);
+        for (let sx = startX; sx <= endX; sx += 16) {
+          const worldX = worldOffset + sx;
+          const wave = Math.sin((worldX * 0.04) + cave.phase) * cave.amplitude;
+          ctx.lineTo(sx, cave.baseCeiling + wave);
+        }
+        ctx.lineTo(endX, 0);
+        ctx.closePath();
+        ctx.fill();
+      });
+
+      terrain.pits.forEach((pit) => {
+        if (pit.end < worldOffset || pit.start > worldOffset + canvas.width) return;
+        const startX = pit.start - worldOffset;
+        const width = pit.end - pit.start;
+        ctx.fillStyle = 'rgba(2, 4, 10, 0.95)';
+        ctx.fillRect(startX, baseGroundY - 10, width, canvas.height - baseGroundY + 20);
+      });
     }
 
     function drawPlayer() {
@@ -325,7 +477,10 @@
       spawnTimer = 0;
       obstacles.length = 0;
       lastSpawnAction = null;
-      player.y = groundY - player.h;
+      worldOffset = 0;
+      initTerrain();
+      const spawnGround = getTerrainHeight(player.x + player.w * 0.5) || baseGroundY;
+      player.y = spawnGround - player.h;
       player.vy = 0;
       player.onGround = true;
       player.jumpsLeft = 2;
@@ -347,13 +502,35 @@
       score += 0.2 * speedMult;
       speedMult = Math.min(4, 1 + score / 340);
 
+      const moveSpeed = baseSpeed * speedMult;
+      worldOffset += moveSpeed;
+      ensureTerrainAhead(worldOffset + canvas.width + 460);
+
       player.vy += gravity;
       player.y += player.vy;
-      if (player.y >= groundY - player.h) {
-        player.y = groundY - player.h;
+
+      const playerWorldCenter = worldOffset + player.x + player.w * 0.5;
+      const currentGround = getTerrainHeight(playerWorldCenter);
+      if (currentGround != null && player.y >= currentGround - player.h) {
+        player.y = currentGround - player.h;
         player.vy = 0;
         player.onGround = true;
         player.jumpsLeft = 2;
+      } else if (currentGround == null) {
+        player.onGround = false;
+      }
+
+      const activeCave = getCaveAt(playerWorldCenter);
+      if (activeCave) {
+        const ceilingWave = Math.sin((playerWorldCenter * 0.04) + activeCave.phase) * activeCave.amplitude;
+        const ceilingY = activeCave.baseCeiling + ceilingWave;
+        if (player.y <= ceilingY) {
+          gameOver = true;
+        }
+      }
+
+      if (player.y > canvas.height + 80) {
+        gameOver = true;
       }
 
       spawnTimer -= 16.7;
@@ -361,13 +538,12 @@
         scheduleNextObstacle();
       }
 
-      const moveSpeed = baseSpeed * speedMult;
       for (let i = obstacles.length - 1; i >= 0; i--) {
         const ob = obstacles[i];
-        ob.x -= moveSpeed;
+        const obScreenX = ob.worldX - worldOffset;
 
-        const hit = player.x < ob.x + ob.w &&
-                    player.x + player.w > ob.x &&
+        const hit = player.x < obScreenX + ob.w &&
+                    player.x + player.w > obScreenX &&
                     player.y < ob.y + ob.h &&
                     player.y + player.h > ob.y;
 
@@ -379,9 +555,14 @@
           return;
         }
 
-        if (ob.x + ob.w < -20) {
+        if (obScreenX + ob.w < -20) {
           obstacles.splice(i, 1);
         }
+      }
+
+      if (gameOver) {
+        best = Math.max(best, score);
+        localStorage.setItem('techFlowRunnerBest', String(Math.floor(best)));
       }
 
       updateHud();
@@ -406,7 +587,10 @@
       drawSkyline();
       drawGround();
       drawPlayer();
-      obstacles.forEach(drawObstacle);
+      obstacles.forEach((ob) => {
+        const screenObstacle = { ...ob, x: ob.worldX - worldOffset };
+        drawObstacle(screenObstacle);
+      });
       if (gameOver) drawGameOver();
     }
 
@@ -435,6 +619,10 @@
     });
 
     canvas.addEventListener('pointerdown', jump);
+
+    initTerrain();
+    const initialGround = getTerrainHeight(player.x + player.w * 0.5) || baseGroundY;
+    player.y = initialGround - player.h;
 
     updateHud();
     requestAnimationFrame(loop);
