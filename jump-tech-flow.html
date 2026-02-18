@@ -140,7 +140,9 @@
     };
     const courseSafety = {
       minTakeoffBuffer: 96,
+      minTakeoffBufferForStay: 176,
       minLandingBuffer: 162,
+      minLandingBufferForStay: 220,
       minCaveHeadroom: player.h + 14,
       minCaveHeadroomForJumpObstacle: 168,
       minCaveHeadroomForAnyObstacle: 112,
@@ -310,6 +312,7 @@
 
         const previousPoint = terrain.points[terrain.points.length - 1];
         terrain.currentY = enforceJumpClearanceOnSegment(previousPoint, terrain.lastX, terrain.currentY);
+        terrain.currentY = clamp(terrain.currentY, baseGroundY - 110, baseGroundY + 44);
 
         terrain.points.push({ x: terrain.lastX, y: terrain.currentY });
       }
@@ -414,6 +417,8 @@
       const obstacleStart = obstacle.worldX;
       const obstacleEnd = obstacle.worldX + obstacle.w;
       const obstacleCenter = obstacleStart + obstacle.w * 0.5;
+      const requiredLandingBuffer = action === 'stay' ? courseSafety.minLandingBufferForStay : courseSafety.minLandingBuffer;
+      const requiredTakeoffBuffer = action === 'stay' ? courseSafety.minTakeoffBufferForStay : courseSafety.minTakeoffBuffer;
 
       if (action === 'jump') {
         // Jump prompts become unfair in tight caves: the player needs approach room and
@@ -452,9 +457,9 @@
       }
 
       const adjacentPrecipice = terrain.precipices.find((drop) => (
-        obstacleStart >= drop.end && obstacleStart - drop.end < courseSafety.minLandingBuffer
+        obstacleStart >= drop.end && obstacleStart - drop.end < requiredLandingBuffer
       ) || (
-        obstacleEnd <= drop.start && drop.start - obstacleEnd < courseSafety.minTakeoffBuffer
+        obstacleEnd <= drop.start && drop.start - obstacleEnd < requiredTakeoffBuffer
       ));
       if (adjacentPrecipice) {
         return false;
