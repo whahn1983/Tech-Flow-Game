@@ -120,6 +120,12 @@
     player.y = groundY - player.h;
 
     const obstacles = [];
+    const spawnActions = ['jump', 'stay'];
+    const transitionFrameBudget = {
+      start: { jump: 24, stay: 20 },
+      jump: { jump: 22, stay: 44 },
+      stay: { jump: 26, stay: 18 }
+    };
 
     function tryPlayMusic() {
       music.volume = 0.55;
@@ -132,41 +138,79 @@
 
     musicBtn.addEventListener('click', tryPlayMusic);
 
-    function spawnObstacle() {
-      const x = canvas.width + 20;
-      const actionRoll = Math.random();
-
-      if (actionRoll < 0.24) {
-        obstacles.push({ x, y: groundY - 138, w: 72, h: 22, type: 'drone', action: 'stay' });
-        return 'stay';
+    function createObstacle(action, x) {
+      if (action === 'stay') {
+        return { x, y: groundY - 138, w: 72, h: 22, type: 'drone', action: 'stay' };
       }
 
       const typeRoll = Math.random();
       if (typeRoll < 0.34) {
-        obstacles.push({ x, y: groundY - 30, w: 28, h: 30, type: 'bug', action: 'jump' });
-      } else if (typeRoll < 0.67) {
-        obstacles.push({ x, y: groundY - 52, w: 36, h: 52, type: 'server', action: 'jump' });
-      } else {
-        obstacles.push({ x, y: groundY - 24, w: 62, h: 24, type: 'laser', action: 'jump' });
+        return { x, y: groundY - 30, w: 28, h: 30, type: 'bug', action: 'jump' };
       }
-      return 'jump';
+      if (typeRoll < 0.67) {
+        return { x, y: groundY - 52, w: 36, h: 52, type: 'server', action: 'jump' };
+      }
+      return { x, y: groundY - 24, w: 62, h: 24, type: 'laser', action: 'jump' };
+    }
+
+    function pickRandomAction() {
+      return Math.random() < 0.24 ? 'stay' : 'jump';
     }
 
     function getSpawnDelayMs(previousAction, nextAction) {
       const moveSpeed = baseSpeed * speedMult;
-      const jumpFrames = Math.ceil((-2 * player.jumpPower) / gravity);
-      const switchActionBuffer = previousAction && previousAction !== nextAction ? 140 : 0;
-      const minGapPx = Math.max(250, moveSpeed * 14 + jumpFrames * 2.4 + switchActionBuffer);
-      const maxGapPx = minGapPx + 260 + Math.random() * 280;
-      const gapPx = minGapPx + Math.random() * (maxGapPx - minGapPx);
+      const baselineFrames = Math.round(23 + Math.random() * 35);
+      const randomGapPx = baselineFrames * moveSpeed;
+      const minGapPx = getMinGapPx(previousAction, nextAction);
+      const maxGapPx = minGapPx + moveSpeed * (16 + Math.random() * 18);
+      const gapPx = Math.max(minGapPx, Math.min(randomGapPx, maxGapPx));
       return (gapPx / moveSpeed) * (1000 / 60);
     }
 
-    function getSafeSpawnDelayMs() {
+    function getMinGapPx(previousAction, nextAction) {
       const moveSpeed = baseSpeed * speedMult;
-      const jumpRecoveryFrames = Math.ceil((-2 * player.jumpPower) / gravity) + 6;
-      const safeGapPx = Math.max(460, moveSpeed * jumpRecoveryFrames + 260);
-      return (safeGapPx / moveSpeed) * (1000 / 60);
+      const prevKey = previousAction || 'start';
+      const requiredFrames = transitionFrameBudget[prevKey][nextAction];
+      return requiredFrames * moveSpeed;
+    }
+
+    function canTransition(previousAction, nextAction, gapPx) {
+      return gapPx >= getMinGapPx(previousAction, nextAction);
+    }
+
+    function scheduleNextObstacle() {
+      const moveSpeed = baseSpeed * speedMult;
+      const rightMostObstacle = obstacles.reduce((maxX, ob) => Math.max(maxX, ob.x + ob.w), canvas.width + 20);
+
+      for (let attempt = 0; attempt < 24; attempt++) {
+        const nextAction = pickRandomAction();
+        const candidateDelay = getSpawnDelayMs(lastSpawnAction, nextAction);
+        const candidateGapPx = candidateDelay * moveSpeed * (60 / 1000);
+
+        if (!canTransition(lastSpawnAction, nextAction, candidateGapPx)) {
+          continue;
+        }
+
+        const previewAction = spawnActions[Math.floor(Math.random() * spawnActions.length)];
+        const previewDelay = getSpawnDelayMs(nextAction, previewAction);
+        const previewGapPx = previewDelay * moveSpeed * (60 / 1000);
+        if (!canTransition(nextAction, previewAction, previewGapPx)) {
+          continue;
+        }
+
+        const x = rightMostObstacle + candidateGapPx;
+        obstacles.push(createObstacle(nextAction, x));
+        lastSpawnAction = nextAction;
+        spawnTimer = candidateDelay;
+        return;
+      }
+
+      const fallbackAction = 'jump';
+      const fallbackGapPx = getMinGapPx(lastSpawnAction, fallbackAction) + moveSpeed * 8;
+      const x = rightMostObstacle + fallbackGapPx;
+      obstacles.push(createObstacle(fallbackAction, x));
+      lastSpawnAction = fallbackAction;
+      spawnTimer = (fallbackGapPx / moveSpeed) * (1000 / 60);
     }
 
     function drawSkyline() {
@@ -298,11 +342,7 @@
 
       spawnTimer -= 16.7;
       if (spawnTimer <= 0) {
-        const nextAction = spawnObstacle();
-        spawnTimer = getSpawnDelayMs(lastSpawnAction, nextAction);
-        lastSpawnAction = nextAction;
-        spawnObstacle();
-        spawnTimer = getSafeSpawnDelayMs() + Math.random() * 220;
+        scheduleNextObstacle();
       }
 
       const moveSpeed = baseSpeed * speedMult;
