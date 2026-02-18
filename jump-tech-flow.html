@@ -432,45 +432,48 @@
 
     function scheduleNextObstacle() {
       const moveSpeed = baseSpeed * speedMult;
-      const rightMostObstacle = obstacles.reduce((maxX, ob) => Math.max(maxX, ob.worldX + ob.w), worldOffset + canvas.width + 20);
+      const spawnEdgeX = worldOffset + canvas.width + 20;
+      const preferredAction = queuedSpawnAction;
 
       for (let attempt = 0; attempt < 24; attempt++) {
-        const nextAction = pickRandomAction();
-        const candidateDelay = getSpawnDelayMs(lastSpawnAction, nextAction);
-        const candidateGapPx = candidateDelay * moveSpeed * (60 / 1000);
-
-        if (!canTransition(lastSpawnAction, nextAction, candidateGapPx)) {
-          continue;
-        }
-
-        const previewAction = spawnActions[Math.floor(Math.random() * spawnActions.length)];
-        const previewDelay = getSpawnDelayMs(nextAction, previewAction);
-        const previewGapPx = previewDelay * moveSpeed * (60 / 1000);
-        if (!canTransition(nextAction, previewAction, previewGapPx)) {
-          continue;
-        }
-
-        const obstacleWorldX = rightMostObstacle + candidateGapPx;
-        const obstacle = createObstacle(nextAction, obstacleWorldX);
+        const nextAction = attempt === 0 && preferredAction ? preferredAction : pickRandomAction();
+        const obstacle = createObstacle(nextAction, spawnEdgeX);
         if (!isObstaclePlacementWinnable(obstacle, nextAction)) {
           continue;
         }
 
         obstacles.push(obstacle);
         lastSpawnAction = nextAction;
-        spawnTimer = candidateDelay;
+        queuedSpawnAction = null;
+
+        for (let previewAttempt = 0; previewAttempt < 24; previewAttempt++) {
+          const previewAction = pickRandomAction();
+          const previewDelay = getSpawnDelayMs(nextAction, previewAction);
+          const previewGapPx = previewDelay * moveSpeed * (60 / 1000);
+          if (!canTransition(nextAction, previewAction, previewGapPx)) {
+            continue;
+          }
+
+          spawnTimer = previewDelay;
+          queuedSpawnAction = previewAction;
+          return;
+        }
+
+        const fallbackDelay = getSpawnDelayMs(nextAction, 'jump');
+        spawnTimer = fallbackDelay;
+        queuedSpawnAction = 'jump';
         return;
       }
 
-      const fallbackAction = 'jump';
-      const fallbackGapPx = getMinGapPx(lastSpawnAction, fallbackAction) + moveSpeed * 8;
-      const obstacleWorldX = rightMostObstacle + fallbackGapPx;
-      const fallbackObstacle = createObstacle(fallbackAction, obstacleWorldX);
+      const fallbackAction = preferredAction || 'jump';
+      const fallbackObstacle = createObstacle(fallbackAction, spawnEdgeX);
       if (isObstaclePlacementWinnable(fallbackObstacle, fallbackAction)) {
         obstacles.push(fallbackObstacle);
         lastSpawnAction = fallbackAction;
       }
-      spawnTimer = (fallbackGapPx / moveSpeed) * (1000 / 60);
+      const fallbackNextAction = 'jump';
+      spawnTimer = getSpawnDelayMs(fallbackAction, fallbackNextAction);
+      queuedSpawnAction = fallbackNextAction;
     }
 
     function drawSkyline() {
@@ -529,16 +532,18 @@
       ctx.fillStyle = 'rgba(12, 26, 48, 0.9)';
       terrain.caves.forEach((cave) => {
         if (cave.end < worldOffset - 40 || cave.start > worldOffset + canvas.width + 40) return;
-        const startX = Math.round(cave.start - renderWorldOffset);
-        const endX = Math.round(cave.end - renderWorldOffset);
+        const startX = cave.start - renderWorldOffset;
+        const endX = cave.end - renderWorldOffset;
         ctx.beginPath();
         ctx.moveTo(startX, 0);
         ctx.lineTo(startX, cave.baseCeiling);
-        for (let sx = startX; sx <= endX; sx += 16) {
-          const worldX = renderWorldOffset + sx;
+        for (let worldX = cave.start; worldX <= cave.end; worldX += 16) {
+          const sx = worldX - renderWorldOffset;
           const wave = Math.sin((worldX * 0.04) + cave.phase) * cave.amplitude;
           ctx.lineTo(sx, cave.baseCeiling + wave);
         }
+        const endWave = Math.sin((cave.end * 0.04) + cave.phase) * cave.amplitude;
+        ctx.lineTo(endX, cave.baseCeiling + endWave);
         ctx.lineTo(endX, 0);
         ctx.closePath();
         ctx.fill();
@@ -605,6 +610,7 @@
       spawnTimer = 0;
       obstacles.length = 0;
       lastSpawnAction = null;
+      queuedSpawnAction = null;
       worldOffset = 0;
       initTerrain();
       const spawnGround = getTerrainHeight(player.x + player.w * 0.5) || baseGroundY;
@@ -623,6 +629,7 @@
     }
 
     let lastSpawnAction = null;
+    let queuedSpawnAction = null;
 
     function update() {
       if (gameOver) return;
