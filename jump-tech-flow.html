@@ -60,6 +60,12 @@
       margin-top: 10px;
       opacity: 0.9;
     }
+    .button-row {
+      display: inline-flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
     button {
       margin-top: 12px;
       border: 0;
@@ -82,7 +88,10 @@
     </section>
     <canvas id="game" width="900" height="420" aria-label="Tech Flow jump runner"></canvas>
     <div class="controls">Double jump with <strong>Space</strong>, <strong>W</strong>, or <strong>↑</strong>. Press <strong>R</strong> to restart.</div>
-    <button id="musicBtn" type="button">Play Music</button>
+    <div class="button-row">
+      <button id="musicBtn" type="button">Play Music</button>
+      <button id="resetBestBtn" type="button">Reset Best</button>
+    </div>
   </main>
 
   <audio id="bgm" src="Tech Flow.mp3" loop preload="auto"></audio>
@@ -95,6 +104,7 @@
     const bestEl = document.getElementById('best');
     const music = document.getElementById('bgm');
     const musicBtn = document.getElementById('musicBtn');
+    const resetBestBtn = document.getElementById('resetBestBtn');
 
     let score = 0;
     let best = Number(localStorage.getItem('techFlowRunnerBest') || 0);
@@ -137,6 +147,12 @@
     }
 
     musicBtn.addEventListener('click', tryPlayMusic);
+
+    resetBestBtn.addEventListener('click', () => {
+      best = 0;
+      localStorage.setItem('techFlowRunnerBest', '0');
+      updateHud();
+    });
 
     function createObstacle(action, x) {
       if (action === 'stay') {
