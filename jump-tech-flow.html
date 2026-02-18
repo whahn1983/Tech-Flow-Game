@@ -142,6 +142,8 @@
       minLandingBuffer: 162,
       minCaveHeadroom: player.h + 14,
       minCaveHeadroomForJumpObstacle: 124,
+      minJumpClearance: player.h + 138,
+      clearanceSampleStep: 8,
       maxPitWidth: 168
     };
 
@@ -201,6 +203,36 @@
       return terrain.pits.find((pit) => worldX >= pit.start - padding && worldX <= pit.end + padding) || null;
     }
 
+    function getRequiredGroundForJumpClearance(worldX) {
+      const caveCeilingY = getCaveCeilingAt(worldX);
+      if (caveCeilingY == null) return null;
+      return caveCeilingY + courseSafety.minJumpClearance;
+    }
+
+    function enforceJumpClearanceOnSegment(previousPoint, nextPointX, nextPointY) {
+      if (!previousPoint) return nextPointY;
+
+      let adjustedNextY = nextPointY;
+      const segmentWidth = nextPointX - previousPoint.x;
+      if (segmentWidth <= 0) return adjustedNextY;
+
+      for (let sampleX = previousPoint.x + courseSafety.clearanceSampleStep; sampleX <= nextPointX; sampleX += courseSafety.clearanceSampleStep) {
+        const requiredGroundY = getRequiredGroundForJumpClearance(sampleX);
+        if (requiredGroundY == null) continue;
+
+        const t = (sampleX - previousPoint.x) / segmentWidth;
+        if (t <= 0) continue;
+
+        const sampleGroundY = previousPoint.y + (adjustedNextY - previousPoint.y) * t;
+        if (sampleGroundY >= requiredGroundY) continue;
+
+        const requiredNextY = previousPoint.y + ((requiredGroundY - previousPoint.y) / t);
+        adjustedNextY = Math.max(adjustedNextY, requiredNextY);
+      }
+
+      return adjustedNextY;
+    }
+
     function getTerrainHeight(worldX) {
       if (isInPit(worldX)) {
         return null;
@@ -254,6 +286,10 @@
           terrain.currentY += rand(-26, 22);
           terrain.currentY = clamp(terrain.currentY, baseGroundY - 110, baseGroundY + 44);
         }
+
+        const previousPoint = terrain.points[terrain.points.length - 1];
+        terrain.currentY = enforceJumpClearanceOnSegment(previousPoint, terrain.lastX, terrain.currentY);
+        terrain.currentY = clamp(terrain.currentY, baseGroundY - 110, baseGroundY + 44);
 
         terrain.points.push({ x: terrain.lastX, y: terrain.currentY });
       }
@@ -472,16 +508,8 @@
         ctx.fill();
       });
 
-      terrain.pits.forEach((pit) => {
-        if (pit.end < worldOffset || pit.start > worldOffset + canvas.width) return;
-        const startX = pit.start - worldOffset;
-        const width = pit.end - pit.start;
-        const leftEdgeY = getTerrainHeight(pit.start - 1) ?? baseGroundY;
-        const rightEdgeY = getTerrainHeight(pit.end + 1) ?? baseGroundY;
-        const pitTopY = Math.max(leftEdgeY, rightEdgeY) - 2;
-        ctx.fillStyle = 'rgba(2, 4, 10, 0.95)';
-        ctx.fillRect(startX, pitTopY, width, canvas.height - pitTopY + 20);
-      });
+      // Intentionally do not paint pit interiors so they inherit the existing
+      // canvas background instead of introducing a separate black fill.
     }
 
     function drawPlayer() {
