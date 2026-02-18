@@ -220,19 +220,26 @@
       const segmentWidth = nextPointX - previousPoint.x;
       if (segmentWidth <= 0) return adjustedNextY;
 
-      for (let sampleX = previousPoint.x + courseSafety.clearanceSampleStep; sampleX <= nextPointX; sampleX += courseSafety.clearanceSampleStep) {
+      function enforceAtSample(sampleX) {
         const requiredGroundY = getRequiredGroundForJumpClearance(sampleX);
-        if (requiredGroundY == null) continue;
+        if (requiredGroundY == null) return;
 
         const t = (sampleX - previousPoint.x) / segmentWidth;
-        if (t <= 0) continue;
+        if (t <= 0) return;
 
         const sampleGroundY = previousPoint.y + (adjustedNextY - previousPoint.y) * t;
-        if (sampleGroundY >= requiredGroundY) continue;
+        if (sampleGroundY >= requiredGroundY) return;
 
         const requiredNextY = previousPoint.y + ((requiredGroundY - previousPoint.y) / t);
         adjustedNextY = Math.max(adjustedNextY, requiredNextY);
       }
+
+      for (let sampleX = previousPoint.x + courseSafety.clearanceSampleStep; sampleX < nextPointX; sampleX += courseSafety.clearanceSampleStep) {
+        enforceAtSample(sampleX);
+      }
+
+      // Always validate the segment endpoint because sample stepping can skip nextPointX.
+      enforceAtSample(nextPointX);
 
       return adjustedNextY;
     }
@@ -293,7 +300,6 @@
 
         const previousPoint = terrain.points[terrain.points.length - 1];
         terrain.currentY = enforceJumpClearanceOnSegment(previousPoint, terrain.lastX, terrain.currentY);
-        terrain.currentY = clamp(terrain.currentY, baseGroundY - 110, baseGroundY + 44);
 
         terrain.points.push({ x: terrain.lastX, y: terrain.currentY });
       }
