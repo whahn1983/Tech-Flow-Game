@@ -465,13 +465,14 @@
       groundOffset += baseSpeed * speedMult;
       const startWorld = worldOffset - terrain.step;
       const endWorld = worldOffset + canvas.width + terrain.step * 2;
+      const renderWorldOffset = Math.round(worldOffset);
       ensureTerrainAhead(endWorld + 300);
 
       ctx.fillStyle = '#16233f';
       ctx.beginPath();
       ctx.moveTo(0, canvas.height);
       for (let worldX = startWorld; worldX <= endWorld; worldX += terrain.step) {
-        const sx = worldX - worldOffset;
+        const sx = Math.round(worldX - renderWorldOffset);
         const gy = getTerrainHeight(worldX);
         if (gy != null) {
           ctx.lineTo(sx, gy);
@@ -493,8 +494,8 @@
       ctx.fillStyle = 'rgba(12, 26, 48, 0.9)';
       terrain.caves.forEach((cave) => {
         if (cave.end < worldOffset - 40 || cave.start > worldOffset + canvas.width + 40) return;
-        const startX = cave.start - worldOffset;
-        const endX = cave.end - worldOffset;
+        const startX = Math.round(cave.start - renderWorldOffset);
+        const endX = Math.round(cave.end - renderWorldOffset);
         ctx.beginPath();
         ctx.moveTo(startX, 0);
         ctx.lineTo(startX, cave.baseCeiling);
