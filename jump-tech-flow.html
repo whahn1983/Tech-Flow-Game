@@ -128,6 +128,7 @@
       jumpsLeft: 2
     };
     const baseGroundY = canvas.height - 72;
+    const pitFloorY = canvas.height - 1;
     player.y = baseGroundY - player.h;
 
     const obstacles = [];
@@ -235,7 +236,7 @@
 
     function getTerrainHeight(worldX) {
       if (isInPit(worldX)) {
-        return null;
+        return pitFloorY;
       }
 
       const points = terrain.points;
@@ -310,7 +311,7 @@
 
     function createObstacle(action, worldX) {
       let groundY = getTerrainHeight(worldX);
-      if (groundY == null) {
+      if (isInPit(worldX)) {
         const pit = terrain.pits.find((seg) => worldX >= seg.start && worldX <= seg.end);
         worldX = (pit ? pit.end : worldX) + 50;
         groundY = getTerrainHeight(worldX);
@@ -374,9 +375,6 @@
       }
 
       const groundY = getTerrainHeight(obstacleCenter);
-      if (groundY == null) {
-        return false;
-      }
 
       const caveCeilingY = getCaveCeilingAt(obstacleCenter);
       if (caveCeilingY != null) {
@@ -474,11 +472,7 @@
       for (let worldX = startWorld; worldX <= endWorld; worldX += terrain.step) {
         const sx = Math.round(worldX - renderWorldOffset);
         const gy = getTerrainHeight(worldX);
-        if (gy != null) {
-          ctx.lineTo(sx, gy);
-        } else {
-          ctx.lineTo(sx, canvas.height + 24);
-        }
+        ctx.lineTo(sx, gy);
       }
       ctx.lineTo(canvas.width, canvas.height);
       ctx.closePath();
@@ -486,7 +480,7 @@
 
       for (let x = -(groundOffset % 42); x < canvas.width; x += 42) {
         const gy = getTerrainHeight(worldOffset + x + 8);
-        if (gy == null) continue;
+        if (gy >= canvas.height - 4) continue;
         ctx.fillStyle = 'rgba(46,248,255,0.7)';
         ctx.fillRect(x, gy + 20, 24, 4);
       }
@@ -509,8 +503,6 @@
         ctx.fill();
       });
 
-      // Intentionally do not paint pit interiors so they inherit the existing
-      // canvas background instead of introducing a separate black fill.
     }
 
     function drawPlayer() {
@@ -606,12 +598,17 @@
 
       const playerWorldCenter = worldOffset + player.x + player.w * 0.5;
       const currentGround = getTerrainHeight(playerWorldCenter);
-      if (currentGround != null && player.y >= currentGround - player.h) {
+      if (isInPit(playerWorldCenter)) {
+        player.onGround = false;
+        if (player.y + player.h >= currentGround) {
+          gameOver = true;
+        }
+      } else if (player.y >= currentGround - player.h) {
         player.y = currentGround - player.h;
         player.vy = 0;
         player.onGround = true;
         player.jumpsLeft = 2;
-      } else if (currentGround == null) {
+      } else {
         player.onGround = false;
       }
 
