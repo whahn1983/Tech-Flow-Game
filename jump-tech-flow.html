@@ -144,6 +144,8 @@
       minCaveHeadroom: player.h + 14,
       minCaveHeadroomForJumpObstacle: 168,
       minCaveHeadroomForAnyObstacle: 112,
+      jumpObstacleCaveApproachBuffer: 72,
+      maxDownhillBeforeJumpObstacle: 34,
       minJumpClearance: player.h + 138,
       clearanceSampleStep: 8,
       maxPrecipiceWidth: 136,
@@ -412,6 +414,22 @@
       const obstacleStart = obstacle.worldX;
       const obstacleEnd = obstacle.worldX + obstacle.w;
       const obstacleCenter = obstacleStart + obstacle.w * 0.5;
+
+      if (action === 'jump') {
+        // Jump prompts become unfair in tight caves: the player needs approach room and
+        // vertical space before reaching the obstacle itself.
+        const approachStart = obstacleStart - courseSafety.jumpObstacleCaveApproachBuffer;
+        if (hasCaveInSpan(approachStart, obstacleEnd)) {
+          return false;
+        }
+
+        // Prevent spawning jump prompts at the bottom of sharp downhill segments.
+        const uphillSampleX = obstacleStart - player.w;
+        const downhillAmount = getTerrainHeight(obstacleStart) - getTerrainHeight(uphillSampleX);
+        if (downhillAmount > courseSafety.maxDownhillBeforeJumpObstacle) {
+          return false;
+        }
+      }
 
       if (hasNearbyObstacle(obstacleStart, obstacleEnd, obstacle)) {
         return false;
