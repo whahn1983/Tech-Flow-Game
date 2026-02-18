@@ -162,6 +162,13 @@
       return (gapPx / moveSpeed) * (1000 / 60);
     }
 
+    function getSafeSpawnDelayMs() {
+      const moveSpeed = baseSpeed * speedMult;
+      const jumpRecoveryFrames = Math.ceil((-2 * player.jumpPower) / gravity) + 6;
+      const safeGapPx = Math.max(460, moveSpeed * jumpRecoveryFrames + 260);
+      return (safeGapPx / moveSpeed) * (1000 / 60);
+    }
+
     function drawSkyline() {
       sceneryOffset += (baseSpeed * speedMult) * 0.3;
 
@@ -294,6 +301,8 @@
         const nextAction = spawnObstacle();
         spawnTimer = getSpawnDelayMs(lastSpawnAction, nextAction);
         lastSpawnAction = nextAction;
+        spawnObstacle();
+        spawnTimer = getSafeSpawnDelayMs() + Math.random() * 220;
       }
 
       const moveSpeed = baseSpeed * speedMult;
