@@ -135,14 +135,33 @@
     window.addEventListener('click', tryPlayMusic, { once: true });
 
     function spawnObstacle() {
+      const x = canvas.width + 20;
+      const actionRoll = Math.random();
+
+      if (actionRoll < 0.24) {
+        obstacles.push({ x, y: groundY - 138, w: 72, h: 22, type: 'drone', action: 'stay' });
+        return 'stay';
+      }
+
       const typeRoll = Math.random();
       if (typeRoll < 0.34) {
-        obstacles.push({ x: canvas.width + 20, y: groundY - 30, w: 28, h: 30, type: 'bug' });
+        obstacles.push({ x, y: groundY - 30, w: 28, h: 30, type: 'bug', action: 'jump' });
       } else if (typeRoll < 0.67) {
-        obstacles.push({ x: canvas.width + 20, y: groundY - 52, w: 36, h: 52, type: 'server' });
+        obstacles.push({ x, y: groundY - 52, w: 36, h: 52, type: 'server', action: 'jump' });
       } else {
-        obstacles.push({ x: canvas.width + 20, y: groundY - 24, w: 62, h: 24, type: 'laser' });
+        obstacles.push({ x, y: groundY - 24, w: 62, h: 24, type: 'laser', action: 'jump' });
       }
+      return 'jump';
+    }
+
+    function getSpawnDelayMs(previousAction, nextAction) {
+      const moveSpeed = baseSpeed * speedMult;
+      const jumpFrames = Math.ceil((-2 * player.jumpPower) / gravity);
+      const switchActionBuffer = previousAction && previousAction !== nextAction ? 140 : 0;
+      const minGapPx = Math.max(250, moveSpeed * 14 + jumpFrames * 2.4 + switchActionBuffer);
+      const maxGapPx = minGapPx + 260 + Math.random() * 280;
+      const gapPx = minGapPx + Math.random() * (maxGapPx - minGapPx);
+      return (gapPx / moveSpeed) * (1000 / 60);
     }
 
     function getSafeSpawnDelayMs() {
@@ -213,6 +232,14 @@
         ctx.fillStyle = '#12020a';
         ctx.fillRect(ob.x + 8, ob.y + 12, ob.w - 16, 6);
         ctx.fillRect(ob.x + 8, ob.y + 26, ob.w - 16, 6);
+      } else if (ob.type === 'drone') {
+        ctx.fillStyle = 'rgba(255, 202, 95, 0.9)';
+        roundRect(ctx, ob.x, ob.y, ob.w, ob.h, 8);
+        ctx.fill();
+        ctx.fillStyle = '#3e2b09';
+        ctx.fillRect(ob.x + 10, ob.y + 8, ob.w - 20, 6);
+        ctx.fillStyle = '#ffd95c';
+        ctx.fillRect(ob.x + 30, ob.y + ob.h, 12, 12);
       } else {
         const lg = ctx.createLinearGradient(ob.x, ob.y, ob.x, ob.y + ob.h);
         lg.addColorStop(0, 'rgba(255,83,112,0.95)');
@@ -239,6 +266,7 @@
       gameOver = false;
       spawnTimer = 0;
       obstacles.length = 0;
+      lastSpawnAction = null;
       player.y = groundY - player.h;
       player.vy = 0;
       player.onGround = true;
@@ -252,6 +280,8 @@
       speedEl.textContent = speedMult.toFixed(1);
       bestEl.textContent = Math.floor(best);
     }
+
+    let lastSpawnAction = null;
 
     function update() {
       if (gameOver) return;
