@@ -148,6 +148,8 @@
       minCaveHeadroomForAnyObstacle: 112,
       jumpObstacleCaveApproachBuffer: 72,
       maxDownhillBeforeJumpObstacle: 34,
+      maxDownhillAfterStayObstacle: 24,
+      stayObstacleRunoutDistance: 154,
       minJumpClearance: player.h + 138,
       clearanceSampleStep: 8,
       maxPrecipiceWidth: 136,
@@ -432,6 +434,20 @@
         const uphillSampleX = obstacleStart - player.w;
         const downhillAmount = getTerrainHeight(obstacleStart) - getTerrainHeight(uphillSampleX);
         if (downhillAmount > courseSafety.maxDownhillBeforeJumpObstacle) {
+          return false;
+        }
+      } else if (action === 'stay') {
+        // Duck prompts need enough stable ground afterward so the player can recover
+        // and react to the next jump without running off a ledge.
+        const postObstacleGround = getTerrainHeight(obstacleEnd);
+        let lowestRunoutGround = postObstacleGround;
+        const runoutEnd = obstacleEnd + courseSafety.stayObstacleRunoutDistance;
+        for (let sampleX = obstacleEnd + courseSafety.clearanceSampleStep; sampleX <= runoutEnd; sampleX += courseSafety.clearanceSampleStep) {
+          lowestRunoutGround = Math.max(lowestRunoutGround, getTerrainHeight(sampleX));
+        }
+
+        const downhillAfterStay = lowestRunoutGround - postObstacleGround;
+        if (downhillAfterStay > courseSafety.maxDownhillAfterStayObstacle) {
           return false;
         }
       }
