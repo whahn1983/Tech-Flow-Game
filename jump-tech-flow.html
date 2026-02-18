@@ -131,8 +131,6 @@
     }
 
     musicBtn.addEventListener('click', tryPlayMusic);
-    window.addEventListener('keydown', tryPlayMusic, { once: true });
-    window.addEventListener('click', tryPlayMusic, { once: true });
 
     function spawnObstacle() {
       const x = canvas.width + 20;
@@ -300,6 +298,9 @@
 
       spawnTimer -= 16.7;
       if (spawnTimer <= 0) {
+        const nextAction = spawnObstacle();
+        spawnTimer = getSpawnDelayMs(lastSpawnAction, nextAction);
+        lastSpawnAction = nextAction;
         spawnObstacle();
         spawnTimer = getSafeSpawnDelayMs() + Math.random() * 220;
       }
@@ -380,7 +381,6 @@
     canvas.addEventListener('pointerdown', jump);
 
     updateHud();
-    tryPlayMusic();
     requestAnimationFrame(loop);
   </script>
 </body>
