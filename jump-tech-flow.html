@@ -142,13 +142,21 @@
       minTakeoffBuffer: 96,
       minLandingBuffer: 162,
       minCaveHeadroom: player.h + 14,
-      minCaveHeadroomForJumpObstacle: 124,
+      minCaveHeadroomForJumpObstacle: 168,
       minCaveHeadroomForAnyObstacle: 112,
       minJumpClearance: player.h + 138,
       clearanceSampleStep: 8,
       maxPrecipiceWidth: 136,
       precipiceAvoidanceBuffer: 80,
-      obstacleSpacingBuffer: 28
+      obstacleSpacingBuffer: 28,
+      minObstacleGapPx: {
+        jump: { jump: 170, stay: 132 },
+        stay: { jump: 140, stay: 116 }
+      },
+      minObstacleGapPxInCave: {
+        jump: { jump: 230, stay: 168 },
+        stay: { jump: 188, stay: 140 }
+      }
     };
 
     function tryPlayMusic() {
@@ -374,6 +382,32 @@
       });
     }
 
+    function getPreviousObstacle(obstacleStart) {
+      let previous = null;
+      for (const candidate of obstacles) {
+        const candidateEnd = candidate.worldX + candidate.w;
+        if (candidateEnd <= obstacleStart && (!previous || candidateEnd > previous.worldX + previous.w)) {
+          previous = candidate;
+        }
+      }
+      return previous;
+    }
+
+    function hasCaveInSpan(worldStart, worldEnd) {
+      for (let sampleX = worldStart; sampleX <= worldEnd; sampleX += courseSafety.clearanceSampleStep) {
+        if (getCaveCeilingAt(sampleX) != null) {
+          return true;
+        }
+      }
+      return getCaveCeilingAt(worldEnd) != null;
+    }
+
+    function getRequiredObstacleGap(previousAction, nextAction, inCave) {
+      const gapTable = inCave ? courseSafety.minObstacleGapPxInCave : courseSafety.minObstacleGapPx;
+      const fromAction = previousAction || 'jump';
+      return gapTable[fromAction][nextAction];
+    }
+
     function isObstaclePlacementWinnable(obstacle, action) {
       const obstacleStart = obstacle.worldX;
       const obstacleEnd = obstacle.worldX + obstacle.w;
@@ -381,6 +415,18 @@
 
       if (hasNearbyObstacle(obstacleStart, obstacleEnd, obstacle)) {
         return false;
+      }
+
+      const previousObstacle = getPreviousObstacle(obstacleStart);
+      if (previousObstacle) {
+        const prevEnd = previousObstacle.worldX + previousObstacle.w;
+        const transitionStart = prevEnd;
+        const transitionEnd = obstacleStart + obstacle.w * 0.2;
+        const inCaveTransition = hasCaveInSpan(transitionStart, transitionEnd);
+        const requiredGap = getRequiredObstacleGap(previousObstacle.action, action, inCaveTransition);
+        if (obstacleStart - prevEnd < requiredGap) {
+          return false;
+        }
       }
 
       if (getPrecipiceNear(obstacleStart, courseSafety.precipiceAvoidanceBuffer) || getPrecipiceNear(obstacleEnd, courseSafety.precipiceAvoidanceBuffer)) {
