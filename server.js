@@ -64,7 +64,6 @@ const MIME_TYPES = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.mp3': 'audio/mpeg',
-  '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.txt': 'text/plain; charset=utf-8'
 };
 
@@ -239,7 +238,10 @@ function serveStatic(req, res) {
     }
 
     const ext = path.extname(absolutePath).toLowerCase();
-    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    const basename = path.basename(absolutePath);
+    const contentType = (basename === 'manifest.json'
+      ? 'application/manifest+json; charset=utf-8'
+      : MIME_TYPES[ext]) || 'application/octet-stream';
     const isHtml = ext === '.html';
 
     const headers = { 'Content-Type': contentType, ...SECURITY_HEADERS };
