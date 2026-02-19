@@ -137,6 +137,10 @@
         display: inline-block;
       }
     }
+    #installBtn {
+      display: none;
+      background: linear-gradient(115deg, var(--accent), #c084fc);
+    }
     .touch-hint { display: none; }
     @media (pointer: coarse) {
       .keyboard-hint { display: none; }
@@ -199,6 +203,7 @@
       <button id="musicBtn" type="button">Play Music</button>
       <button id="resetBestBtn" type="button">Reset Best</button>
       <button id="rebootBtn" type="button">Reboot Run</button>
+      <button id="installBtn" type="button">Install App</button>
     </div>
     <section class="leaderboard-panel" aria-live="polite">
       <h2>🌍 Global Leaderboard</h2>
@@ -1120,6 +1125,30 @@
     fetchLeaderboard();
     setInterval(fetchLeaderboard, 60000);
     requestAnimationFrame(loop);
+
+    // PWA install prompt
+    let deferredInstallPrompt = null;
+    const installBtn = document.getElementById('installBtn');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredInstallPrompt = e;
+      installBtn.style.display = 'inline-block';
+    });
+
+    installBtn.addEventListener('click', () => {
+      if (!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      deferredInstallPrompt.userChoice.then(() => {
+        deferredInstallPrompt = null;
+        installBtn.style.display = 'none';
+      });
+    });
+
+    window.addEventListener('appinstalled', () => {
+      deferredInstallPrompt = null;
+      installBtn.style.display = 'none';
+    });
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
