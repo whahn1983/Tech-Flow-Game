@@ -30,7 +30,8 @@
       background: radial-gradient(circle at 15% 10%, #1b2e5f, var(--bg-top) 45%, var(--bg-bottom));
       display: grid;
       place-items: center;
-      overflow: hidden;
+      overflow-x: hidden;
+      overflow-y: auto;
     }
     .wrap {
       width: min(96vw, 900px);
@@ -136,6 +137,49 @@
         display: inline-block;
       }
     }
+    .touch-hint { display: none; }
+    @media (pointer: coarse) {
+      .keyboard-hint { display: none; }
+      .touch-hint { display: inline; }
+    }
+    @media (max-width: 640px) {
+      body {
+        align-items: start;
+        padding: 10px 0 28px;
+      }
+      h1 {
+        font-size: 1.3rem;
+        margin-bottom: 8px;
+      }
+      .hud {
+        gap: 6px;
+        margin-bottom: 8px;
+      }
+      .chip {
+        padding: 7px 6px;
+        font-size: 0.85rem;
+      }
+      .controls {
+        font-size: 0.85rem;
+        margin-top: 8px;
+      }
+      button {
+        padding: 9px 14px;
+        font-size: 0.9rem;
+        margin-top: 8px;
+      }
+      .leaderboard-panel {
+        margin-top: 10px;
+        padding: 12px;
+      }
+      .leaderboard-form {
+        grid-template-columns: 1fr;
+      }
+      .leaderboard-form button {
+        margin-top: 0;
+        width: 100%;
+      }
+    }
   </style>
 </head>
 <body>
@@ -147,7 +191,10 @@
       <div class="chip">Best: <span id="best">0</span>m</div>
     </section>
     <canvas id="game" width="900" height="420" aria-label="Tech Flow jump runner"></canvas>
-    <div class="controls">Double jump with <strong>Space</strong>, <strong>W</strong>, or <strong>↑</strong>. Press <strong>R</strong> to restart.</div>
+    <div class="controls">
+      <span class="keyboard-hint">Double jump with <strong>Space</strong>, <strong>W</strong>, or <strong>↑</strong>. Press <strong>R</strong> to restart.</span>
+      <span class="touch-hint">Tap the game to double jump. Use the Reboot button to restart.</span>
+    </div>
     <div class="button-row">
       <button id="musicBtn" type="button">Play Music</button>
       <button id="resetBestBtn" type="button">Reset Best</button>
@@ -920,11 +967,21 @@
       if (gameOver) return;
 
       score += 0.2 * speedMult;
-      speedMult = Math.min(4, 1 + score / 340);
+      speedMult = Math.min(6, 1 + score / 340);
 
       const moveSpeed = baseSpeed * speedMult;
       worldOffset += moveSpeed;
       ensureTerrainAhead(worldOffset + canvas.width + 460);
+
+      // Prune terrain data that is far behind the camera to prevent unbounded memory growth.
+      const pruneX = worldOffset - canvas.width * 3;
+      let pruneTo = 0;
+      while (pruneTo + 1 < terrain.points.length && terrain.points[pruneTo + 1].x < pruneX) {
+        pruneTo++;
+      }
+      if (pruneTo > 0) terrain.points.splice(0, pruneTo);
+      terrain.caves = terrain.caves.filter(c => c.end >= pruneX);
+      terrain.precipices = terrain.precipices.filter(p => p.end >= pruneX);
 
       player.vy += gravity;
       player.y += player.vy;
@@ -976,6 +1033,9 @@
           gameOver = true;
           best = Math.max(best, score);
           localStorage.setItem('techFlowRunnerBest', String(Math.floor(best)));
+          latestRunScore = Math.floor(score);
+          setScoreSubmissionState(latestRunScore > 0);
+          setLeaderboardStatus(`Run ended at ${latestRunScore}m. Add your name and save it globally.`);
           updateHud();
           return;
         }
