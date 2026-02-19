@@ -896,6 +896,7 @@
       latestRunScore = 0;
       setScoreSubmissionState(false);
       setLeaderboardStatus('Finish a run, then save your score to the global board.');
+      fetchLeaderboard();
       initTerrain();
       const spawnGround = getTerrainHeight(player.x + player.w * 0.5) || baseGroundY;
       player.y = spawnGround - player.h;
@@ -1057,6 +1058,7 @@
     updateHud();
     setScoreSubmissionState(false);
     fetchLeaderboard();
+    setInterval(fetchLeaderboard, 60000);
     requestAnimationFrame(loop);
 
     if ('serviceWorker' in navigator) {
