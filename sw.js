@@ -1,5 +1,7 @@
-const CACHE_NAME = 'tech-flow-runner-v2';
-const APP_ASSETS = [
+const CACHE_NAME = 'tech-flow-runner-v3';
+
+// Critical assets: all must be cached for the install event to succeed.
+const CRITICAL_ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
@@ -7,12 +9,25 @@ const APP_ASSETS = [
   './apple-touch-icon.png',
   './icons/icon-192.png',
   './icons/icon-512.png',
-  './Tech Flow.mp3'
+];
+
+// Large or optional assets: cached opportunistically so a fetch failure
+// (slow network, file missing in a deploy) does not abort SW installation.
+const OPTIONAL_ASSETS = [
+  './Tech%20Flow.mp3',
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_ASSETS)));
-  self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(CRITICAL_ASSETS))
+      .then(() =>
+        caches.open(CACHE_NAME).then((cache) =>
+          Promise.all(OPTIONAL_ASSETS.map((url) => cache.add(url).catch(() => {})))
+        )
+      )
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', (event) => {
