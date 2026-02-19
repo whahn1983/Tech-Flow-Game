@@ -3,6 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a1330" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Tech Runner" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
   <title>Tech Flow Runner</title>
   <style>
     :root {
@@ -76,6 +83,14 @@
       background: linear-gradient(115deg, var(--neon), #75ffd4);
       cursor: pointer;
     }
+    #rebootBtn {
+      display: none;
+    }
+    @media (pointer: coarse), (max-width: 900px) {
+      #rebootBtn {
+        display: inline-block;
+      }
+    }
   </style>
 </head>
 <body>
@@ -91,6 +106,7 @@
     <div class="button-row">
       <button id="musicBtn" type="button">Play Music</button>
       <button id="resetBestBtn" type="button">Reset Best</button>
+      <button id="rebootBtn" type="button">Reboot Run</button>
     </div>
   </main>
 
@@ -105,6 +121,7 @@
     const music = document.getElementById('bgm');
     const musicBtn = document.getElementById('musicBtn');
     const resetBestBtn = document.getElementById('resetBestBtn');
+    const rebootBtn = document.getElementById('rebootBtn');
 
     let score = 0;
     let best = Number(localStorage.getItem('techFlowRunnerBest') || 0);
@@ -182,6 +199,8 @@
       localStorage.setItem('techFlowRunnerBest', '0');
       updateHud();
     });
+
+    rebootBtn.addEventListener('click', resetGame);
 
     const terrain = {
       step: 34,
@@ -885,6 +904,14 @@
 
     updateHud();
     requestAnimationFrame(loop);
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch((error) => {
+          console.warn('Service worker registration failed:', error);
+        });
+      });
+    }
   </script>
 </body>
 </html>
