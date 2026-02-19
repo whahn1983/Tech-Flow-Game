@@ -30,6 +30,21 @@ Tech Flow Runner is an engaging game that challenges players to navigate through
 1. Clone the repository from GitHub: `git clone https://github.com/whahn1983/Tech-Flow-Game.git`
 2. Open index.html in a web browser to play the game.
 
+
+## PWA Icon Assets
+To keep this repository code-only, generated PNG icon files are not committed.
+
+Run the icon generator before creating a release/build so PWA and iOS home-screen icons exist:
+
+```bash
+python scripts/generate_pwa_icons.py
+```
+
+This creates:
+- `apple-touch-icon.png`
+- `icons/icon-192.png`
+- `icons/icon-512.png`
+
 ## License
 This project is proprietary and owned exclusively by whahn1983. See LICENSE file for details.
 
