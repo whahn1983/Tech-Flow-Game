@@ -20,7 +20,12 @@ function ensure_leaderboard_file(): void {
 function clean_player_name($rawName): string {
     $name = preg_replace('/[\r\n|]+/', ' ', (string)$rawName);
     $name = trim($name ?? '');
-    return mb_substr($name, 0, 24);
+
+    if (function_exists('mb_substr')) {
+        return mb_substr($name, 0, 24);
+    }
+
+    return substr($name, 0, 24);
 }
 
 function read_leaderboard(): array {
