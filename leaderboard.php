@@ -13,7 +13,19 @@ function send_json(int $statusCode, array $payload): void {
 
 function ensure_leaderboard_file(): void {
     if (!file_exists(LEADERBOARD_FILE)) {
-        file_put_contents(LEADERBOARD_FILE, '');
+        if (@file_put_contents(LEADERBOARD_FILE, '') === false) {
+            send_json(500, ['error' => 'Unable to initialize leaderboard storage. Check write permissions.']);
+        }
+
+        @chmod(LEADERBOARD_FILE, 0666);
+    }
+
+    if (!is_writable(LEADERBOARD_FILE)) {
+        @chmod(LEADERBOARD_FILE, 0666);
+    }
+
+    if (!is_writable(LEADERBOARD_FILE)) {
+        send_json(500, ['error' => 'Leaderboard storage is not writable.']);
     }
 }
 
@@ -30,7 +42,12 @@ function clean_player_name($rawName): string {
 
 function read_leaderboard(): array {
     ensure_leaderboard_file();
-    $raw = trim(file_get_contents(LEADERBOARD_FILE));
+    $rawContents = @file_get_contents(LEADERBOARD_FILE);
+    if ($rawContents === false) {
+        send_json(500, ['error' => 'Unable to read leaderboard storage.']);
+    }
+
+    $raw = trim($rawContents);
     if ($raw === '') {
         return [];
     }
@@ -73,11 +90,15 @@ function sort_leaderboard(array $entries): array {
 }
 
 function write_leaderboard(array $entries): void {
+    ensure_leaderboard_file();
+
     $rows = array_map(function ($entry) {
         return sprintf('%s|%d|%s', $entry['name'], (int)$entry['score'], $entry['savedAt']);
     }, $entries);
 
-    file_put_contents(LEADERBOARD_FILE, implode("\n", $rows));
+    if (@file_put_contents(LEADERBOARD_FILE, implode("\n", $rows), LOCK_EX) === false) {
+        send_json(500, ['error' => 'Unable to save leaderboard entry.']);
+    }
 }
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
