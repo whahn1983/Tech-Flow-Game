@@ -11,22 +11,18 @@ function send_json(int $statusCode, array $payload): void {
     exit;
 }
 
-function ensure_leaderboard_file(): void {
-    if (!file_exists(LEADERBOARD_FILE)) {
-        if (@file_put_contents(LEADERBOARD_FILE, '') === false) {
-            send_json(500, ['error' => 'Unable to initialize leaderboard storage. Check write permissions.']);
-        }
-
-        @chmod(LEADERBOARD_FILE, 0666);
+function ensure_leaderboard_file_exists(): void {
+    if (file_exists(LEADERBOARD_FILE)) {
+        return;
     }
 
-    if (!is_writable(LEADERBOARD_FILE)) {
-        @chmod(LEADERBOARD_FILE, 0666);
+    $handle = @fopen(LEADERBOARD_FILE, 'c+');
+    if ($handle === false) {
+        send_json(500, ['error' => 'Unable to initialize leaderboard storage. Check write permissions.']);
     }
 
-    if (!is_writable(LEADERBOARD_FILE)) {
-        send_json(500, ['error' => 'Leaderboard storage is not writable.']);
-    }
+    fclose($handle);
+    @chmod(LEADERBOARD_FILE, 0666);
 }
 
 function clean_player_name($rawName): string {
@@ -41,7 +37,7 @@ function clean_player_name($rawName): string {
 }
 
 function read_leaderboard(): array {
-    ensure_leaderboard_file();
+    ensure_leaderboard_file_exists();
     $rawContents = @file_get_contents(LEADERBOARD_FILE);
     if ($rawContents === false) {
         send_json(500, ['error' => 'Unable to read leaderboard storage.']);
@@ -89,16 +85,80 @@ function sort_leaderboard(array $entries): array {
     return array_slice($entries, 0, MAX_ENTRIES);
 }
 
-function write_leaderboard(array $entries): void {
-    ensure_leaderboard_file();
-
+function encode_leaderboard_rows(array $entries): string {
     $rows = array_map(function ($entry) {
         return sprintf('%s|%d|%s', $entry['name'], (int)$entry['score'], $entry['savedAt']);
     }, $entries);
 
-    if (@file_put_contents(LEADERBOARD_FILE, implode("\n", $rows), LOCK_EX) === false) {
+    return implode("\n", $rows);
+}
+
+function append_score_with_lock(string $name, int $score, string $savedAt): array {
+    ensure_leaderboard_file_exists();
+
+    $handle = @fopen(LEADERBOARD_FILE, 'c+');
+    if ($handle === false) {
+        send_json(500, ['error' => 'Unable to open leaderboard storage for writing. Check file permissions.']);
+    }
+
+    if (!@flock($handle, LOCK_EX)) {
+        fclose($handle);
+        send_json(500, ['error' => 'Unable to lock leaderboard storage for writing.']);
+    }
+
+    $rawContents = stream_get_contents($handle);
+    if ($rawContents === false) {
+        flock($handle, LOCK_UN);
+        fclose($handle);
+        send_json(500, ['error' => 'Unable to read leaderboard storage while locked.']);
+    }
+
+    $entries = [];
+    $raw = trim($rawContents);
+    if ($raw !== '') {
+        foreach (explode("\n", $raw) as $line) {
+            $parts = explode('|', $line);
+            if (count($parts) < 3) {
+                continue;
+            }
+
+            $entryName = trim($parts[0]);
+            $entryScore = (int)$parts[1];
+            $entrySavedAt = $parts[2];
+
+            if ($entryName === '' || $entryScore < 0) {
+                continue;
+            }
+
+            $entries[] = [
+                'name' => $entryName,
+                'score' => $entryScore,
+                'savedAt' => $entrySavedAt
+            ];
+        }
+    }
+
+    $entries[] = [
+        'name' => $name,
+        'score' => $score,
+        'savedAt' => $savedAt
+    ];
+    $entries = sort_leaderboard($entries);
+
+    $payload = encode_leaderboard_rows($entries);
+
+    rewind($handle);
+    if (!@ftruncate($handle, 0) || ($payload !== '' && @fwrite($handle, $payload) === false)) {
+        flock($handle, LOCK_UN);
+        fclose($handle);
         send_json(500, ['error' => 'Unable to save leaderboard entry.']);
     }
+
+    fflush($handle);
+    flock($handle, LOCK_UN);
+    fclose($handle);
+
+    return $entries;
 }
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -127,13 +187,7 @@ if ($method === 'POST') {
     }
 
     $savedAt = gmdate('c');
-    $entries = sort_leaderboard(array_merge(read_leaderboard(), [[
-        'name' => $name,
-        'score' => $score,
-        'savedAt' => $savedAt
-    ]]));
-
-    write_leaderboard($entries);
+    $entries = append_score_with_lock($name, $score, $savedAt);
     send_json(201, [
         'entries' => $entries,
         'saved' => [
