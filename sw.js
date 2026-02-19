@@ -4,7 +4,7 @@ const CACHE_NAME = 'tech-flow-runner-v3';
 const CRITICAL_ASSETS = [
   './',
   './index.html',
-  './manifest.webmanifest',
+  './manifest.json',
   './favicon.svg',
   './apple-touch-icon.png',
   './icons/icon-192.png',
