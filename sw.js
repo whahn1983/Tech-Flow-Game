@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tech-flow-runner-v1';
+const CACHE_NAME = 'tech-flow-runner-v2';
 const APP_ASSETS = [
   './',
   './index.html',
@@ -26,6 +26,8 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  const pathName = new URL(event.request.url).pathname;
+  if (pathName.startsWith('/api/') || pathName.endsWith('/leaderboard.php')) return;
 
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {

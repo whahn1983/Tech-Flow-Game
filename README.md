@@ -16,6 +16,7 @@ Tech Flow Runner is an engaging game that challenges players to navigate through
 
 ## Features
 - **Dynamic Obstacles:** Different types of obstacles that may move or change.
+- **Global Leaderboard:** Save your best runs to a server-backed leaderboard shared by all players.
 - **Power-Ups:** Obtain various power-ups to enhance abilities temporarily.
 - **Progressive Difficulty:** Each level gets progressively harder with more obstacles and faster enemies.
 - **Scoring System:** Players earn points based on performance, speed, and level completion.
@@ -28,7 +29,15 @@ Tech Flow Runner is an engaging game that challenges players to navigate through
 
 ## Installation
 1. Clone the repository from GitHub: `git clone https://github.com/whahn1983/Tech-Flow-Game.git`
-2. Open index.html in a web browser to play the game.
+2. Deploy the repo directory to Apache (DocumentRoot or subfolder).
+3. Ensure PHP is enabled in Apache.
+4. Open the game URL in a web browser to play with the global leaderboard enabled.
+
+### Global leaderboard storage
+- Leaderboard scores are stored in `leaderboard.txt` (server-side).
+- Scores are submitted from the in-game UI using a player name + run distance.
+- The leaderboard API is served by `leaderboard.php` and does not require Node.js or a reverse proxy.
+- Make sure Apache can write to `leaderboard.txt` (or the repository folder so it can create the file).
 
 
 ## PWA Icon Assets

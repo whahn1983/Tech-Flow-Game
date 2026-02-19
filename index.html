@@ -73,6 +73,50 @@
       flex-wrap: wrap;
       justify-content: center;
     }
+    .leaderboard-panel {
+      margin-top: 14px;
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.08);
+      text-align: left;
+    }
+    .leaderboard-panel h2 {
+      margin: 0 0 10px;
+      font-size: 1.1rem;
+      color: var(--neon);
+    }
+    .leaderboard-form {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .leaderboard-form input {
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.35);
+      padding: 8px 10px;
+      background: rgba(5, 9, 16, 0.4);
+      color: var(--text);
+      font-weight: 600;
+    }
+    .leaderboard-form button {
+      margin-top: 0;
+      padding: 8px 14px;
+    }
+    .leaderboard-note {
+      margin: 0 0 10px;
+      opacity: 0.85;
+      font-size: 0.92rem;
+    }
+    .leaderboard-list {
+      margin: 0;
+      padding-left: 20px;
+      min-height: 90px;
+    }
+    .leaderboard-list li {
+      margin: 4px 0;
+    }
     button {
       margin-top: 12px;
       border: 0;
@@ -108,6 +152,15 @@
       <button id="resetBestBtn" type="button">Reset Best</button>
       <button id="rebootBtn" type="button">Reboot Run</button>
     </div>
+    <section class="leaderboard-panel" aria-live="polite">
+      <h2>🌍 Global Leaderboard</h2>
+      <form id="leaderboardForm" class="leaderboard-form">
+        <input id="playerName" name="playerName" maxlength="24" placeholder="Enter your name" required />
+        <button id="saveScoreBtn" type="submit">Save Score</button>
+      </form>
+      <p id="leaderboardStatus" class="leaderboard-note">Finish a run, then save your score to the global board.</p>
+      <ol id="leaderboardList" class="leaderboard-list"></ol>
+    </section>
   </main>
 
   <audio id="bgm" src="Tech Flow.mp3" loop preload="auto"></audio>
@@ -122,6 +175,12 @@
     const musicBtn = document.getElementById('musicBtn');
     const resetBestBtn = document.getElementById('resetBestBtn');
     const rebootBtn = document.getElementById('rebootBtn');
+    const leaderboardForm = document.getElementById('leaderboardForm');
+    const playerNameInput = document.getElementById('playerName');
+    const saveScoreBtn = document.getElementById('saveScoreBtn');
+    const leaderboardStatus = document.getElementById('leaderboardStatus');
+    const leaderboardList = document.getElementById('leaderboardList');
+    const leaderboardEndpoint = './leaderboard.php';
 
     let score = 0;
     let best = Number(localStorage.getItem('techFlowRunnerBest') || 0);
@@ -133,6 +192,8 @@
     let spawnTimer = 0;
     let scheduledGapPx = 0;
     let worldOffset = 0;
+    let latestRunScore = 0;
+    let canSubmitScore = false;
 
     const gravity = 0.75;
     const player = {
@@ -201,6 +262,87 @@
     });
 
     rebootBtn.addEventListener('click', resetGame);
+
+    function setLeaderboardStatus(message) {
+      leaderboardStatus.textContent = message;
+    }
+
+    function setScoreSubmissionState(isEnabled) {
+      canSubmitScore = isEnabled;
+      saveScoreBtn.disabled = !isEnabled;
+    }
+
+    function renderLeaderboard(entries) {
+      leaderboardList.innerHTML = '';
+      if (!entries.length) {
+        const item = document.createElement('li');
+        item.textContent = 'No scores yet. Be the first to upload a run!';
+        leaderboardList.appendChild(item);
+        return;
+      }
+
+      entries.forEach((entry, index) => {
+        const item = document.createElement('li');
+        item.textContent = `#${index + 1} ${entry.name} — ${Math.floor(entry.score)}m`;
+        leaderboardList.appendChild(item);
+      });
+    }
+
+    async function fetchLeaderboard() {
+      try {
+        const response = await fetch(leaderboardEndpoint, { cache: 'no-store' });
+        if (!response.ok) throw new Error('Could not load leaderboard');
+        const payload = await response.json();
+        renderLeaderboard(payload.entries || []);
+      } catch {
+        renderLeaderboard([]);
+        setLeaderboardStatus('Global leaderboard unavailable. Ensure leaderboard.php is deployed and writable.');
+      }
+    }
+
+    async function submitScore(name, runScore) {
+      const response = await fetch(leaderboardEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, score: runScore })
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || 'Unable to save score.');
+      }
+
+      return payload.entries || [];
+    }
+
+    leaderboardForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      if (!canSubmitScore) {
+        setLeaderboardStatus('Finish a run before saving a score.');
+        return;
+      }
+
+      const name = playerNameInput.value.trim();
+      if (!name) {
+        setLeaderboardStatus('Please enter your name first.');
+        return;
+      }
+
+      const scoreToSave = Math.floor(latestRunScore);
+
+      saveScoreBtn.disabled = true;
+      setLeaderboardStatus('Saving your score...');
+      try {
+        const entries = await submitScore(name, scoreToSave);
+        renderLeaderboard(entries);
+        setLeaderboardStatus(`Saved ${scoreToSave}m for ${name}. Reboot and beat it!`);
+        setScoreSubmissionState(false);
+      } catch (error) {
+        setLeaderboardStatus(error.message || 'Unable to save your score.');
+        setScoreSubmissionState(true);
+      }
+    });
 
     const terrain = {
       step: 34,
@@ -750,6 +892,9 @@
       lastSpawnAction = null;
       queuedSpawnAction = null;
       worldOffset = 0;
+      latestRunScore = 0;
+      setScoreSubmissionState(false);
+      setLeaderboardStatus('Finish a run, then save your score to the global board.');
       initTerrain();
       const spawnGround = getTerrainHeight(player.x + player.w * 0.5) || baseGroundY;
       player.y = spawnGround - player.h;
@@ -843,6 +988,12 @@
         localStorage.setItem('techFlowRunnerBest', String(Math.floor(best)));
       }
 
+      if (gameOver) {
+        latestRunScore = Math.floor(score);
+        setScoreSubmissionState(latestRunScore > 0);
+        setLeaderboardStatus(`Run ended at ${latestRunScore}m. Add your name and save it globally.`);
+      }
+
       updateHud();
     }
 
@@ -903,6 +1054,8 @@
     player.y = initialGround - player.h;
 
     updateHud();
+    setScoreSubmissionState(false);
+    fetchLeaderboard();
     requestAnimationFrame(loop);
 
     if ('serviceWorker' in navigator) {
