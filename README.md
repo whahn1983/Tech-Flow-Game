@@ -10,8 +10,8 @@ This program is not open-source and cannot be modified or distributed without th
 Tech Flow Runner is an engaging game that challenges players to navigate through a circuit board filled with various obstacles. The objective is to guide the Tech Flow Runner through levels while enjoying incredible original music.
 
 ## Gameplay
-- Players control the Tech Flow Runner using keyboard commands.
-- The Runner can dash, jump, and slide to evade objects and enemies.
+- Players control the Tech Flow Runner using keyboard commands or screen taps.
+- The Runner auto-scrolls through the level; players must jump (including double jump) to evade obstacles and enemies.
 - There are multiple levels, each with unique challenges and a boss fight at the end.
 
 ## Features
@@ -23,9 +23,9 @@ Tech Flow Runner is an engaging game that challenges players to navigate through
 - **Original Soundtrack:** Experience amazing original music created by whahn1983.
 
 ## Controls
-- **Arrow Keys:** Move left and right.
-- **Space Bar:** Jump.
-- **Shift:** Dash forward.
+- **Space / W / Up Arrow:** Jump (supports double jump).
+- **R:** Restart after game over.
+- **Tap / Click:** Jump (touch and mouse support).
 
 ## Installation
 1. Clone the repository from GitHub: `git clone https://github.com/whahn1983/Tech-Flow-Game.git`
@@ -58,4 +58,4 @@ This creates:
 This project is proprietary and owned exclusively by whahn1983. See LICENSE file for details.
 
 ## Contact
-For more information, please contact whahn1983.
+For more information, bug reports, or feature requests, open an issue on [GitHub](https://github.com/whahn1983/Tech-Flow-Game/issues) or contact whahn1983 directly.
