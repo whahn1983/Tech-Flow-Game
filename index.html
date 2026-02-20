@@ -129,14 +129,6 @@
       background: linear-gradient(115deg, var(--neon), #75ffd4);
       cursor: pointer;
     }
-    #rebootBtn {
-      display: none;
-    }
-    @media (pointer: coarse), (max-width: 900px) {
-      #rebootBtn {
-        display: inline-block;
-      }
-    }
     #installBtn {
       display: none;
       background: linear-gradient(115deg, var(--accent), #c084fc);
@@ -224,12 +216,11 @@
     </div>
     <div class="controls">
       <span class="keyboard-hint">Double jump with <strong>Space</strong>, <strong>W</strong>, or <strong>↑</strong>. Press <strong>R</strong> to restart.</span>
-      <span class="touch-hint">Tap the game to double jump. Use the Reboot button to restart.</span>
+      <span class="touch-hint">Tap the game to double jump. Tap Reboot Run when it appears to restart.</span>
     </div>
     <div class="button-row">
       <button id="musicBtn" type="button">Play Music</button>
       <button id="resetBestBtn" type="button">Reset Best</button>
-      <button id="rebootBtn" type="button">Reboot Run</button>
       <button id="installBtn" type="button">Install App</button>
     </div>
     <section class="leaderboard-panel" aria-live="polite">
@@ -254,7 +245,6 @@
     const music = document.getElementById('bgm');
     const musicBtn = document.getElementById('musicBtn');
     const resetBestBtn = document.getElementById('resetBestBtn');
-    const rebootBtn = document.getElementById('rebootBtn');
     const gameOverOverlay = document.getElementById('gameOverOverlay');
     const leaderboardForm = document.getElementById('leaderboardForm');
     const playerNameInput = document.getElementById('playerName');
@@ -342,7 +332,6 @@
       updateHud();
     });
 
-    rebootBtn.addEventListener('click', resetGame);
     document.getElementById('gameOverRebootBtn').addEventListener('click', resetGame);
 
     function setLeaderboardStatus(message) {
