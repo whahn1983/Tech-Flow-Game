@@ -1,10 +1,10 @@
 {
-  "id": "./",
+  "id": "/",
   "name": "Tech Flow Runner",
   "short_name": "Tech Runner",
   "description": "Cyber runner game with jumping obstacles.",
-  "start_url": "./",
-  "scope": "./",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "landscape",
   "background_color": "#0a1330",
