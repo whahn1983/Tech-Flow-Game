@@ -204,6 +204,79 @@
         width: 100%;
       }
     }
+    /* Score submission modal */
+    .score-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 9, 16, 0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      backdrop-filter: blur(4px);
+    }
+    .score-modal-overlay[hidden] {
+      display: none;
+    }
+    .score-modal-box {
+      background: linear-gradient(160deg, #0d1d42, #070f22);
+      border: 1px solid rgba(46, 248, 255, 0.4);
+      border-radius: 16px;
+      padding: 28px 32px;
+      max-width: 380px;
+      width: 90vw;
+      text-align: center;
+      box-shadow: 0 0 40px rgba(46, 248, 255, 0.18);
+    }
+    .score-modal-box h2 {
+      margin: 0 0 4px;
+      color: var(--neon);
+      font-size: 1.6rem;
+    }
+    .score-modal-dist {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin: 0 0 18px;
+      opacity: 0.9;
+    }
+    .score-modal-box label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 0.95rem;
+      opacity: 0.85;
+      text-align: left;
+    }
+    .score-modal-box input {
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.35);
+      padding: 10px 12px;
+      background: rgba(5, 9, 16, 0.5);
+      color: var(--text);
+      font-size: 1rem;
+      font-weight: 600;
+      font-family: inherit;
+      margin-bottom: 14px;
+    }
+    .score-modal-btns {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .score-modal-btns button {
+      margin-top: 0;
+    }
+    .score-modal-skip {
+      background: rgba(255,255,255,0.14);
+      color: var(--text);
+    }
+    .score-modal-status {
+      margin: 12px 0 0;
+      font-size: 0.88rem;
+      min-height: 1.2em;
+      opacity: 0.85;
+    }
   </style>
 </head>
 <body>
@@ -231,14 +304,25 @@
     </div>
     <section class="leaderboard-panel" aria-live="polite">
       <h2>🌍 Global Leaderboard</h2>
-      <form id="leaderboardForm" class="leaderboard-form">
-        <input id="playerName" name="playerName" maxlength="24" placeholder="Enter your name" required />
-        <button id="saveScoreBtn" type="submit">Save Score</button>
-      </form>
       <p id="leaderboardStatus" class="leaderboard-note">Finish a run, then save your score to the global board.</p>
       <ol id="leaderboardList" class="leaderboard-list"></ol>
     </section>
   </main>
+
+  <!-- Score submission modal — shown after each run ends -->
+  <div id="scoreModal" class="score-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="scoreModalTitle" hidden>
+    <div class="score-modal-box">
+      <h2 id="scoreModalTitle">Signal Lost</h2>
+      <p id="scoreModalDist" class="score-modal-dist"></p>
+      <label for="scoreModalName">Enter your name for the global leaderboard:</label>
+      <input id="scoreModalName" type="text" maxlength="24" placeholder="Your name" autocomplete="off" />
+      <div class="score-modal-btns">
+        <button type="button" id="scoreModalSubmit">Save Score</button>
+        <button type="button" id="scoreModalSkip" class="score-modal-skip">Skip</button>
+      </div>
+      <p id="scoreModalStatus" class="score-modal-status"></p>
+    </div>
+  </div>
 
   <audio id="bgm" src="Tech Flow.mp3" loop preload="auto"></audio>
 
@@ -252,12 +336,15 @@
     const musicBtn = document.getElementById('musicBtn');
     const resetBestBtn = document.getElementById('resetBestBtn');
     const gameOverOverlay = document.getElementById('gameOverOverlay');
-    const leaderboardForm = document.getElementById('leaderboardForm');
-    const playerNameInput = document.getElementById('playerName');
-    const saveScoreBtn = document.getElementById('saveScoreBtn');
     const leaderboardStatus = document.getElementById('leaderboardStatus');
     const leaderboardList = document.getElementById('leaderboardList');
     const leaderboardEndpoint = './leaderboard.php';
+    const scoreModal = document.getElementById('scoreModal');
+    const scoreModalDist = document.getElementById('scoreModalDist');
+    const scoreModalName = document.getElementById('scoreModalName');
+    const scoreModalSubmit = document.getElementById('scoreModalSubmit');
+    const scoreModalSkip = document.getElementById('scoreModalSkip');
+    const scoreModalStatus = document.getElementById('scoreModalStatus');
 
     let score = 0;
     let best = Number(localStorage.getItem('techFlowRunnerBest') || 0);
@@ -346,7 +433,6 @@
 
     function setScoreSubmissionState(isEnabled) {
       canSubmitScore = isEnabled;
-      saveScoreBtn.disabled = !isEnabled;
     }
 
     function renderLeaderboard(entries) {
@@ -392,32 +478,52 @@
       return payload.entries || [];
     }
 
-    leaderboardForm.addEventListener('submit', async (event) => {
-      event.preventDefault();
+    function openScoreModal() {
+      if (!scoreModal.hidden) return;
+      scoreModalStatus.textContent = '';
+      scoreModalName.value = '';
+      scoreModalDist.textContent = `Distance: ${latestRunScore}m`;
+      scoreModalSubmit.disabled = false;
+      scoreModal.hidden = false;
+      scoreModalName.focus();
+    }
 
-      if (!canSubmitScore) {
-        setLeaderboardStatus('Finish a run before saving a score.');
-        return;
-      }
+    function closeScoreModal() {
+      scoreModal.hidden = true;
+    }
 
-      const name = playerNameInput.value.trim();
+    scoreModalSkip.addEventListener('click', () => {
+      closeScoreModal();
+      setLeaderboardStatus(`Run ended at ${latestRunScore}m. Press R to reboot.`);
+    });
+
+    scoreModalSubmit.addEventListener('click', async () => {
+      const name = scoreModalName.value.trim();
       if (!name) {
-        setLeaderboardStatus('Please enter your name first.');
+        scoreModalStatus.textContent = 'Please enter your name first.';
         return;
       }
 
       const scoreToSave = Math.floor(latestRunScore);
+      scoreModalSubmit.disabled = true;
+      scoreModalStatus.textContent = 'Saving your score...';
 
-      saveScoreBtn.disabled = true;
-      setLeaderboardStatus('Saving your score...');
       try {
         const entries = await submitScore(name, scoreToSave);
         renderLeaderboard(entries);
         setLeaderboardStatus(`Saved ${scoreToSave}m for ${name}. Reboot and beat it!`);
         setScoreSubmissionState(false);
+        closeScoreModal();
       } catch (error) {
-        setLeaderboardStatus(error.message || 'Unable to save your score.');
-        setScoreSubmissionState(true);
+        scoreModalStatus.textContent = error.message || 'Unable to save your score.';
+        scoreModalSubmit.disabled = false;
+      }
+    });
+
+    scoreModalName.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        scoreModalSubmit.click();
       }
     });
 
@@ -959,6 +1065,7 @@
     }
 
     function resetGame() {
+      closeScoreModal();
       gameOverOverlay.classList.remove('active');
       score = 0;
       speedMult = 1;
@@ -1065,8 +1172,9 @@
           localStorage.setItem('techFlowRunnerBest', String(Math.floor(best)));
           latestRunScore = Math.floor(score);
           setScoreSubmissionState(latestRunScore > 0);
-          setLeaderboardStatus(`Run ended at ${latestRunScore}m. Add your name and save it globally.`);
+          setLeaderboardStatus(`Run ended at ${latestRunScore}m.`);
           updateHud();
+          openScoreModal();
           return;
         }
 
@@ -1083,7 +1191,8 @@
       if (gameOver) {
         latestRunScore = Math.floor(score);
         setScoreSubmissionState(latestRunScore > 0);
-        setLeaderboardStatus(`Run ended at ${latestRunScore}m. Add your name and save it globally.`);
+        setLeaderboardStatus(`Run ended at ${latestRunScore}m.`);
+        openScoreModal();
       }
 
       updateHud();
@@ -1132,6 +1241,7 @@
     }
 
     window.addEventListener('keydown', (e) => {
+      if (!scoreModal.hidden) return;
       const key = e.key.toLowerCase();
       if (key === ' ' || key === 'arrowup' || key === 'w') {
         e.preventDefault();
