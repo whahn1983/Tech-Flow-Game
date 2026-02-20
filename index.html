@@ -1301,9 +1301,22 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch((error) => {
-          console.warn('Service worker registration failed:', error);
-        });
+        navigator.serviceWorker.register('/sw.js')
+          .then((reg) => {
+            reg.onupdatefound = () => {
+              const newWorker = reg.installing;
+              newWorker.onstatechange = () => {
+                // A new SW has installed and the old one was controlling the page —
+                // reload silently so users always get the latest cached assets.
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  window.location.reload();
+                }
+              };
+            };
+          })
+          .catch((error) => {
+            console.warn('Service worker registration failed:', error);
+          });
       });
     }
   </script>
