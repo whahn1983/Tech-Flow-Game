@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tech-flow-runner-v4';
+const CACHE_NAME = 'tech-flow-runner-v5';
 
 // Critical assets: all must be cached for the install event to succeed.
 const CRITICAL_ASSETS = [
