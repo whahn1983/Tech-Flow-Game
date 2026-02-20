@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tech-flow-runner-v3';
+const CACHE_NAME = 'tech-flow-runner-v4';
 
 // Critical assets: all must be cached for the install event to succeed.
 const CRITICAL_ASSETS = [
@@ -7,13 +7,13 @@ const CRITICAL_ASSETS = [
   '/manifest.json',
   '/favicon.svg',
   '/apple-touch-icon.png',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
 ];
 
 // Large or optional assets: cached opportunistically so a fetch failure
 // (slow network, file missing in a deploy) does not abort SW installation.
 const OPTIONAL_ASSETS = [
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
   '/Tech%20Flow.mp3',
 ];
 
