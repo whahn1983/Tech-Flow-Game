@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-title" content="Tech Runner" />
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
-  <link rel="manifest" href="manifest.json" />
+  <link rel="manifest" href="/manifest.json" />
   <title>Tech Flow Runner</title>
   <style>
     :root {
@@ -1179,7 +1179,7 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch((error) => {
+        navigator.serviceWorker.register('/sw.js').catch((error) => {
           console.warn('Service worker registration failed:', error);
         });
       });
