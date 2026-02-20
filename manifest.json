@@ -1,5 +1,5 @@
 {
-  "id": "/",
+  "id": "./",
   "name": "Tech Flow Runner",
   "short_name": "Tech Runner",
   "description": "Cyber runner game with jumping obstacles.",
@@ -9,6 +9,7 @@
   "orientation": "landscape",
   "background_color": "#0a1330",
   "theme_color": "#0a1330",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "icons/icon-192.png",
@@ -33,6 +34,22 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshots/screenshot-wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Tech Flow Runner gameplay"
+    },
+    {
+      "src": "screenshots/screenshot-narrow.png",
+      "sizes": "720x1280",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Tech Flow Runner gameplay"
     }
   ]
 }
