@@ -146,6 +146,28 @@
       .keyboard-hint { display: none; }
       .touch-hint { display: inline; }
     }
+    #canvasWrapper {
+      position: relative;
+      display: block;
+    }
+    #gameOverOverlay {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 68%;
+      display: none;
+      justify-content: center;
+      pointer-events: none;
+    }
+    #gameOverOverlay button {
+      pointer-events: auto;
+      margin-top: 0;
+    }
+    @media (pointer: coarse), (max-width: 900px) {
+      #gameOverOverlay.active {
+        display: flex;
+      }
+    }
     @media (max-width: 640px) {
       body {
         align-items: start;
@@ -194,7 +216,12 @@
       <div class="chip">Speed: <span id="speed">1.0</span>x</div>
       <div class="chip">Best: <span id="best">0</span>m</div>
     </section>
-    <canvas id="game" width="900" height="420" aria-label="Tech Flow jump runner"></canvas>
+    <div id="canvasWrapper">
+      <canvas id="game" width="900" height="420" aria-label="Tech Flow jump runner"></canvas>
+      <div id="gameOverOverlay">
+        <button id="gameOverRebootBtn" type="button">Reboot Run</button>
+      </div>
+    </div>
     <div class="controls">
       <span class="keyboard-hint">Double jump with <strong>Space</strong>, <strong>W</strong>, or <strong>↑</strong>. Press <strong>R</strong> to restart.</span>
       <span class="touch-hint">Tap the game to double jump. Use the Reboot button to restart.</span>
@@ -228,6 +255,7 @@
     const musicBtn = document.getElementById('musicBtn');
     const resetBestBtn = document.getElementById('resetBestBtn');
     const rebootBtn = document.getElementById('rebootBtn');
+    const gameOverOverlay = document.getElementById('gameOverOverlay');
     const leaderboardForm = document.getElementById('leaderboardForm');
     const playerNameInput = document.getElementById('playerName');
     const saveScoreBtn = document.getElementById('saveScoreBtn');
@@ -315,6 +343,7 @@
     });
 
     rebootBtn.addEventListener('click', resetGame);
+    document.getElementById('gameOverRebootBtn').addEventListener('click', resetGame);
 
     function setLeaderboardStatus(message) {
       leaderboardStatus.textContent = message;
@@ -935,6 +964,7 @@
     }
 
     function resetGame() {
+      gameOverOverlay.classList.remove('active');
       score = 0;
       speedMult = 1;
       baseSpeed = 4.2;
@@ -1087,7 +1117,10 @@
         const screenObstacle = { ...ob, x: ob.worldX - worldOffset };
         drawObstacle(screenObstacle);
       });
-      if (gameOver) drawGameOver();
+      if (gameOver) {
+        drawGameOver();
+        gameOverOverlay.classList.add('active');
+      }
     }
 
     function loop() {
