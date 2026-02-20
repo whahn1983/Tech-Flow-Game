@@ -304,7 +304,6 @@
     </div>
     <div class="button-row">
       <button id="musicBtn" type="button">Play Music</button>
-      <button id="resetBestBtn" type="button">Reset Best</button>
       <button id="installBtn" type="button">Install App</button>
     </div>
     <section class="leaderboard-panel" aria-live="polite">
@@ -339,7 +338,6 @@
     const bestEl = document.getElementById('best');
     const music = document.getElementById('bgm');
     const musicBtn = document.getElementById('musicBtn');
-    const resetBestBtn = document.getElementById('resetBestBtn');
     const gameOverOverlay = document.getElementById('gameOverOverlay');
     const leaderboardStatus = document.getElementById('leaderboardStatus');
     const leaderboardList = document.getElementById('leaderboardList');
@@ -424,11 +422,6 @@
 
     musicBtn.addEventListener('click', tryPlayMusic);
 
-    resetBestBtn.addEventListener('click', () => {
-      best = 0;
-      localStorage.setItem('techFlowRunnerBest', '0');
-      updateHud();
-    });
 
     document.getElementById('gameOverRebootBtn').addEventListener('click', resetGame);
     document.getElementById('gameOverSubmitBtn').addEventListener('click', openScoreModal);
