@@ -167,6 +167,8 @@
       body {
         align-items: start;
         padding: 10px 0 28px;
+        padding-top: max(10px, env(safe-area-inset-top));
+        padding-bottom: max(28px, env(safe-area-inset-bottom));
       }
       h1 {
         font-size: 1.3rem;
