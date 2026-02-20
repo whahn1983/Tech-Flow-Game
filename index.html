@@ -153,16 +153,20 @@
       top: 68%;
       display: none;
       justify-content: center;
+      gap: 10px;
       pointer-events: none;
+    }
+    #gameOverOverlay.active {
+      display: flex;
     }
     #gameOverOverlay button {
       pointer-events: auto;
       margin-top: 0;
     }
-    @media (pointer: coarse), (max-width: 900px) {
-      #gameOverOverlay.active {
-        display: flex;
-      }
+    #gameOverSubmitBtn {
+      background: transparent;
+      border: 2px solid var(--neon);
+      color: var(--neon);
     }
     @media (max-width: 640px) {
       body {
@@ -291,15 +295,15 @@
       <canvas id="game" width="900" height="420" aria-label="Tech Flow jump runner"></canvas>
       <div id="gameOverOverlay">
         <button id="gameOverRebootBtn" type="button">Reboot Run</button>
+        <button id="gameOverSubmitBtn" type="button">Submit Score</button>
       </div>
     </div>
     <div class="controls">
       <span class="keyboard-hint">Double jump with <strong>Space</strong>, <strong>W</strong>, or <strong>↑</strong>. Press <strong>R</strong> to restart.</span>
-      <span class="touch-hint">Tap the game to double jump. Tap Reboot Run when it appears to restart.</span>
+      <span class="touch-hint">Tap the game to double jump. Tap Reboot Run to restart or Submit Score to save to the leaderboard.</span>
     </div>
     <div class="button-row">
       <button id="musicBtn" type="button">Play Music</button>
-      <button id="resetBestBtn" type="button">Reset Best</button>
       <button id="installBtn" type="button">Install App</button>
     </div>
     <section class="leaderboard-panel" aria-live="polite">
@@ -334,7 +338,6 @@
     const bestEl = document.getElementById('best');
     const music = document.getElementById('bgm');
     const musicBtn = document.getElementById('musicBtn');
-    const resetBestBtn = document.getElementById('resetBestBtn');
     const gameOverOverlay = document.getElementById('gameOverOverlay');
     const leaderboardStatus = document.getElementById('leaderboardStatus');
     const leaderboardList = document.getElementById('leaderboardList');
@@ -419,13 +422,9 @@
 
     musicBtn.addEventListener('click', tryPlayMusic);
 
-    resetBestBtn.addEventListener('click', () => {
-      best = 0;
-      localStorage.setItem('techFlowRunnerBest', '0');
-      updateHud();
-    });
 
     document.getElementById('gameOverRebootBtn').addEventListener('click', resetGame);
+    document.getElementById('gameOverSubmitBtn').addEventListener('click', openScoreModal);
 
     function setLeaderboardStatus(message) {
       leaderboardStatus.textContent = message;
@@ -433,6 +432,7 @@
 
     function setScoreSubmissionState(isEnabled) {
       canSubmitScore = isEnabled;
+      document.getElementById('gameOverSubmitBtn').disabled = !isEnabled;
     }
 
     function renderLeaderboard(entries) {
@@ -1172,9 +1172,8 @@
           localStorage.setItem('techFlowRunnerBest', String(Math.floor(best)));
           latestRunScore = Math.floor(score);
           setScoreSubmissionState(latestRunScore > 0);
-          setLeaderboardStatus(`Run ended at ${latestRunScore}m.`);
+          setLeaderboardStatus(`Run ended at ${latestRunScore}m. Submit your score or press R to restart.`);
           updateHud();
-          openScoreModal();
           return;
         }
 
@@ -1191,8 +1190,7 @@
       if (gameOver) {
         latestRunScore = Math.floor(score);
         setScoreSubmissionState(latestRunScore > 0);
-        setLeaderboardStatus(`Run ended at ${latestRunScore}m.`);
-        openScoreModal();
+        setLeaderboardStatus(`Run ended at ${latestRunScore}m. Submit your score or press R to restart.`);
       }
 
       updateHud();
@@ -1208,7 +1206,7 @@
       ctx.font = '600 24px Segoe UI';
       ctx.fillText(`Distance: ${Math.floor(score)}m`, canvas.width / 2, canvas.height / 2 + 12);
       ctx.font = '500 18px Segoe UI';
-      ctx.fillText('Press R to reboot run', canvas.width / 2, canvas.height / 2 + 48);
+      ctx.fillText('Press R to restart  ·  Use Submit Score to save', canvas.width / 2, canvas.height / 2 + 48);
       ctx.textAlign = 'left';
     }
 
