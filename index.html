@@ -441,6 +441,8 @@
       jumpObstacleCaveApproachBuffer: 72,
       maxDownhillBeforeJumpObstacle: 34,
       maxDownhillAfterStayObstacle: 24,
+      maxDownhillBeforeDrone: 36,
+      maxDownhillBeforeDroneInCave: 22,
       stayObstacleRunoutDistance: 154,
       minJumpClearance: player.h + 138,
       clearanceSampleStep: 8,
@@ -861,6 +863,26 @@
 
         const downhillAfterStay = lowestRunoutGround - postObstacleGround;
         if (downhillAfterStay > courseSafety.maxDownhillAfterStayObstacle) {
+          return false;
+        }
+
+        // Prevent drones from spawning immediately after a cliff/slope drop.
+        // Scan the full takeoff-buffer approach zone and find the highest elevation
+        // the player crossed. If the ground drops significantly into the drone
+        // position, the player arrives with downhill momentum and little reaction
+        // time. When a cave ceiling is also present the player cannot jump to
+        // escape, making the hit unavoidable.
+        const droneApproachStart = obstacleStart - requiredTakeoffBuffer;
+        let peakApproachY = getTerrainHeight(droneApproachStart);
+        for (let sampleX = droneApproachStart + courseSafety.clearanceSampleStep; sampleX < obstacleStart; sampleX += courseSafety.clearanceSampleStep) {
+          peakApproachY = Math.min(peakApproachY, getTerrainHeight(sampleX));
+        }
+        const approachDrop = getTerrainHeight(obstacleStart) - peakApproachY;
+        const approachHasCave = hasCaveInSpan(droneApproachStart, obstacleEnd);
+        const maxApproachDrop = approachHasCave
+          ? courseSafety.maxDownhillBeforeDroneInCave
+          : courseSafety.maxDownhillBeforeDrone;
+        if (approachDrop > maxApproachDrop) {
           return false;
         }
       }
