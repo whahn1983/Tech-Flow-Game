@@ -150,6 +150,10 @@
       display: none;
       background: linear-gradient(115deg, var(--accent), #c084fc);
     }
+    #fullscreenBtn {
+      display: none;
+      background: linear-gradient(115deg, #1e7fff, #5cb8ff);
+    }
     .touch-hint { display: none; }
     @media (pointer: coarse) {
       .keyboard-hint { display: none; }
@@ -317,6 +321,7 @@
     </div>
     <div class="button-row">
       <button id="musicBtn" type="button">Play Music</button>
+      <button id="fullscreenBtn" type="button" aria-label="Toggle full screen">Full Screen</button>
       <button id="installBtn" type="button">Install App</button>
     </div>
     <section class="leaderboard-panel" aria-live="polite">
@@ -1274,6 +1279,40 @@
     fetchLeaderboard();
     setInterval(fetchLeaderboard, 60000);
     requestAnimationFrame(loop);
+
+    // Fullscreen
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+    function isFullscreenSupported() {
+      const el = document.documentElement;
+      return !!(el.requestFullscreen || el.webkitRequestFullscreen);
+    }
+
+    function isFullscreen() {
+      return !!(document.fullscreenElement || document.webkitFullscreenElement);
+    }
+
+    function updateFullscreenBtn() {
+      fullscreenBtn.textContent = isFullscreen() ? 'Exit Full Screen' : 'Full Screen';
+    }
+
+    if (isFullscreenSupported()) {
+      fullscreenBtn.style.display = 'inline-block';
+    }
+
+    fullscreenBtn.addEventListener('click', () => {
+      if (!isFullscreen()) {
+        const el = document.documentElement;
+        if (el.requestFullscreen) el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+      }
+    });
+
+    document.addEventListener('fullscreenchange', updateFullscreenBtn);
+    document.addEventListener('webkitfullscreenchange', updateFullscreenBtn);
 
     // PWA install prompt
     let deferredInstallPrompt = null;
