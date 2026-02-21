@@ -923,7 +923,12 @@
         return false;
       }
 
-      for (let sampleX = obstacleStart; sampleX <= obstacleEnd; sampleX += courseSafety.clearanceSampleStep) {
+      // Sample player.w before and after the obstacle footprint so that low
+      // ceilings in the approach/landing zone are caught, not just directly
+      // above the obstacle itself.
+      const ceilingSampleStart = obstacleStart - player.w;
+      const ceilingSampleEnd   = obstacleEnd   + player.w;
+      for (let sampleX = ceilingSampleStart; sampleX <= ceilingSampleEnd; sampleX += courseSafety.clearanceSampleStep) {
         const groundY = getTerrainHeight(sampleX);
         const caveCeilingY = getCaveCeilingAt(sampleX);
 
@@ -936,9 +941,9 @@
             return false;
           }
           // Ground objects sit on the terrain surface, so the player must also
-          // clear the obstacle's own height. Ensure at least 1.5× the player's
+          // clear the obstacle's own height. Ensure at least 2× the player's
           // height remains between the obstacle top and the cave ceiling.
-          if (action === 'jump' && headroom - obstacle.h < player.h * 1.5) {
+          if (action === 'jump' && headroom - obstacle.h < player.h * 2.0) {
             return false;
           }
         }
@@ -958,8 +963,8 @@
         if (centerHeadroom < courseSafety.minCaveHeadroom) {
           return false;
         }
-        // Same 1.5× player-height clearance above the obstacle top at the centre.
-        if (action === 'jump' && centerHeadroom - obstacle.h < player.h * 1.5) {
+        // Same 2× player-height clearance above the obstacle top at the centre.
+        if (action === 'jump' && centerHeadroom - obstacle.h < player.h * 2.0) {
           return false;
         }
       }
