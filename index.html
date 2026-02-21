@@ -1352,8 +1352,46 @@
     } else if (navigator.maxTouchPoints > 0) {
       // --- Scroll-lock mode (iOS PWA and other touch devices without fullscreen API) ---
       let scrollLocked = false;
+      let savedScrollY = 0;
+      const viewportMeta = document.querySelector('meta[name="viewport"]');
 
       function preventScroll(e) { e.preventDefault(); }
+      // Block pinch-to-zoom while scroll-locked
+      function preventZoom(e) { if (e.touches.length > 1) e.preventDefault(); }
+
+      function lockBodyScroll() {
+        savedScrollY = window.scrollY;
+        // position:fixed freezes the page in place, preventing iOS edge bounce
+        document.body.style.position = 'fixed';
+        document.body.style.top = `-${savedScrollY}px`;
+        document.body.style.left = '0';
+        document.body.style.right = '0';
+        document.body.style.width = '100%';
+        document.body.style.overscrollBehavior = 'none';
+        document.documentElement.style.overscrollBehavior = 'none';
+        document.addEventListener('touchmove', preventScroll, { passive: false });
+        document.addEventListener('touchstart', preventZoom, { passive: false });
+        // Disable pinch-zoom and double-tap zoom via viewport
+        if (viewportMeta) {
+          viewportMeta.content = 'width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, maximum-scale=1.0';
+        }
+      }
+
+      function unlockBodyScroll() {
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.left = '';
+        document.body.style.right = '';
+        document.body.style.width = '';
+        document.body.style.overscrollBehavior = '';
+        document.documentElement.style.overscrollBehavior = '';
+        document.removeEventListener('touchmove', preventScroll);
+        document.removeEventListener('touchstart', preventZoom);
+        if (viewportMeta) {
+          viewportMeta.content = 'width=device-width, initial-scale=1.0, viewport-fit=cover';
+        }
+        window.scrollTo(0, savedScrollY);
+      }
 
       function updateScrollLockBtn() {
         fullscreenBtn.innerHTML = scrollLocked ? SCROLL_LOCK_SVG : SCROLL_UNLOCK_SVG;
@@ -1367,9 +1405,9 @@
       fullscreenBtn.addEventListener('click', () => {
         scrollLocked = !scrollLocked;
         if (scrollLocked) {
-          document.addEventListener('touchmove', preventScroll, { passive: false });
+          lockBodyScroll();
         } else {
-          document.removeEventListener('touchmove', preventScroll);
+          unlockBodyScroll();
         }
         updateScrollLockBtn();
       });
@@ -1377,7 +1415,7 @@
       window.addEventListener('orientationchange', () => {
         if (scrollLocked) {
           scrollLocked = false;
-          document.removeEventListener('touchmove', preventScroll);
+          unlockBodyScroll();
           updateScrollLockBtn();
         }
       });
