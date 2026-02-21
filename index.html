@@ -462,13 +462,20 @@
     function tryPlayMusic() {
       music.volume = 0.55;
       music.play().then(() => {
-        musicBtn.textContent = 'Music Playing 🎵';
+        musicBtn.textContent = 'Music On 🎵';
       }).catch(() => {
         musicBtn.textContent = 'Tap to Enable Music';
       });
     }
 
-    musicBtn.addEventListener('click', tryPlayMusic);
+    musicBtn.addEventListener('click', () => {
+      if (!music.paused) {
+        music.pause();
+        musicBtn.textContent = 'Play Music';
+      } else {
+        tryPlayMusic();
+      }
+    });
 
 
     document.getElementById('gameOverRebootBtn').addEventListener('click', resetGame);
@@ -928,6 +935,12 @@
           if (action === 'jump' && headroom < courseSafety.minCaveHeadroomForJumpObstacle) {
             return false;
           }
+          // Ground objects sit on the terrain surface, so the player must also
+          // clear the obstacle's own height. Ensure at least 1.5× the player's
+          // height remains between the obstacle top and the cave ceiling.
+          if (action === 'jump' && headroom - obstacle.h < player.h * 1.5) {
+            return false;
+          }
         }
 
         if (hasNearbyObstacle(sampleX - 8, sampleX + 8, obstacle) && caveCeilingY != null) {
@@ -943,6 +956,10 @@
       if (centerCaveCeilingY != null) {
         const centerHeadroom = centerGroundY - centerCaveCeilingY;
         if (centerHeadroom < courseSafety.minCaveHeadroom) {
+          return false;
+        }
+        // Same 1.5× player-height clearance above the obstacle top at the centre.
+        if (action === 'jump' && centerHeadroom - obstacle.h < player.h * 1.5) {
           return false;
         }
       }
