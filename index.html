@@ -462,13 +462,20 @@
     function tryPlayMusic() {
       music.volume = 0.55;
       music.play().then(() => {
-        musicBtn.textContent = 'Music Playing 🎵';
+        musicBtn.textContent = 'Music On 🎵';
       }).catch(() => {
         musicBtn.textContent = 'Tap to Enable Music';
       });
     }
 
-    musicBtn.addEventListener('click', tryPlayMusic);
+    musicBtn.addEventListener('click', () => {
+      if (!music.paused) {
+        music.pause();
+        musicBtn.textContent = 'Play Music';
+      } else {
+        tryPlayMusic();
+      }
+    });
 
 
     document.getElementById('gameOverRebootBtn').addEventListener('click', resetGame);
