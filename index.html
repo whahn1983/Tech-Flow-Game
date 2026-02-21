@@ -1367,6 +1367,14 @@
         }
         updateScrollLockBtn();
       });
+
+      window.addEventListener('orientationchange', () => {
+        if (scrollLocked) {
+          scrollLocked = false;
+          document.removeEventListener('touchmove', preventScroll);
+          updateScrollLockBtn();
+        }
+      });
     }
 
     // PWA install prompt
