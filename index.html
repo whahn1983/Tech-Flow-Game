@@ -1411,6 +1411,8 @@
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js')
           .then((reg) => {
+            // Proactively check for a new SW version on every load.
+            reg.update();
             reg.onupdatefound = () => {
               const newWorker = reg.installing;
               newWorker.onstatechange = () => {

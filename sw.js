@@ -43,16 +43,17 @@ self.addEventListener('fetch', (event) => {
   const pathName = new URL(event.request.url).pathname;
   if (pathName.startsWith('/api/') || pathName.endsWith('/leaderboard.php')) return;
 
+  // Network-first: always try to fetch fresh assets when online,
+  // update the cache with the response, and fall back to cache when offline.
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) return cachedResponse;
-      return fetch(event.request)
-        .then((networkResponse) => {
-          const clone = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          return networkResponse;
-        })
-        .catch(() => caches.match('/index.html'));
-    })
+    fetch(event.request)
+      .then((networkResponse) => {
+        const clone = networkResponse.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        return networkResponse;
+      })
+      .catch(() =>
+        caches.match(event.request).then((cachedResponse) => cachedResponse || caches.match('/index.html'))
+      )
   );
 });
