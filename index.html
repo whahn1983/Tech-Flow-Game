@@ -152,7 +152,24 @@
     }
     #fullscreenBtn {
       display: none;
-      background: linear-gradient(115deg, #1e7fff, #5cb8ff);
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      width: 34px;
+      height: 34px;
+      padding: 7px;
+      margin-top: 0;
+      border-radius: 6px;
+      background: rgba(5, 9, 16, 0.55);
+      border: 1px solid rgba(46, 248, 255, 0.3);
+      color: rgba(46, 248, 255, 0.85);
+      line-height: 0;
+      z-index: 10;
+      transition: background 0.15s, color 0.15s;
+    }
+    #fullscreenBtn:hover {
+      background: rgba(46, 248, 255, 0.15);
+      color: #2ef8ff;
     }
     .touch-hint { display: none; }
     @media (pointer: coarse) {
@@ -310,6 +327,7 @@
     </section>
     <div id="canvasWrapper">
       <canvas id="game" width="900" height="420" aria-label="Tech Flow jump runner"></canvas>
+      <button id="fullscreenBtn" type="button" aria-label="Toggle full screen"></button>
       <div id="gameOverOverlay">
         <button id="gameOverRebootBtn" type="button">Reboot Run</button>
         <button id="gameOverSubmitBtn" type="button">Submit Score</button>
@@ -321,7 +339,6 @@
     </div>
     <div class="button-row">
       <button id="musicBtn" type="button">Play Music</button>
-      <button id="fullscreenBtn" type="button" aria-label="Toggle full screen">Full Screen</button>
       <button id="installBtn" type="button">Install App</button>
     </div>
     <section class="leaderboard-panel" aria-live="polite">
@@ -1292,12 +1309,17 @@
       return !!(document.fullscreenElement || document.webkitFullscreenElement);
     }
 
+    const FS_ENTER_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>';
+    const FS_EXIT_SVG  = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>';
+
     function updateFullscreenBtn() {
-      fullscreenBtn.textContent = isFullscreen() ? 'Exit Full Screen' : 'Full Screen';
+      fullscreenBtn.innerHTML = isFullscreen() ? FS_EXIT_SVG : FS_ENTER_SVG;
+      fullscreenBtn.setAttribute('aria-label', isFullscreen() ? 'Exit full screen' : 'Enter full screen');
     }
 
     if (isFullscreenSupported()) {
       fullscreenBtn.style.display = 'inline-block';
+      updateFullscreenBtn();
     }
 
     fullscreenBtn.addEventListener('click', () => {
