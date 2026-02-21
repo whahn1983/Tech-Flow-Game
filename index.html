@@ -1037,7 +1037,7 @@
         ctx.fillRect(x, gy + 20, 24, 4);
       }
 
-      ctx.fillStyle = 'rgba(12, 26, 48, 0.9)';
+      ctx.fillStyle = '#16233f';
       terrain.caves.forEach((cave) => {
         if (cave.end < worldOffset - 40 || cave.start > worldOffset + canvas.width + 40) return;
         const startX = cave.start - renderWorldOffset;
@@ -1411,6 +1411,8 @@
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js')
           .then((reg) => {
+            // Proactively check for a new SW version on every load.
+            reg.update();
             reg.onupdatefound = () => {
               const newWorker = reg.installing;
               newWorker.onstatechange = () => {
