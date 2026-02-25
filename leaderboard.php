@@ -7,7 +7,7 @@ header('X-Frame-Options: DENY');
 
 const LEADERBOARD_FILE  = __DIR__ . '/leaderboard.txt';
 const RATE_LIMIT_FILE   = __DIR__ . '/rate_limit.txt';
-const MAX_ENTRIES       = 25;
+const MAX_ENTRIES       = 100;
 const MAX_SCORE         = 999999;
 const MAX_NAME_LENGTH   = 24;
 const MAX_BODY_BYTES    = 10240; // 10 KB

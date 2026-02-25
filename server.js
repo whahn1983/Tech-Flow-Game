@@ -15,7 +15,7 @@ const PORT = (() => {
 const HOST = '0.0.0.0';
 const PUBLIC_DIR = __dirname;
 const LEADERBOARD_FILE = path.join(__dirname, 'leaderboard.txt');
-const MAX_ENTRIES = 25;
+const MAX_ENTRIES = 100;
 const MAX_SCORE = 999999;
 const MAX_NAME_LENGTH = 24;
 const MAX_PAYLOAD_BYTES = 10240; // 10 KB — name + score never exceeds a few hundred bytes
