@@ -298,6 +298,7 @@
       justify-content: center;
       gap: 12px;
       pointer-events: none;
+      z-index: 5;
     }
     #startOverlay.hidden {
       display: none;
@@ -422,7 +423,7 @@
     </div>
     <section class="leaderboard-panel" aria-live="polite">
       <h2>🌍 Global Leaderboard</h2>
-      <p id="leaderboardStatus" class="leaderboard-note">Finish a run, then save your score to the global board.</p>
+      <p id="leaderboardStatus" class="leaderboard-note">Loading scores...</p>
       <ol id="leaderboardList" class="leaderboard-list"></ol>
     </section>
   </main>
@@ -583,6 +584,9 @@
         if (!response.ok) throw new Error('Could not load leaderboard');
         const payload = await response.json();
         renderLeaderboard(payload.entries || []);
+        if (!gameStarted) {
+          setLeaderboardStatus('Finish a run, then save your score to the global board.');
+        }
       } catch {
         renderLeaderboard([]);
         setLeaderboardStatus('Global leaderboard unavailable. Ensure leaderboard.php is deployed and writable.');
