@@ -288,6 +288,34 @@
         width: 100%;
       }
     }
+    /* Start overlay — shown on first load */
+    #startOverlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      pointer-events: none;
+    }
+    #startOverlay.hidden {
+      display: none;
+    }
+    #startBtn {
+      font-size: 1.4rem;
+      padding: 16px 44px;
+      margin-top: 0;
+      pointer-events: auto;
+      box-shadow: 0 0 32px rgba(46, 248, 255, 0.55);
+      letter-spacing: 0.5px;
+    }
+    #startHint {
+      font-size: 0.9rem;
+      opacity: 0.7;
+      color: var(--text);
+      pointer-events: none;
+    }
     /* Score submission modal */
     .score-modal-overlay {
       position: fixed;
@@ -378,6 +406,11 @@
         <button id="gameOverRebootBtn" type="button">Reboot Run</button>
         <button id="gameOverSubmitBtn" type="button">Submit Score</button>
       </div>
+      <div id="startOverlay">
+        <button id="startBtn" type="button">&#9654; Start</button>
+        <span id="startHint" class="keyboard-hint">Press <strong>Space</strong> to start</span>
+        <span id="startHintTouch" class="touch-hint" style="font-size:0.9rem;opacity:0.7;color:var(--text)">Tap to start</span>
+      </div>
     </div>
     <div class="controls">
       <span class="keyboard-hint">Double jump with <strong>Space</strong>, <strong>W</strong>, or <strong>↑</strong>. Press <strong>R</strong> to restart.</span>
@@ -429,12 +462,16 @@
     const scoreModalSubmit = document.getElementById('scoreModalSubmit');
     const scoreModalSkip = document.getElementById('scoreModalSkip');
     const scoreModalStatus = document.getElementById('scoreModalStatus');
+    const startOverlay = document.getElementById('startOverlay');
+    const startBtn = document.getElementById('startBtn');
 
+    let gameStarted = false;
     let score = 0;
     let best = Number(localStorage.getItem('techFlowRunnerBest') || 0);
     let speedMult = 1;
     let baseSpeed = 4.2;
     let gameOver = false;
+    let gameStarted = false;
     let groundOffset = 0;
     let sceneryOffset = 0;
     let spawnTimer = 0;
@@ -1192,6 +1229,7 @@
     function resetGame() {
       closeScoreModal();
       gameOverOverlay.classList.remove('active');
+      gameStarted = true;
       score = 0;
       speedMult = 1;
       baseSpeed = 4.2;
@@ -1357,7 +1395,7 @@
     }
 
     function jump() {
-      if (gameOver || player.jumpsLeft <= 0) return;
+      if (!gameStarted || gameOver || player.jumpsLeft <= 0) return;
       player.vy = player.jumpPower;
       player.onGround = false;
       player.jumpsLeft -= 1;
@@ -1385,7 +1423,28 @@
     setScoreSubmissionState(false);
     fetchLeaderboard();
     setInterval(fetchLeaderboard, 60000);
-    requestAnimationFrame(loop);
+
+    // Draw initial static frame so the canvas isn't blank behind the start overlay
+    render();
+
+    function startGame() {
+      startOverlay.classList.add('hidden');
+      gameStarted = true;
+      requestAnimationFrame(loop);
+    }
+
+    startBtn.addEventListener('click', startGame);
+
+    // Also allow Space/W/↑ to dismiss the start overlay
+    window.addEventListener('keydown', (e) => {
+      if (!gameStarted) {
+        const k = e.key.toLowerCase();
+        if (k === ' ' || k === 'arrowup' || k === 'w') {
+          e.preventDefault();
+          startGame();
+        }
+      }
+    }, { capture: true });
 
     // Fullscreen / Scroll-lock button
     const fullscreenBtn = document.getElementById('fullscreenBtn');
