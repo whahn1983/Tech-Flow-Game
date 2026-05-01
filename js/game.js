@@ -1909,8 +1909,20 @@
 
   // ---------- Input ----------
 
+  // Skip game key handling when focus is on a form control inside the start
+  // overlay — otherwise space/arrows/shift hijack the run-option pulldowns
+  // (toggling Daily Seed, navigating Modifier/Skin selects).
+  function isFormElementFocused() {
+    const el = document.activeElement;
+    if (!el || el === document.body) return false;
+    const tag = el.tagName;
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return true;
+    return false;
+  }
+
   window.addEventListener('keydown', (e) => {
     if (!scoreModal.hidden) return;
+    if (isFormElementFocused()) return;
     const key = e.key.toLowerCase();
     if (key === ' ' || key === 'arrowup' || key === 'w') {
       e.preventDefault();
@@ -2066,6 +2078,9 @@
 
   window.addEventListener('keydown', (e) => {
     if (!gameStarted) {
+      // Don't hijack space/arrows when the user is interacting with a
+      // run-option pulldown (Daily Seed checkbox / Modifier / Skin select).
+      if (isFormElementFocused()) return;
       const k = e.key.toLowerCase();
       if (k === ' ' || k === 'arrowup' || k === 'w') {
         e.preventDefault();
