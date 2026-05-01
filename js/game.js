@@ -115,11 +115,13 @@
   let groundOffset = 0;
   let sceneryOffset = 0;
   let spawnTimer = 0;
-  let scheduledGapPx = 0;
   let worldOffset = 0;
   let latestRunScore = 0;
   let lastSpawnAction = null;
   let queuedSpawnAction = null;
+  // Frames elapsed since the last obstacle was placed. Tracking in frames
+  // (not pixels) keeps the reaction-time budget honest as world speed grows.
+  let framesSinceLastSpawn = Number.POSITIVE_INFINITY;
 
   // ---------- Run extras (bits, combo, level, modifier, FX) ----------
   let bitsCollected = 0;
@@ -677,7 +679,6 @@
   }
 
   function applySpawnGap(gapPx, moveSpeed) {
-    scheduledGapPx = gapPx;
     spawnTimer = (gapPx / moveSpeed) * (1000 / 60);
   }
 
@@ -939,15 +940,24 @@
     return true;
   }
 
+  function hasFrameBudgetFor(prevAction, nextAction) {
+    // Frame budget represents the player's reaction window between actions.
+    // We measure in elapsed frames so the gate stays valid even when world
+    // speed grew during the wait (a stale pixel-gap check would block spawns
+    // at high levels and let the player coast).
+    if (!prevAction) return true;
+    const requiredFrames = transitionFrameBudget[prevAction][nextAction];
+    return framesSinceLastSpawn >= requiredFrames;
+  }
+
   function scheduleNextObstacle() {
     const moveSpeed = baseSpeed * speedMult;
     const spawnEdgeX = worldOffset + canvas.width + 20;
     const preferredAction = queuedSpawnAction;
-    const transitionGapPx = lastSpawnAction ? scheduledGapPx : Number.POSITIVE_INFINITY;
 
     for (let attempt = 0; attempt < 24; attempt++) {
       const nextAction = attempt === 0 && preferredAction ? preferredAction : pickRandomAction();
-      if (!canTransition(lastSpawnAction, nextAction, transitionGapPx)) {
+      if (!hasFrameBudgetFor(lastSpawnAction, nextAction)) {
         continue;
       }
 
@@ -960,6 +970,7 @@
       obstacles.push(obstacle);
       lastSpawnAction = nextAction;
       queuedSpawnAction = null;
+      framesSinceLastSpawn = 0;
 
       for (let previewAttempt = 0; previewAttempt < 24; previewAttempt++) {
         const previewAction = pickRandomAction();
@@ -985,6 +996,7 @@
       const fallbackShiftPx = Math.max(0, fallbackObstacle.worldX - spawnEdgeX);
       obstacles.push(fallbackObstacle);
       lastSpawnAction = fallbackAction;
+      framesSinceLastSpawn = 0;
       const fallbackNextAction = 'jump';
       applySpawnGap(getSpawnDelayMs(fallbackAction, fallbackNextAction) * moveSpeed * (60 / 1000) + fallbackShiftPx, moveSpeed);
       queuedSpawnAction = fallbackNextAction;
@@ -1328,10 +1340,10 @@
     baseSpeed = 4.2;
     gameOver = false;
     spawnTimer = 0;
-    scheduledGapPx = 0;
     obstacles.length = 0;
     lastSpawnAction = null;
     queuedSpawnAction = null;
+    framesSinceLastSpawn = Number.POSITIVE_INFINITY;
     worldOffset = 0;
     latestRunScore = 0;
     bitsCollected = 0;
@@ -1484,8 +1496,9 @@
     if (wallRunFrames > 0) player.vy = Math.min(player.vy, -1.5);
     player.y += player.vy;
 
-    // Duck shrinks the hitbox; release expands.
-    const targetH = isDucking && player.onGround ? 32 : 58;
+    // Duck shrinks the hitbox; release expands. Hold-duck while jumping is
+    // honored so the player can tuck through low ceilings mid-air.
+    const targetH = isDucking ? 32 : 58;
     if (player.h !== targetH) {
       const groundDelta = targetH - player.h;
       player.h = targetH;
@@ -1550,6 +1563,7 @@
 
     // Obstacle spawning suspended during boss fight
     if (boss == null) {
+      if (framesSinceLastSpawn !== Number.POSITIVE_INFINITY) framesSinceLastSpawn += 1;
       spawnTimer -= 16.7;
       if (spawnTimer <= 0) {
         scheduleNextObstacle();
