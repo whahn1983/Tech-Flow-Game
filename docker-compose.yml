@@ -19,7 +19,7 @@ services:
     cap_drop:
       - ALL
     volumes:
-      # Persists leaderboard.txt and dailyseed.txt across container restarts.
+      # Persists leaderboard.txt, dailyseed.txt, and nonces.txt across container restarts.
       # The container's root filesystem is read-only, so all writable state
       # must live under /app/data.
       - leaderboard-data:/app/data

@@ -2,8 +2,17 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
+// Redirect persisted state into a per-run tmp dir so the suite doesn't depend on
+// /app/data being writable and doesn't pollute a real Docker volume.
+const TMP_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tfg-test-'));
+process.env.DATA_DIR = TMP_DATA_DIR;
 
 const server = require('../server.js');
+const NONCE_FILE = path.join(TMP_DATA_DIR, 'nonces.txt');
 
 test('cleanPlayerName strips disallowed characters and trims', () => {
   assert.equal(server.cleanPlayerName('  Alice<script>  '), 'Alicescript');
@@ -85,4 +94,19 @@ test('consumeNonce accepts a sufficiently aged nonce exactly once', () => {
 
   assert.equal(server.consumeNonce(aged), true, 'aged nonce should be accepted');
   assert.equal(server.consumeNonce(aged), false, 'replayed nonce should be rejected');
+});
+
+test('issueNonce persists the nonce to nonces.txt in the data dir', () => {
+  const nonce = server.issueNonce();
+  assert.ok(fs.existsSync(NONCE_FILE), 'nonces.txt should be created on first issue');
+  const raw = fs.readFileSync(NONCE_FILE, 'utf8');
+  assert.match(raw, new RegExp(`^${nonce}\\|\\d+$`, 'm'));
+});
+
+test('consumeNonce removes the entry from the on-disk nonce file', () => {
+  const aged = server.issueNonce();
+  server._state.nonceStore.set(aged, Date.now() - 5000);
+  assert.equal(server.consumeNonce(aged), true);
+  const raw = fs.existsSync(NONCE_FILE) ? fs.readFileSync(NONCE_FILE, 'utf8') : '';
+  assert.ok(!raw.includes(aged), 'consumed nonce should no longer appear in nonces.txt');
 });
