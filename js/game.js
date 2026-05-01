@@ -68,6 +68,8 @@
   const musicBtn = document.getElementById('musicBtn');
   const gameOverOverlay = document.getElementById('gameOverOverlay');
   const pauseOverlay = document.getElementById('pauseOverlay');
+  const pauseResumeBtn = document.getElementById('pauseResumeBtn');
+  const pauseMenuBtn = document.getElementById('pauseMenuBtn');
   const leaderboardStatus = document.getElementById('leaderboardStatus');
   const leaderboardList = document.getElementById('leaderboardList');
   const leaderboardEndpoint = './leaderboard.php';
@@ -446,6 +448,10 @@
 
   document.getElementById('gameOverRebootBtn').addEventListener('click', resetGame);
   document.getElementById('gameOverSubmitBtn').addEventListener('click', openScoreModal);
+  const gameOverMenuBtn = document.getElementById('gameOverMenuBtn');
+  if (gameOverMenuBtn) {
+    gameOverMenuBtn.addEventListener('click', returnToStartMenu);
+  }
 
   const ariaLive = document.getElementById('ariaLive');
 
@@ -1321,7 +1327,7 @@
 
   function drawSkyline() {
     const parallax = reduceMotion ? 0.05 : 0.3;
-    sceneryOffset += baseSpeed * speedMult * parallax;
+    sceneryOffset += baseSpeed * speedMult * speedMultiplier * parallax;
 
     for (let i = 0; i < 6; i++) {
       const width = 130;
@@ -1347,7 +1353,7 @@
   }
 
   function drawGround() {
-    groundOffset += baseSpeed * speedMult;
+    groundOffset += baseSpeed * speedMult * speedMultiplier;
     const renderWorldOffset = Math.floor(worldOffset);
     const endWorld = renderWorldOffset + canvas.width + terrain.step * 2;
     const groundSampleStep = 6;
@@ -1486,16 +1492,15 @@
 
   // ---------- Game loop ----------
 
-  function resetGame() {
+  function resetRunState() {
     closeScoreModal();
     gameOverOverlay.classList.remove('active');
     pauseOverlay.classList.remove('active');
     paused = false;
-    gameStarted = true;
+    gameOver = false;
     score = 0;
     speedMult = 1;
     baseSpeed = 4.2;
-    gameOver = false;
     spawnTimer = 0;
     obstacles.length = 0;
     lastSpawnAction = null;
@@ -1533,11 +1538,6 @@
     levelBannerFrames = 0;
     document.body.removeAttribute('data-palette');
     setScoreSubmissionState(false);
-    setLeaderboardStatus('Finish a run, then save your score to the global board.');
-    fetchLeaderboard();
-    // Re-seed RNG for daily mode so reboot replays the same course.
-    useSeededRng = dailySeedActive;
-    if (useSeededRng) setRngSeed(dailySeedValue());
     initTerrain();
     const spawnGround = getTerrainHeight(player.x + player.w * 0.5) || baseGroundY;
     player.h = 58;
@@ -1547,7 +1547,33 @@
     player.jumpsLeft = getMod().noDoubleJump ? 1 : 2;
     updateHud();
     renderPowerupPills();
+  }
+
+  function resetGame() {
+    resetRunState();
+    gameStarted = true;
+    setLeaderboardStatus('Finish a run, then save your score to the global board.');
+    fetchLeaderboard();
+    // Re-seed RNG for daily mode so reboot replays the same course.
+    useSeededRng = dailySeedActive;
+    if (useSeededRng) setRngSeed(dailySeedValue());
+    initTerrain();
+    const spawnGround = getTerrainHeight(player.x + player.w * 0.5) || baseGroundY;
+    player.y = spawnGround - player.h;
     scheduleLoop();
+  }
+
+  function returnToStartMenu() {
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+    resetRunState();
+    gameStarted = false;
+    startOverlay.classList.remove('hidden');
+    populateSkinSelect();
+    setLeaderboardStatus('Finish a run, then save your score to the global board.');
+    render();
   }
 
   function updateHud() {
@@ -1639,7 +1665,10 @@
 
     // Slow-mo halves world speed but keeps player physics responsive.
     const slowFactor = pwr.slowmo > 0 ? 0.55 : 1;
-    speedMultiplier = overclockMult * slowFactor;
+    // Boss fights force the world to crawl so the player has time to actually
+    // dodge lasers and trade hits instead of speeding past the encounter.
+    const bossFactor = boss ? 0.5 : 1;
+    speedMultiplier = overclockMult * slowFactor * bossFactor;
     const moveSpeed = baseSpeed * speedMult * speedMultiplier;
     const dashBoost = dashFrames > 0 ? 4 : 0;
     worldOffset += moveSpeed + dashBoost;
@@ -2066,16 +2095,27 @@
     }
   }
 
+  let inLoop = false;
+
   function loop() {
     rafId = null;
     if (paused || gameOver) return;
+    inLoop = true;
     update();
     render();
+    inLoop = false;
+    // Re-check pause/gameOver in case they flipped during update/render so we
+    // don't queue a frame the user has already asked us to stop.
+    if (paused || gameOver) return;
     rafId = requestAnimationFrame(loop);
   }
 
   function scheduleLoop() {
-    if (rafId !== null) return;
+    // inLoop guard: if loop is mid-execution, it will schedule the next frame
+    // itself when it finishes. A second scheduleLoop here would double-queue
+    // and effectively double the simulation rate.
+    if (rafId !== null || inLoop) return;
+    if (paused || gameOver) return;
     rafId = requestAnimationFrame(loop);
   }
 
@@ -2149,6 +2189,13 @@
 
   function togglePause() {
     setPaused(!paused);
+  }
+
+  if (pauseResumeBtn) {
+    pauseResumeBtn.addEventListener('click', () => setPaused(false));
+  }
+  if (pauseMenuBtn) {
+    pauseMenuBtn.addEventListener('click', returnToStartMenu);
   }
 
   // ---------- Input ----------
