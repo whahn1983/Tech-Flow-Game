@@ -6,7 +6,9 @@
   --ground: #16233f;
   --text: #e9f6ff;
 }
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 /* Hidden from sighted users but exposed to assistive tech (e.g. live regions). */
 .visually-hidden {
@@ -40,7 +42,9 @@
   outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
-html, body, * {
+html,
+body,
+* {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
@@ -48,7 +52,10 @@ html, body, * {
 }
 /* Re-enable interaction/text behavior on form controls; iOS Safari can
    otherwise drop taps on selects and checkboxes that inherit user-select:none. */
-input, select, textarea, button {
+input,
+select,
+textarea,
+button {
   -webkit-user-select: auto;
   user-select: auto;
   -webkit-touch-callout: default;
@@ -60,7 +67,7 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   color: var(--text);
   background: radial-gradient(circle at 15% 10%, #1b2e5f, var(--bg-top) 45%, var(--bg-bottom));
   display: grid;
@@ -86,13 +93,15 @@ h1 {
   font-weight: 700;
 }
 @media (max-width: 720px) {
-  .hud { grid-template-columns: repeat(3, 1fr); }
+  .hud {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 .chip {
   padding: 10px;
   border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.2);
-  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(4px);
 }
 canvas {
@@ -156,8 +165,8 @@ body.game-fullscreen canvas {
   margin-top: 14px;
   padding: 14px;
   border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.2);
-  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
   text-align: left;
 }
 .leaderboard-panel h2 {
@@ -173,7 +182,7 @@ body.game-fullscreen canvas {
 }
 .leaderboard-form input {
   border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.35);
+  border: 1px solid rgba(255, 255, 255, 0.35);
   padding: 8px 10px;
   background: rgba(5, 9, 16, 0.4);
   color: var(--text);
@@ -194,7 +203,7 @@ body.game-fullscreen canvas {
   max-height: 250px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.25) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
 }
 .leaderboard-list::-webkit-scrollbar {
   width: 6px;
@@ -203,7 +212,7 @@ body.game-fullscreen canvas {
   background: transparent;
 }
 .leaderboard-list::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.25);
+  background: rgba(255, 255, 255, 0.25);
   border-radius: 3px;
 }
 .leaderboard-list li {
@@ -242,21 +251,29 @@ button:focus-visible {
   color: rgba(46, 248, 255, 0.85);
   line-height: 0;
   z-index: 10;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 #fullscreenBtn:hover {
   background: rgba(46, 248, 255, 0.15);
   color: #2ef8ff;
 }
-#fullscreenBtn[data-locked="true"] {
+#fullscreenBtn[data-locked='true'] {
   background: rgba(46, 248, 255, 0.18);
   border-color: rgba(46, 248, 255, 0.7);
   color: #2ef8ff;
 }
-.touch-hint { display: none; }
+.touch-hint {
+  display: none;
+}
 @media (pointer: coarse) {
-  .keyboard-hint { display: none; }
-  .touch-hint { display: inline; }
+  .keyboard-hint {
+    display: none;
+  }
+  .touch-hint {
+    display: inline;
+  }
 }
 #canvasWrapper {
   position: relative;
@@ -418,7 +435,7 @@ button:focus-visible {
 .score-modal-box input {
   width: 100%;
   border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.35);
+  border: 1px solid rgba(255, 255, 255, 0.35);
   padding: 10px 12px;
   background: rgba(5, 9, 16, 0.5);
   color: var(--text);
@@ -437,7 +454,7 @@ button:focus-visible {
   margin-top: 0;
 }
 .score-modal-skip {
-  background: rgba(255,255,255,0.14);
+  background: rgba(255, 255, 255, 0.14);
   color: var(--text);
 }
 .score-modal-status {
@@ -479,10 +496,22 @@ button:focus-visible {
   color: var(--neon);
   text-shadow: 0 0 6px rgba(46, 248, 255, 0.6);
 }
-.powerup-pill[data-kind="shield"]    { color: #2ef8ff; border-color: rgba(46,248,255,0.6); }
-.powerup-pill[data-kind="overclock"] { color: #ffd95c; border-color: rgba(255,217,92,0.6); }
-.powerup-pill[data-kind="magnet"]    { color: #ff5cd1; border-color: rgba(255,92,209,0.6); }
-.powerup-pill[data-kind="slowmo"]    { color: #75ffd4; border-color: rgba(117,255,212,0.6); }
+.powerup-pill[data-kind='shield'] {
+  color: #2ef8ff;
+  border-color: rgba(46, 248, 255, 0.6);
+}
+.powerup-pill[data-kind='overclock'] {
+  color: #ffd95c;
+  border-color: rgba(255, 217, 92, 0.6);
+}
+.powerup-pill[data-kind='magnet'] {
+  color: #ff5cd1;
+  border-color: rgba(255, 92, 209, 0.6);
+}
+.powerup-pill[data-kind='slowmo'] {
+  color: #75ffd4;
+  border-color: rgba(117, 255, 212, 0.6);
+}
 
 /* Run options */
 .run-options {
@@ -507,7 +536,7 @@ button:focus-visible {
   color: var(--text);
 }
 .run-option select,
-.run-option input[type="checkbox"] {
+.run-option input[type='checkbox'] {
   font-family: inherit;
   font-size: 0.88rem;
   padding: 4px 6px;
@@ -524,10 +553,31 @@ button:focus-visible {
 }
 
 /* Level palette tints — applied via body[data-palette] on level-up */
-body[data-palette="2"] { --neon: #75ffd4; --accent: #2ef8ff; }
-body[data-palette="3"] { --neon: #ffd95c; --accent: #ff8a3a; }
-body[data-palette="4"] { --neon: #ff5cd1; --accent: #8e5cff; }
-body[data-palette="5"] { --neon: #ff5a7c; --accent: #ffd95c; }
-body[data-palette="6"] { --neon: #b6ff5c; --accent: #2ef8ff; }
-body { transition: background 0.6s ease; }
-canvas { transition: border-color 0.6s ease, box-shadow 0.6s ease; }
+body[data-palette='2'] {
+  --neon: #75ffd4;
+  --accent: #2ef8ff;
+}
+body[data-palette='3'] {
+  --neon: #ffd95c;
+  --accent: #ff8a3a;
+}
+body[data-palette='4'] {
+  --neon: #ff5cd1;
+  --accent: #8e5cff;
+}
+body[data-palette='5'] {
+  --neon: #ff5a7c;
+  --accent: #ffd95c;
+}
+body[data-palette='6'] {
+  --neon: #b6ff5c;
+  --accent: #2ef8ff;
+}
+body {
+  transition: background 0.6s ease;
+}
+canvas {
+  transition:
+    border-color 0.6s ease,
+    box-shadow 0.6s ease;
+}

@@ -16,19 +16,19 @@ const CRITICAL_ASSETS = [
 
 // Optional assets: cached opportunistically so failures here don't abort install.
 // The MP3 is excluded — at ~7MB it's lazily fetched on first playback instead.
-const OPTIONAL_ASSETS = [
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-];
+const OPTIONAL_ASSETS = ['/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
+    caches
+      .open(CACHE_NAME)
       .then((cache) => cache.addAll(CRITICAL_ASSETS))
       .then(() =>
-        caches.open(CACHE_NAME).then((cache) =>
-          Promise.all(OPTIONAL_ASSETS.map((url) => cache.add(url).catch(() => {})))
-        )
+        caches
+          .open(CACHE_NAME)
+          .then((cache) =>
+            Promise.all(OPTIONAL_ASSETS.map((url) => cache.add(url).catch(() => {})))
+          )
       )
       .then(() => self.skipWaiting())
   );
@@ -36,9 +36,12 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
-    ).then(() => self.clients.claim())
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
+      )
+      .then(() => self.clients.claim())
   );
 });
 
@@ -85,7 +88,9 @@ self.addEventListener('fetch', (event) => {
         return networkResponse;
       })
       .catch(() =>
-        caches.match(event.request).then((cachedResponse) => cachedResponse || caches.match('/index.html'))
+        caches
+          .match(event.request)
+          .then((cachedResponse) => cachedResponse || caches.match('/index.html'))
       )
   );
 });

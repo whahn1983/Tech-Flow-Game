@@ -36,7 +36,10 @@ test('sortedLeaderboard sorts descending by score, ascending by savedAt', () => 
     { name: 'C', score: 200, savedAt: '2024-01-01T00:00:00Z' },
   ];
   const sorted = server.sortedLeaderboard(entries);
-  assert.deepEqual(sorted.map((e) => e.name), ['C', 'B', 'A']);
+  assert.deepEqual(
+    sorted.map((e) => e.name),
+    ['C', 'B', 'A']
+  );
 });
 
 test('sortedLeaderboard caps at 100 entries', () => {
