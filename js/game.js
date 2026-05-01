@@ -1305,7 +1305,7 @@
     if (boss) return;
     boss = {
       worldX: worldOffset + canvas.width + 80,
-      y: 60,
+      y: (40 + (baseGroundY - 70 - 30)) / 2,
       w: 110,
       h: 70,
       hp: 100,
@@ -1342,10 +1342,15 @@
   function bossUpdate() {
     if (!boss) return;
     // Drift to a fixed screen position for telegraphed dodging.
-    const targetScreenX = canvas.width * 0.7;
+    const targetScreenX = canvas.width * 0.82;
     const targetWorldX = worldOffset + targetScreenX - boss.w / 2;
     boss.worldX += (targetWorldX - boss.worldX) * 0.04;
-    boss.y = 60 + Math.sin(performance.now() * 0.002) * 22;
+    // Patrol vertically across the playfield so the player must dodge.
+    const yMin = 40;
+    const yMax = baseGroundY - boss.h - 30;
+    const yCenter = (yMin + yMax) / 2;
+    const yAmp = (yMax - yMin) / 2;
+    boss.y = yCenter + Math.sin(performance.now() * 0.0015) * yAmp;
     boss.timer -= 1;
     boss.cooldown -= 1;
     if (boss.cooldown <= 0) {
