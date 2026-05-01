@@ -158,6 +158,12 @@
     }
   };
 
+  function setMusicButtonState(label) {
+    musicBtn.textContent = label;
+    // aria-pressed reflects whether music is currently playing (not muted).
+    musicBtn.setAttribute('aria-pressed', String(!muted && !music.paused));
+  }
+
   function applyMusicMuted() {
     music.muted = muted;
     if (muted && !music.paused) music.pause();
@@ -167,9 +173,9 @@
     if (muted) return;
     music.volume = 0.55;
     music.play().then(() => {
-      musicBtn.textContent = 'Music On';
+      setMusicButtonState('Music On');
     }).catch(() => {
-      musicBtn.textContent = 'Tap to Enable Music';
+      setMusicButtonState('Tap to Enable Music');
     });
   }
 
@@ -185,19 +191,28 @@
       music.pause();
       muted = true;
       saveSettings({ muted: true });
-      musicBtn.textContent = 'Play Music';
+      setMusicButtonState('Play Music');
     } else {
       tryPlayMusic();
     }
   });
 
   applyMusicMuted();
-  if (muted) musicBtn.textContent = 'Play Music';
+  setMusicButtonState(muted ? 'Play Music' : musicBtn.textContent);
 
   // ---------- Game over UI ----------
 
   document.getElementById('gameOverRebootBtn').addEventListener('click', resetGame);
   document.getElementById('gameOverSubmitBtn').addEventListener('click', openScoreModal);
+
+  const ariaLive = document.getElementById('ariaLive');
+
+  function announce(message) {
+    if (!ariaLive) return;
+    // Clear-then-set forces some screen readers to re-announce identical text.
+    ariaLive.textContent = '';
+    ariaLive.textContent = message;
+  }
 
   function setLeaderboardStatus(message) {
     leaderboardStatus.textContent = message;
@@ -226,15 +241,23 @@
   async function fetchLeaderboard() {
     try {
       const response = await fetch(leaderboardEndpoint, { cache: 'no-store' });
-      if (!response.ok) throw new Error('Could not load leaderboard');
+      if (!response.ok) {
+        throw new Error(`Leaderboard request failed (HTTP ${response.status})`);
+      }
       const payload = await response.json();
       renderLeaderboard(payload.entries || []);
       if (!gameStarted) {
         setLeaderboardStatus('Finish a run, then save your score to the global board.');
       }
-    } catch {
+    } catch (error) {
       renderLeaderboard([]);
-      setLeaderboardStatus('Global leaderboard unavailable. Ensure leaderboard.php is deployed and writable.');
+      if (error instanceof TypeError) {
+        setLeaderboardStatus('Network unavailable. Check your connection and try again.');
+      } else if (error instanceof SyntaxError) {
+        setLeaderboardStatus('Leaderboard returned an invalid response. Please retry shortly.');
+      } else {
+        setLeaderboardStatus('Global leaderboard unavailable. Ensure leaderboard.php is deployed and writable.');
+      }
     }
   }
 
@@ -249,14 +272,9 @@
   }
 
   async function submitScore(name, runScore) {
-    let body;
-    try {
-      const nonce = await fetchSubmitNonce();
-      body = JSON.stringify({ name, score: runScore, nonce });
-    } catch {
-      // Server may not yet support nonces; fall back to legacy submission.
-      body = JSON.stringify({ name, score: runScore });
-    }
+    // Nonce is mandatory — both Node and PHP servers reject submissions without one.
+    const nonce = await fetchSubmitNonce();
+    const body = JSON.stringify({ name, score: runScore, nonce });
 
     const response = await fetch(leaderboardEndpoint, {
       method: 'POST',
@@ -264,26 +282,76 @@
       body
     });
 
-    const payload = await response.json();
+    let payload;
+    try {
+      payload = await response.json();
+    } catch (parseError) {
+      if (parseError instanceof SyntaxError) {
+        throw new Error('Server returned an invalid response. Please try again.');
+      }
+      throw parseError;
+    }
     if (!response.ok) {
-      throw new Error(payload.error || 'Unable to save score.');
+      throw new Error((payload && payload.error) || 'Unable to save score.');
     }
 
     return payload.entries || [];
   }
 
+  let scoreModalLastFocus = null;
+
+  function getScoreModalFocusables() {
+    return Array.from(
+      scoreModal.querySelectorAll('input, button, [tabindex]:not([tabindex="-1"])')
+    ).filter((el) => !el.disabled && el.offsetParent !== null);
+  }
+
+  function trapScoreModalFocus(event) {
+    if (scoreModal.hidden) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeScoreModal();
+      setLeaderboardStatus(`Run ended at ${latestRunScore}m. Press R to reboot.`);
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const focusables = getScoreModalFocusables();
+    if (focusables.length === 0) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
   function openScoreModal() {
     if (!scoreModal.hidden) return;
+    scoreModalLastFocus = document.activeElement;
     scoreModalStatus.textContent = '';
     scoreModalName.value = settings.lastName || '';
     scoreModalDist.textContent = `Distance: ${latestRunScore}m`;
     scoreModalSubmit.disabled = false;
     scoreModal.hidden = false;
+    document.addEventListener('keydown', trapScoreModalFocus);
     scoreModalName.focus();
   }
 
   function closeScoreModal() {
+    if (scoreModal.hidden) return;
     scoreModal.hidden = true;
+    document.removeEventListener('keydown', trapScoreModalFocus);
+    if (scoreModalLastFocus && typeof scoreModalLastFocus.focus === 'function') {
+      try {
+        scoreModalLastFocus.focus();
+      } catch {
+        /* ignore — element may have been removed */
+      }
+    }
+    scoreModalLastFocus = null;
   }
 
   scoreModalSkip.addEventListener('click', () => {
@@ -306,11 +374,14 @@
       const entries = await submitScore(name, scoreToSave);
       renderLeaderboard(entries);
       setLeaderboardStatus(`Saved ${scoreToSave}m for ${name}. Reboot and beat it!`);
+      announce(`Score saved: ${scoreToSave} meters for ${name}.`);
       setScoreSubmissionState(false);
       saveSettings({ lastName: name });
       closeScoreModal();
     } catch (error) {
-      scoreModalStatus.textContent = error.message || 'Unable to save your score.';
+      const message = (error && error.message) || 'Unable to save your score.';
+      scoreModalStatus.textContent = message;
+      announce(message);
       scoreModalSubmit.disabled = false;
     }
   });
@@ -1004,6 +1075,7 @@
     latestRunScore = Math.floor(score);
     setScoreSubmissionState(latestRunScore > 0);
     setLeaderboardStatus(`Run ended at ${latestRunScore}m. Submit your score or press R to restart.`);
+    announce(`Signal lost. Distance ${latestRunScore} meters.`);
     sfx.death();
     updateHud();
   }
@@ -1102,7 +1174,34 @@
   updateHud();
   setScoreSubmissionState(false);
   fetchLeaderboard();
-  setInterval(fetchLeaderboard, 60000);
+
+  // Visibility-aware refresh: only poll the leaderboard while the tab is
+  // visible. Re-fetch immediately on visibility regain so users returning to
+  // the tab see fresh scores without waiting for the next tick.
+  const LEADERBOARD_REFRESH_MS = 60000;
+  let leaderboardTimer = null;
+
+  function startLeaderboardPolling() {
+    if (leaderboardTimer != null) return;
+    leaderboardTimer = setInterval(fetchLeaderboard, LEADERBOARD_REFRESH_MS);
+  }
+
+  function stopLeaderboardPolling() {
+    if (leaderboardTimer == null) return;
+    clearInterval(leaderboardTimer);
+    leaderboardTimer = null;
+  }
+
+  if (!document.hidden) startLeaderboardPolling();
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      stopLeaderboardPolling();
+    } else {
+      fetchLeaderboard();
+      startLeaderboardPolling();
+    }
+  });
 
   render();
 

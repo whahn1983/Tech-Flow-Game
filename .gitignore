@@ -1,6 +1,11 @@
 leaderboard.txt
+leaderboard.sqlite
+leaderboard.sqlite-journal
 rate_limit.txt
 nonces.txt
 server.log
 node_modules
+data/
+.eslintcache
 .DS_Store
+npm-debug.log*

@@ -1,0 +1,34 @@
+{
+  "name": "tech-flow-runner",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tech Flow Runner — neon-circuit endless runner with double-jump and a global leaderboard.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "lint": "eslint --no-eslintrc --config .eslintrc.json 'js/**/*.js' sw.js server.js 'tests/**/*.js'",
+    "format": "prettier --check 'js/**/*.js' 'css/**/*.css' '*.json' '*.md' 'sw.js' 'server.js' 'tests/**/*.js'",
+    "format:fix": "prettier --write 'js/**/*.js' 'css/**/*.css' '*.json' '*.md' 'sw.js' 'server.js' 'tests/**/*.js'",
+    "test": "node --test tests/",
+    "syntax": "node --check server.js && node --check js/game.js && node --check sw.js",
+    "prepare": "husky || true"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "husky": "^9.1.6",
+    "lint-staged": "^15.2.10",
+    "prettier": "^3.3.3"
+  },
+  "lint-staged": {
+    "*.js": [
+      "prettier --write",
+      "eslint --no-eslintrc --config .eslintrc.json"
+    ],
+    "*.{css,json,md}": [
+      "prettier --write"
+    ]
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

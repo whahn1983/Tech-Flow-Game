@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main, master]
 
+permissions:
+  contents: read
+
 jobs:
   syntax:
     name: Syntax & lint
@@ -23,6 +26,7 @@ jobs:
         with:
           php-version: '8.2'
           tools: none
+          extensions: pdo_sqlite, mbstring
 
       - name: Node syntax check
         run: |
@@ -36,7 +40,26 @@ jobs:
       - name: Validate manifest.json
         run: node -e "JSON.parse(require('fs').readFileSync('manifest.json','utf8'));"
 
-      - name: ESLint (best-effort)
+      - name: ESLint
         run: |
           npx --yes eslint@8 --no-eslintrc --config .eslintrc.json \
-            'js/**/*.js' 'sw.js' 'server.js' || true
+            'js/**/*.js' 'sw.js' 'server.js' 'tests/**/*.js'
+
+      - name: Prettier (check)
+        run: |
+          npx --yes prettier@3 --check \
+            'js/**/*.js' 'css/**/*.css' '*.json' 'sw.js' 'server.js' 'tests/**/*.js'
+
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run tests
+        run: node --test tests/server.test.js
