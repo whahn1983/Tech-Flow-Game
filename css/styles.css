@@ -296,7 +296,8 @@ button:focus-visible {
   pointer-events: auto;
   margin-top: 0;
 }
-#gameOverSubmitBtn {
+#gameOverSubmitBtn,
+#gameOverMenuBtn {
   background: transparent;
   border: 2px solid var(--neon);
   color: var(--neon);
@@ -305,8 +306,10 @@ button:focus-visible {
   position: absolute;
   inset: 0;
   display: none;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 18px;
   font-weight: 800;
   letter-spacing: 2px;
   font-size: 1.6rem;
@@ -319,6 +322,23 @@ button:focus-visible {
 }
 #pauseOverlay.active {
   display: flex;
+}
+#pauseOverlay .pause-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+#pauseOverlay button {
+  pointer-events: auto;
+  margin-top: 0;
+  font-size: 0.95rem;
+  letter-spacing: 1px;
+}
+#pauseMenuBtn {
+  background: transparent;
+  border: 2px solid var(--neon);
+  color: var(--neon);
 }
 @media (max-width: 640px) {
   body {

@@ -44,10 +44,17 @@
       <canvas id="game" width="900" height="420" aria-label="Tech Flow jump runner"></canvas>
       <div id="powerupBar" aria-label="Active power-ups"></div>
       <button id="fullscreenBtn" type="button" aria-label="Toggle full screen"></button>
-      <div id="pauseOverlay" aria-hidden="true">PAUSED</div>
+      <div id="pauseOverlay" aria-hidden="true">
+        <span class="pause-title">PAUSED</span>
+        <div class="pause-actions">
+          <button id="pauseResumeBtn" type="button">Resume</button>
+          <button id="pauseMenuBtn" type="button">Main Menu</button>
+        </div>
+      </div>
       <div id="gameOverOverlay">
         <button id="gameOverRebootBtn" type="button">Reboot Run</button>
         <button id="gameOverSubmitBtn" type="button">Submit Score</button>
+        <button id="gameOverMenuBtn" type="button">Main Menu</button>
       </div>
       <div id="startOverlay">
         <button id="startBtn" type="button">&#9654; Start</button>
