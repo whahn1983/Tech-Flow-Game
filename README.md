@@ -199,7 +199,7 @@ This creates:
 
 ## Development
 
-Lightweight tooling is configured via `package.json`, `.eslintrc.json`,
+Lightweight tooling is configured via `package.json`, `eslint.config.js`,
 `.prettierrc.json`, and `.editorconfig`.
 
 ```bash

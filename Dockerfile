@@ -1,6 +1,6 @@
 # Pin to a specific Node.js patch release on Alpine for reproducible builds.
-# To pin even further, replace with `node:20.18.1-alpine3.20@sha256:<digest>`
-# (look up the current digest with `docker buildx imagetools inspect node:20.18.1-alpine3.20`).
+# To pin even further, replace with `node:24.1.0-alpine3.20@sha256:<digest>`
+# (look up the current digest with `docker buildx imagetools inspect node:24.1.0-alpine3.20`).
 FROM node:24.1.0-alpine3.20
 
 WORKDIR /app
