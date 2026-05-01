@@ -46,6 +46,14 @@ html, body, * {
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
 }
+/* Re-enable interaction/text behavior on form controls; iOS Safari can
+   otherwise drop taps on selects and checkboxes that inherit user-select:none. */
+input, select, textarea, button {
+  -webkit-user-select: auto;
+  user-select: auto;
+  -webkit-touch-callout: default;
+  touch-action: manipulation;
+}
 html {
   background-color: #0a1330;
 }
@@ -94,6 +102,10 @@ canvas {
   border: 2px solid rgba(46, 248, 255, 0.35);
   box-shadow: 0 0 26px rgba(46, 248, 255, 0.25);
   background: linear-gradient(180deg, #111f45 0%, #0a1020 70%);
+  /* Let pointermove fire on swipes — without this, mobile browsers may
+     intercept vertical/horizontal swipes for scroll/zoom and the duck
+     and dash gestures never trigger. */
+  touch-action: none;
 }
 /* Desktop fullscreen: expand game to fill the viewport */
 body.game-fullscreen {
