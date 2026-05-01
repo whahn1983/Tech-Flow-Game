@@ -28,6 +28,7 @@
   <title>Tech Flow Runner</title>
 </head>
 <body>
+  <a href="#game" class="skip-link">Skip to game</a>
   <main class="wrap">
     <h1>Tech Flow Runner</h1>
     <section class="hud" aria-label="Heads-up display">
@@ -35,6 +36,7 @@
       <div class="chip">Speed: <span id="speed">1.0</span>x</div>
       <div class="chip">Best: <span id="best">0</span>m</div>
     </section>
+    <div id="ariaLive" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
     <div id="canvasWrapper">
       <canvas id="game" width="900" height="420" aria-label="Tech Flow jump runner"></canvas>
       <button id="fullscreenBtn" type="button" aria-label="Toggle full screen"></button>
@@ -54,7 +56,7 @@
       <span class="touch-hint">Tap the game to double jump. Tap Reboot Run to restart or Submit Score to save to the leaderboard.</span>
     </div>
     <div class="button-row">
-      <button id="musicBtn" type="button">Play Music</button>
+      <button id="musicBtn" type="button" aria-pressed="false">Play Music</button>
       <button id="installBtn" type="button">Install App</button>
     </div>
     <section class="leaderboard-panel" aria-live="polite">

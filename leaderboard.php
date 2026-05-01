@@ -6,18 +6,32 @@ header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
 
-const LEADERBOARD_FILE  = __DIR__ . '/leaderboard.txt';
-const RATE_LIMIT_FILE   = __DIR__ . '/rate_limit.txt';
-const NONCE_FILE        = __DIR__ . '/nonces.txt';
-const MAX_ENTRIES       = 100;
-const MAX_SCORE         = 999999;
-const MAX_NAME_LENGTH   = 24;
-const MAX_BODY_BYTES    = 10240; // 10 KB
-const RATE_LIMIT_MAX    = 5;     // max POST submissions per window
-const RATE_LIMIT_WINDOW = 60;    // seconds
-const NONCE_LIFETIME    = 600;   // seconds a nonce remains valid (10 min)
-const NONCE_MIN_AGE     = 4;     // submissions must wait at least this long after issuance
-const NONCE_MAX_TRACKED = 4096;  // hard cap to keep the nonce file bounded
+// CORS allowlist. Defaults to same-origin only. Set the ALLOWED_ORIGINS
+// environment variable (comma-separated) to permit cross-origin API access.
+$allowedOriginsEnv = getenv('ALLOWED_ORIGINS') ?: '';
+$ALLOWED_ORIGINS = array_filter(array_map('trim', explode(',', $allowedOriginsEnv)));
+$requestOrigin = $_SERVER['HTTP_ORIGIN'] ?? '';
+if ($requestOrigin !== '' && in_array($requestOrigin, $ALLOWED_ORIGINS, true)) {
+    header('Access-Control-Allow-Origin: ' . $requestOrigin);
+    header('Vary: Origin');
+    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type');
+    header('Access-Control-Max-Age: 600');
+}
+
+const LEADERBOARD_FILE   = __DIR__ . '/leaderboard.txt';
+const LEADERBOARD_DB     = __DIR__ . '/leaderboard.sqlite';
+const RATE_LIMIT_FILE    = __DIR__ . '/rate_limit.txt';
+const NONCE_FILE         = __DIR__ . '/nonces.txt';
+const MAX_ENTRIES        = 100;
+const MAX_SCORE          = 999999;
+const MAX_NAME_LENGTH    = 24;
+const MAX_BODY_BYTES     = 10240; // 10 KB
+const RATE_LIMIT_MAX     = 5;     // max POST submissions per window
+const RATE_LIMIT_WINDOW  = 60;    // seconds
+const NONCE_LIFETIME     = 600;   // seconds a nonce remains valid (10 min)
+const NONCE_MIN_AGE      = 4;     // submissions must wait at least this long after issuance
+const NONCE_MAX_TRACKED  = 4096;  // hard cap to keep the nonce file bounded
 
 function send_json(int $statusCode, array $payload): void {
     http_response_code($statusCode);
@@ -28,6 +42,101 @@ function send_json(int $statusCode, array $payload): void {
 function get_client_ip(): string {
     // Only trust REMOTE_ADDR. Never X-Forwarded-For without a verified trusted proxy.
     return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+}
+
+/**
+ * Import scores from the legacy flat file `leaderboard.txt` into the given
+ * SQLite handle. Called whenever the `scores` table is empty so a redeploy
+ * (or a wiped DB) can recover from the flat file if it's still around.
+ *
+ * Returns the number of rows imported. Leaves `leaderboard.txt` in place so
+ * it can act as a recovery source on future cold starts.
+ */
+function import_leaderboard_txt(PDO $pdo): int {
+    if (!file_exists(LEADERBOARD_FILE)) {
+        return 0;
+    }
+
+    $contents = @file_get_contents(LEADERBOARD_FILE);
+    if (!is_string($contents) || trim($contents) === '') {
+        return 0;
+    }
+
+    $insert   = $pdo->prepare('INSERT INTO scores (name, score, saved_at) VALUES (?, ?, ?)');
+    $imported = 0;
+
+    $pdo->beginTransaction();
+    try {
+        foreach (explode("\n", trim($contents)) as $line) {
+            $parts = explode('|', $line);
+            if (count($parts) < 3) {
+                continue;
+            }
+            $name    = trim($parts[0]);
+            $score   = (int)$parts[1];
+            $savedAt = $parts[2];
+            if ($name === '' || $score < 0) {
+                continue;
+            }
+            $insert->execute([$name, $score, $savedAt]);
+            $imported++;
+        }
+        $pdo->commit();
+    } catch (Throwable $error) {
+        $pdo->rollBack();
+        return 0;
+    }
+
+    return $imported;
+}
+
+/**
+ * Returns a PDO instance for the SQLite-backed leaderboard, or null if the
+ * SQLite PDO driver is unavailable. Creates the schema on first use and, if
+ * the `scores` table is empty, imports any existing `leaderboard.txt` as a
+ * recovery / migration step.
+ */
+function get_db(): ?PDO {
+    static $pdo = null;
+    static $tried = false;
+
+    if ($tried) {
+        return $pdo;
+    }
+    $tried = true;
+
+    if (!class_exists('PDO') || !in_array('sqlite', PDO::getAvailableDrivers(), true)) {
+        return null;
+    }
+
+    try {
+        $pdo = new PDO('sqlite:' . LEADERBOARD_DB);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo->exec('PRAGMA journal_mode = WAL');
+        $pdo->exec('PRAGMA synchronous = NORMAL');
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS scores (
+                id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                name     TEXT    NOT NULL,
+                score    INTEGER NOT NULL,
+                saved_at TEXT    NOT NULL
+            )'
+        );
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_scores_score ON scores (score DESC, saved_at ASC)');
+
+        // If the scores table is empty, try to seed it from the legacy flat
+        // file. This handles both first-time migrations from a flat-file
+        // deployment and any later cold start where SQLite was reset but the
+        // .txt file is still around.
+        $existing = (int)$pdo->query('SELECT COUNT(*) FROM scores')->fetchColumn();
+        if ($existing === 0) {
+            import_leaderboard_txt($pdo);
+        }
+    } catch (Throwable $error) {
+        $pdo = null;
+    }
+
+    return $pdo;
 }
 
 function check_rate_limit(): void {
@@ -113,6 +222,22 @@ function clean_player_name($rawName): string {
 }
 
 function read_leaderboard(): array {
+    $db = get_db();
+    if ($db !== null) {
+        $stmt = $db->query(
+            'SELECT name, score, saved_at FROM scores ORDER BY score DESC, saved_at ASC LIMIT ' . MAX_ENTRIES
+        );
+        $entries = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $entries[] = [
+                'name'    => $row['name'],
+                'score'   => (int)$row['score'],
+                'savedAt' => $row['saved_at']
+            ];
+        }
+        return $entries;
+    }
+
     ensure_leaderboard_file_exists();
 
     $rawContents = file_get_contents(LEADERBOARD_FILE);
@@ -171,6 +296,21 @@ function encode_leaderboard_rows(array $entries): string {
 }
 
 function append_score_with_lock(string $name, int $score, string $savedAt): array {
+    $db = get_db();
+    if ($db !== null) {
+        $insert = $db->prepare('INSERT INTO scores (name, score, saved_at) VALUES (?, ?, ?)');
+        $insert->execute([$name, $score, $savedAt]);
+
+        // Trim the table to MAX_ENTRIES — keep top scores by (score DESC, saved_at ASC).
+        $db->exec(
+            'DELETE FROM scores WHERE id NOT IN (
+                SELECT id FROM scores ORDER BY score DESC, saved_at ASC LIMIT ' . MAX_ENTRIES . '
+            )'
+        );
+
+        return read_leaderboard();
+    }
+
     ensure_leaderboard_file_exists();
 
     $handle = fopen(LEADERBOARD_FILE, 'c+');
@@ -299,8 +439,6 @@ function issue_nonce(): string {
  * Consume a nonce. Returns true if the nonce existed, was issued at least
  * NONCE_MIN_AGE seconds ago, and is still within NONCE_LIFETIME. The nonce is
  * removed on success.
- *
- * If the nonce file is unreadable we fail open so legacy clients keep working.
  */
 function consume_nonce(string $nonce): bool {
     if ($nonce === '' || !ctype_xdigit($nonce)) {
@@ -309,12 +447,13 @@ function consume_nonce(string $nonce): bool {
 
     $handle = @fopen(NONCE_FILE, 'c+');
     if ($handle === false) {
-        return true; // Fail open.
+        // Fail closed: if we cannot validate, reject.
+        return false;
     }
 
     if (!flock($handle, LOCK_EX)) {
         fclose($handle);
-        return true; // Fail open.
+        return false;
     }
 
     $rawContents = stream_get_contents($handle);
@@ -363,6 +502,14 @@ function consume_nonce(string $nonce): bool {
 }
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+
+if ($method === 'OPTIONS') {
+    if ($requestOrigin !== '' && in_array($requestOrigin, $ALLOWED_ORIGINS, true)) {
+        http_response_code(204);
+        exit;
+    }
+    send_json(403, ['error' => 'Origin not allowed.']);
+}
 
 if ($method === 'GET') {
     $action = $_GET['action'] ?? '';
@@ -415,9 +562,9 @@ if ($method === 'POST') {
         send_json(400, ['error' => 'Score must be a whole number between 0 and ' . MAX_SCORE . '.']);
     }
 
-    // Validate nonce when one is provided. Older clients can still submit without
-    // a nonce, but the server prefers — and the bundled client always sends — one.
-    if ($nonce !== '' && !consume_nonce($nonce)) {
+    // Nonce is mandatory. Clients must obtain a single-use nonce via
+    // GET ?action=nonce and present it on submission.
+    if (!consume_nonce($nonce)) {
         send_json(400, ['error' => 'Submission expired or invalid. Please try again.']);
     }
 
@@ -435,4 +582,5 @@ if ($method === 'POST') {
     ]);
 }
 
+header('Allow: GET, POST, OPTIONS');
 send_json(405, ['error' => 'Method not allowed.']);

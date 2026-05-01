@@ -8,6 +8,16 @@ services:
       - "5001:5001"
     environment:
       PORT: 5001
+      # Comma-separated origins permitted to call the leaderboard API.
+      # Leave unset for same-origin only.
+      ALLOWED_ORIGINS: ""
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     volumes:
       - leaderboard-data:/app/data
 

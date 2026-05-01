@@ -1,4 +1,7 @@
-const CACHE_NAME = 'tech-flow-runner-v6';
+// Bump CACHE_NAME on every released change. The activate handler purges any
+// caches that don't match this name, so old assets are evicted on first load
+// after a deploy.
+const CACHE_NAME = 'tech-flow-runner-v7';
 
 // Critical assets: must be cached for the install event to succeed.
 const CRITICAL_ASSETS = [
@@ -12,10 +15,10 @@ const CRITICAL_ASSETS = [
 ];
 
 // Optional assets: cached opportunistically so failures here don't abort install.
+// The MP3 is excluded — at ~7MB it's lazily fetched on first playback instead.
 const OPTIONAL_ASSETS = [
   '/icons/icon-192.png',
   '/icons/icon-512.png',
-  '/Tech%20Flow.mp3',
 ];
 
 self.addEventListener('install', (event) => {
@@ -39,7 +42,9 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-const STATIC_REGEX = /\.(?:css|js|png|jpg|jpeg|svg|webp|woff2?|mp3|ogg)(?:\?.*)?$/;
+// Static asset extensions cached cache-first. Audio is excluded — the player
+// streams it lazily and we don't want a multi-megabyte cache entry per visitor.
+const STATIC_REGEX = /\.(?:css|js|png|jpg|jpeg|svg|webp|woff2?)(?:\?.*)?$/;
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
@@ -55,8 +60,12 @@ self.addEventListener('fetch', (event) => {
       caches.match(event.request).then((cached) => {
         if (cached) return cached;
         return fetch(event.request).then((networkResponse) => {
-          const clone = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          // Only cache successful, basic (same-origin) responses to avoid
+          // poisoning the cache with opaque or error responses.
+          if (networkResponse.ok && networkResponse.type === 'basic') {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
           return networkResponse;
         });
       })
@@ -69,8 +78,10 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {
-        const clone = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        if (networkResponse.ok && networkResponse.type === 'basic') {
+          const clone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
         return networkResponse;
       })
       .catch(() =>

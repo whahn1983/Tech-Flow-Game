@@ -1,4 +1,7 @@
-FROM node:20-alpine
+# Pin to a specific Node.js patch release on Alpine for reproducible builds.
+# To pin even further, replace with `node:20.18.1-alpine3.20@sha256:<digest>`
+# (look up the current digest with `docker buildx imagetools inspect node:20.18.1-alpine3.20`).
+FROM node:20.18.1-alpine3.20
 
 WORKDIR /app
 
@@ -8,11 +11,13 @@ COPY --chown=app:app . .
 
 RUN mkdir -p /app/data \
     && ln -sf /app/data/leaderboard.txt /app/leaderboard.txt \
-    && chown -R app:app /app/data
+    && chown -R app:app /app/data \
+    && chmod -R go-w /app
 
 USER app
 
-ENV PORT=5001
+ENV NODE_ENV=production \
+    PORT=5001
 EXPOSE 5001
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \

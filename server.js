@@ -21,6 +21,13 @@ const MAX_SCORE = 999999;
 const MAX_NAME_LENGTH = 24;
 const MAX_PAYLOAD_BYTES = 10240; // 10 KB — name + score never exceeds a few hundred bytes
 
+// CORS allowlist. Defaults to same-origin only. Set ALLOWED_ORIGINS to a
+// comma-separated list of origins to permit cross-origin API access.
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean);
+
 // Rate limiting: max 5 POST submissions per IP per 60 seconds (in-memory).
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
@@ -33,8 +40,9 @@ const NONCE_MIN_AGE_MS = 4 * 1000;
 const NONCE_MAX_TRACKED = 4096;
 const nonceStore = new Map();
 
-// Prune stale rate-limit and nonce entries every minute.
-setInterval(() => {
+// Prune stale rate-limit and nonce entries every minute. unref() so the timer
+// alone doesn't keep Node alive (lets test runners exit cleanly).
+const pruneTimer = setInterval(() => {
   const cutoff = Date.now() - RATE_LIMIT_WINDOW_MS;
   for (const [ip, timestamps] of rateLimitStore) {
     const filtered = timestamps.filter((ts) => ts > cutoff);
@@ -50,6 +58,7 @@ setInterval(() => {
     if (ts < nonceCutoff) nonceStore.delete(nonce);
   }
 }, 60 * 1000);
+pruneTimer.unref();
 
 function checkRateLimit(ip) {
   const now = Date.now();
@@ -165,13 +174,26 @@ function sortedLeaderboard(entries) {
     .slice(0, MAX_ENTRIES);
 }
 
-function sendJson(res, statusCode, payload) {
+function corsHeadersFor(req) {
+  const origin = req.headers.origin;
+  if (!origin || !ALLOWED_ORIGINS.includes(origin)) return {};
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Max-Age': '600',
+    Vary: 'Origin'
+  };
+}
+
+function sendJson(res, statusCode, payload, req) {
   const body = JSON.stringify(payload);
   res.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
     'Content-Security-Policy': API_CSP,
-    ...SECURITY_HEADERS
+    ...SECURITY_HEADERS,
+    ...(req ? corsHeadersFor(req) : {})
   });
   res.end(body);
 }
@@ -211,17 +233,17 @@ function cleanPlayerName(rawName) {
 
 function handleLeaderboardGet(req, res, parsedUrl) {
   if (parsedUrl.searchParams.get('action') === 'nonce') {
-    sendJson(res, 200, { nonce: issueNonce() });
+    sendJson(res, 200, { nonce: issueNonce() }, req);
     return;
   }
   const entries = sortedLeaderboard(readLeaderboard());
-  sendJson(res, 200, { entries });
+  sendJson(res, 200, { entries }, req);
 }
 
 function handleLeaderboardPost(req, res) {
   const ip = getClientIp(req);
   if (!checkRateLimit(ip)) {
-    sendJson(res, 429, { error: 'Too many requests. Please wait before submitting again.' });
+    sendJson(res, 429, { error: 'Too many requests. Please wait before submitting again.' }, req);
     return;
   }
 
@@ -232,19 +254,19 @@ function handleLeaderboardPost(req, res) {
       const nonce = typeof body.nonce === 'string' ? body.nonce : '';
 
       if (!name) {
-        sendJson(res, 400, { error: 'Player name is required.' });
+        sendJson(res, 400, { error: 'Player name is required.' }, req);
         return;
       }
 
       if (!Number.isFinite(score) || !Number.isInteger(score) || score < 0 || score > MAX_SCORE) {
-        sendJson(res, 400, { error: 'Score must be a whole number between 0 and 999999.' });
+        sendJson(res, 400, { error: 'Score must be a whole number between 0 and 999999.' }, req);
         return;
       }
 
-      // Validate nonce when one is provided. Older clients can submit without
-      // a nonce; the bundled client always sends one.
-      if (nonce !== '' && !consumeNonce(nonce)) {
-        sendJson(res, 400, { error: 'Submission expired or invalid. Please try again.' });
+      // Nonce is mandatory. Score submissions must obtain a single-use nonce
+      // via GET ?action=nonce and present it here.
+      if (!consumeNonce(nonce)) {
+        sendJson(res, 400, { error: 'Submission expired or invalid. Please try again.' }, req);
         return;
       }
 
@@ -255,10 +277,10 @@ function handleLeaderboardPost(req, res) {
       ]);
 
       writeLeaderboard(entries);
-      sendJson(res, 201, { entries, saved: { name, score, savedAt } });
+      sendJson(res, 201, { entries, saved: { name, score, savedAt } }, req);
     })
     .catch((error) => {
-      sendJson(res, 400, { error: error.message });
+      sendJson(res, 400, { error: error.message }, req);
     });
 }
 
@@ -266,21 +288,46 @@ function isLeaderboardPath(pathname) {
   return pathname === '/api/leaderboard' || pathname === '/leaderboard.php';
 }
 
+function handleCorsPreflight(req, res) {
+  const cors = corsHeadersFor(req);
+  if (Object.keys(cors).length === 0) {
+    res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8', ...SECURITY_HEADERS });
+    res.end('Forbidden');
+    return;
+  }
+  res.writeHead(204, { ...SECURITY_HEADERS, ...cors });
+  res.end();
+}
+
 function handleApi(req, res) {
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = parsedUrl.pathname;
 
-  if (isLeaderboardPath(pathname) && req.method === 'GET') {
+  if (!isLeaderboardPath(pathname)) return false;
+
+  if (req.method === 'OPTIONS') {
+    handleCorsPreflight(req, res);
+    return true;
+  }
+
+  if (req.method === 'GET') {
     handleLeaderboardGet(req, res, parsedUrl);
     return true;
   }
 
-  if (isLeaderboardPath(pathname) && req.method === 'POST') {
+  if (req.method === 'POST') {
     handleLeaderboardPost(req, res);
     return true;
   }
 
-  return false;
+  // Path matched but method is not allowed — explicit 405 instead of 404.
+  res.writeHead(405, {
+    Allow: 'GET, POST, OPTIONS',
+    'Content-Type': 'application/json; charset=utf-8',
+    ...SECURITY_HEADERS
+  });
+  res.end(JSON.stringify({ error: 'Method not allowed.' }));
+  return true;
 }
 
 function serveStatic(req, res) {
@@ -323,7 +370,22 @@ const server = http.createServer((req, res) => {
   serveStatic(req, res);
 });
 
-server.listen(PORT, HOST, () => {
-  ensureLeaderboardFile();
-  console.log(`Tech Flow Runner server listening on http://${HOST}:${PORT}`);
-});
+if (require.main === module) {
+  server.listen(PORT, HOST, () => {
+    ensureLeaderboardFile();
+    console.log(`Tech Flow Runner server listening on http://${HOST}:${PORT}`);
+  });
+}
+
+module.exports = {
+  cleanPlayerName,
+  checkRateLimit,
+  issueNonce,
+  consumeNonce,
+  sortedLeaderboard,
+  isLeaderboardPath,
+  handleApi,
+  server,
+  // Exposed for tests to inspect/reset internal state.
+  _state: { rateLimitStore, nonceStore }
+};
