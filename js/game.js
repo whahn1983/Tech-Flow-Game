@@ -183,9 +183,9 @@
   let combo = 1;
   let comboTimer = 0;
   let level = 1;
-  let nextLevelAt = 500;
-  const LEVEL_INTERVAL = 500;
-  const BOSS_INTERVAL = 1500;
+  let nextLevelAt = 1000;
+  const LEVEL_INTERVAL = 1000;
+  const BOSS_INTERVAL = 3000;
   let nextBossAt = BOSS_INTERVAL;
   let activeModifier = 'none';
   let activeSkin = 'default';
@@ -1360,12 +1360,11 @@
   function bossUpdate() {
     if (!boss) return;
     // Drift to a fixed screen position for telegraphed dodging.
-    const targetScreenX = canvas.width * 0.82;
-    const targetWorldX = worldOffset + targetScreenX - boss.w / 2;
+    const targetWorldX = worldOffset + canvas.width - boss.w - 8;
     boss.worldX += (targetWorldX - boss.worldX) * 0.04;
     // Patrol vertically across the playfield so the player must dodge.
-    const yMin = 40;
-    const yMax = baseGroundY - boss.h - 30;
+    const yMin = 18;
+    const yMax = baseGroundY - boss.h;
     const yCenter = (yMin + yMax) / 2;
     const yAmp = (yMax - yMin) / 2;
     boss.y = yCenter + Math.sin(performance.now() * 0.0015) * yAmp;
@@ -1694,7 +1693,7 @@
     if (score < nextLevelAt) return;
     level += 1;
     nextLevelAt += LEVEL_INTERVAL;
-    baseSpeed = Math.min(7.0, baseSpeed + 0.18);
+    baseSpeed = Math.min(7.0, baseSpeed + 0.1);
     levelBannerText = `LEVEL ${level}`;
     levelBannerFrames = 90;
     sfxExt.levelup();
@@ -1733,7 +1732,7 @@
     const overclockMult = pwr.overclock > 0 ? 2 : 1;
     const scoreGain = 0.2 * speedMult * combo * overclockMult * getMod().scoreMult;
     score += scoreGain;
-    speedMult = Math.min(6, 1 + score / 340);
+    speedMult = Math.min(6, 1 + score / 700);
 
     // Slow-mo halves world speed but keeps player physics responsive.
     const slowFactor = pwr.slowmo > 0 ? 0.55 : 1;
