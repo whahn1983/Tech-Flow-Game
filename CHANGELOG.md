@@ -9,10 +9,11 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 - **SQLite-backed leaderboard** for the PHP backend. Scores are now stored in
-  `leaderboard.sqlite` (via PDO + WAL) when the SQLite driver is available; the
-  legacy `leaderboard.txt` is migrated automatically on first run and renamed
-  to `leaderboard.txt.imported`. Falls back to the flat-file path if PDO SQLite
-  is unavailable.
+  `leaderboard.sqlite` (via PDO + WAL) when the SQLite driver is available.
+  Whenever the `scores` table is empty, the backend imports any existing
+  `leaderboard.txt` so a redeploy (or wiped DB) can recover from the flat
+  file. The `.txt` is left in place as a recovery source. Falls back to the
+  flat-file path if PDO SQLite is unavailable.
 - **CORS allowlist** via the `ALLOWED_ORIGINS` environment variable (Node and
   PHP). Defaults to same-origin only.
 - **Unit tests** under `tests/` covering name sanitization, route matching,

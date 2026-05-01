@@ -45,9 +45,56 @@ function get_client_ip(): string {
 }
 
 /**
+ * Import scores from the legacy flat file `leaderboard.txt` into the given
+ * SQLite handle. Called whenever the `scores` table is empty so a redeploy
+ * (or a wiped DB) can recover from the flat file if it's still around.
+ *
+ * Returns the number of rows imported. Leaves `leaderboard.txt` in place so
+ * it can act as a recovery source on future cold starts.
+ */
+function import_leaderboard_txt(PDO $pdo): int {
+    if (!file_exists(LEADERBOARD_FILE)) {
+        return 0;
+    }
+
+    $contents = @file_get_contents(LEADERBOARD_FILE);
+    if (!is_string($contents) || trim($contents) === '') {
+        return 0;
+    }
+
+    $insert   = $pdo->prepare('INSERT INTO scores (name, score, saved_at) VALUES (?, ?, ?)');
+    $imported = 0;
+
+    $pdo->beginTransaction();
+    try {
+        foreach (explode("\n", trim($contents)) as $line) {
+            $parts = explode('|', $line);
+            if (count($parts) < 3) {
+                continue;
+            }
+            $name    = trim($parts[0]);
+            $score   = (int)$parts[1];
+            $savedAt = $parts[2];
+            if ($name === '' || $score < 0) {
+                continue;
+            }
+            $insert->execute([$name, $score, $savedAt]);
+            $imported++;
+        }
+        $pdo->commit();
+    } catch (Throwable $error) {
+        $pdo->rollBack();
+        return 0;
+    }
+
+    return $imported;
+}
+
+/**
  * Returns a PDO instance for the SQLite-backed leaderboard, or null if the
- * SQLite PDO driver is unavailable. Creates the schema on first use and
- * imports any pre-existing flat-file leaderboard.txt as a one-time migration.
+ * SQLite PDO driver is unavailable. Creates the schema on first use and, if
+ * the `scores` table is empty, imports any existing `leaderboard.txt` as a
+ * recovery / migration step.
  */
 function get_db(): ?PDO {
     static $pdo = null;
@@ -77,35 +124,13 @@ function get_db(): ?PDO {
         );
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_scores_score ON scores (score DESC, saved_at ASC)');
 
-        // One-time import from the legacy flat file if present.
-        if (file_exists(LEADERBOARD_FILE)) {
-            $row = $pdo->query('SELECT COUNT(*) FROM scores')->fetchColumn();
-            if ((int)$row === 0) {
-                $imported = 0;
-                $insert = $pdo->prepare('INSERT INTO scores (name, score, saved_at) VALUES (?, ?, ?)');
-                $contents = @file_get_contents(LEADERBOARD_FILE);
-                if (is_string($contents) && trim($contents) !== '') {
-                    $pdo->beginTransaction();
-                    foreach (explode("\n", trim($contents)) as $line) {
-                        $parts = explode('|', $line);
-                        if (count($parts) < 3) {
-                            continue;
-                        }
-                        $name    = trim($parts[0]);
-                        $score   = (int)$parts[1];
-                        $savedAt = $parts[2];
-                        if ($name === '' || $score < 0) {
-                            continue;
-                        }
-                        $insert->execute([$name, $score, $savedAt]);
-                        $imported++;
-                    }
-                    $pdo->commit();
-                }
-                if ($imported > 0) {
-                    @rename(LEADERBOARD_FILE, LEADERBOARD_FILE . '.imported');
-                }
-            }
+        // If the scores table is empty, try to seed it from the legacy flat
+        // file. This handles both first-time migrations from a flat-file
+        // deployment and any later cold start where SQLite was reset but the
+        // .txt file is still around.
+        $existing = (int)$pdo->query('SELECT COUNT(*) FROM scores')->fetchColumn();
+        if ($existing === 0) {
+            import_leaderboard_txt($pdo);
         }
     } catch (Throwable $error) {
         $pdo = null;
