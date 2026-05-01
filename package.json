@@ -14,7 +14,7 @@
     "prepare": "husky || true"
   },
   "devDependencies": {
-    "eslint": "^8.57.0",
+    "eslint": "^10.3.0",
     "husky": "^9.1.6",
     "lint-staged": "^15.2.10",
     "prettier": "^3.3.3"
