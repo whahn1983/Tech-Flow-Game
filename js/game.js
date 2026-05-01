@@ -431,47 +431,250 @@
   }
 
   // ---------- Skins ----------
+  // Every skin renders inside the same 48x58 player bounding box (32 high
+  // while ducking) so the hitbox stays identical across skins.
+  function drawPulseSkin(ctx, x, y, w, h, colors) {
+    const g = ctx.createLinearGradient(x, y, x + w, y + h);
+    g.addColorStop(0, colors[0]);
+    g.addColorStop(1, colors[1]);
+    ctx.fillStyle = g;
+    roundRect(ctx, x, y, w, h, 10);
+    ctx.fill();
+    if (h >= 30) {
+      ctx.fillStyle = '#e9f6ff';
+      ctx.font = 'bold 15px monospace';
+      ctx.fillText('</>', x + 7, y + Math.min(34, h - 14));
+    }
+  }
+
+  function drawSunsetSkin(ctx, x, y, w, h, colors) {
+    const sky = ctx.createLinearGradient(x, y, x, y + h);
+    sky.addColorStop(0, '#3a1844');
+    sky.addColorStop(0.55, colors[1]);
+    sky.addColorStop(1, colors[0]);
+    ctx.fillStyle = sky;
+    roundRect(ctx, x, y, w, h, 10);
+    ctx.fill();
+    if (h >= 30) {
+      const cx = x + w / 2;
+      const cy = y + h * 0.62;
+      const r = Math.min(w, h) * 0.28;
+      ctx.fillStyle = '#fff1b8';
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.fillRect(x + 5, cy + r * 0.55, w - 10, 2);
+      ctx.fillRect(x + 9, cy + r * 0.95, w - 18, 2);
+    } else {
+      ctx.fillStyle = '#fff1b8';
+      ctx.beginPath();
+      ctx.arc(x + w / 2, y + h / 2, Math.min(w, h) * 0.32, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawMatrixSkin(ctx, x, y, w, h, colors) {
+    ctx.fillStyle = '#021109';
+    roundRect(ctx, x, y, w, h, 10);
+    ctx.fill();
+    ctx.strokeStyle = colors[1];
+    ctx.lineWidth = 2;
+    roundRect(ctx, x + 1, y + 1, w - 2, h - 2, 9);
+    ctx.stroke();
+    ctx.fillStyle = colors[0];
+    if (h >= 30) {
+      ctx.font = 'bold 11px monospace';
+      const lines = ['10110', '01001', '11010', '00111'];
+      const lineH = Math.max(10, (h - 10) / lines.length);
+      for (let i = 0; i < lines.length; i++) {
+        const yy = y + 12 + i * lineH;
+        if (yy < y + h - 2) ctx.fillText(lines[i], x + 6, yy);
+      }
+    } else {
+      ctx.font = 'bold 12px monospace';
+      ctx.fillText('01', x + w / 2 - 7, y + h / 2 + 4);
+    }
+  }
+
+  function drawPlasmaSkin(ctx, x, y, w, h, colors) {
+    const bg = ctx.createLinearGradient(x, y, x, y + h);
+    bg.addColorStop(0, '#1a0833');
+    bg.addColorStop(1, '#3a0d5c');
+    ctx.fillStyle = bg;
+    roundRect(ctx, x, y, w, h, 10);
+    ctx.fill();
+    if (h >= 30) {
+      const bolt = ctx.createLinearGradient(x, y, x, y + h);
+      bolt.addColorStop(0, colors[0]);
+      bolt.addColorStop(1, colors[1]);
+      ctx.fillStyle = bolt;
+      ctx.beginPath();
+      ctx.moveTo(x + w * 0.62, y + 6);
+      ctx.lineTo(x + w * 0.22, y + h * 0.55);
+      ctx.lineTo(x + w * 0.46, y + h * 0.55);
+      ctx.lineTo(x + w * 0.32, y + h - 6);
+      ctx.lineTo(x + w * 0.78, y + h * 0.42);
+      ctx.lineTo(x + w * 0.54, y + h * 0.42);
+      ctx.lineTo(x + w * 0.72, y + 6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = colors[0];
+      ctx.beginPath();
+      ctx.moveTo(x + w * 0.6, y + 4);
+      ctx.lineTo(x + w * 0.3, y + h - 4);
+      ctx.lineTo(x + w * 0.5, y + h / 2);
+      ctx.lineTo(x + w * 0.7, y + h - 4);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  function drawBitLordSkin(ctx, x, y, w, h, colors) {
+    const bodyTop = h >= 30 ? y + 14 : y + 2;
+    const bodyH = y + h - bodyTop;
+    const body = ctx.createLinearGradient(x, bodyTop, x + w, bodyTop + bodyH);
+    body.addColorStop(0, '#15182e');
+    body.addColorStop(1, '#0a1a32');
+    ctx.fillStyle = body;
+    roundRect(ctx, x, bodyTop, w, bodyH, 8);
+    ctx.fill();
+    ctx.strokeStyle = colors[0];
+    ctx.lineWidth = 1.5;
+    roundRect(ctx, x + 1, bodyTop + 1, w - 2, bodyH - 2, 7);
+    ctx.stroke();
+    if (h >= 30) {
+      ctx.fillStyle = colors[0];
+      ctx.beginPath();
+      ctx.moveTo(x + 6, y + 16);
+      ctx.lineTo(x + 6, y + 4);
+      ctx.lineTo(x + w * 0.3, y + 12);
+      ctx.lineTo(x + w / 2, y);
+      ctx.lineTo(x + w * 0.7, y + 12);
+      ctx.lineTo(x + w - 6, y + 4);
+      ctx.lineTo(x + w - 6, y + 16);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = colors[1];
+      ctx.beginPath();
+      ctx.arc(x + w / 2, y + 8, 2.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = colors[0];
+      ctx.font = 'bold 20px monospace';
+      ctx.fillText('B', x + w / 2 - 7, y + h - 8);
+    } else {
+      ctx.fillStyle = colors[0];
+      ctx.font = 'bold 14px monospace';
+      ctx.fillText('B', x + w / 2 - 5, y + h - 6);
+    }
+  }
+
+  function drawBossbaneSkin(ctx, x, y, w, h, colors) {
+    if (h < 30) {
+      ctx.fillStyle = colors[0];
+      roundRect(ctx, x + 6, y + 4, w - 12, h - 8, 6);
+      ctx.fill();
+      ctx.strokeStyle = colors[1];
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x + 10, y + 6);
+      ctx.lineTo(x + w - 10, y + h - 6);
+      ctx.stroke();
+      return;
+    }
+    ctx.fillStyle = '#1a0a18';
+    ctx.beginPath();
+    ctx.moveTo(x + w / 2, y + 2);
+    ctx.lineTo(x + w - 4, y + 10);
+    ctx.lineTo(x + w - 4, y + h * 0.55);
+    ctx.quadraticCurveTo(x + w / 2, y + h - 2, x + 4, y + h * 0.55);
+    ctx.lineTo(x + 4, y + 10);
+    ctx.closePath();
+    ctx.fill();
+    const sg = ctx.createLinearGradient(x, y, x, y + h);
+    sg.addColorStop(0, colors[0]);
+    sg.addColorStop(1, '#7a1830');
+    ctx.fillStyle = sg;
+    ctx.beginPath();
+    ctx.moveTo(x + w / 2, y + 6);
+    ctx.lineTo(x + w - 7, y + 12);
+    ctx.lineTo(x + w - 7, y + h * 0.52);
+    ctx.quadraticCurveTo(x + w / 2, y + h - 6, x + 7, y + h * 0.52);
+    ctx.lineTo(x + 7, y + 12);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = colors[1];
+    ctx.lineCap = 'round';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x + w * 0.3, y + h * 0.28);
+    ctx.lineTo(x + w * 0.74, y + h * 0.7);
+    ctx.stroke();
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(x + w * 0.22, y + h * 0.2);
+    ctx.lineTo(x + w * 0.36, y + h * 0.34);
+    ctx.stroke();
+    ctx.lineCap = 'butt';
+  }
+
   const SKINS = {
-    default: { label: 'Pulse', unlock: 0, check: () => true, colors: ['#2ef8ff', '#8e5cff'] },
+    default: {
+      label: 'Pulse',
+      unlock: 0,
+      check: () => true,
+      colors: ['#2ef8ff', '#8e5cff'],
+      draw: drawPulseSkin,
+    },
     sunset: {
       label: 'Sunset (1km)',
       unlock: 1000,
       check: () => lifetime.distance >= 1000,
       colors: ['#ffd95c', '#ff5a7c'],
+      draw: drawSunsetSkin,
     },
     matrix: {
       label: 'Matrix (2.5km)',
       unlock: 2500,
       check: () => lifetime.distance >= 2500,
       colors: ['#75ffd4', '#16f06b'],
+      draw: drawMatrixSkin,
     },
     plasma: {
       label: 'Plasma (5km)',
       unlock: 5000,
       check: () => lifetime.distance >= 5000,
       colors: ['#ff5cd1', '#8e5cff'],
+      draw: drawPlasmaSkin,
     },
     bitlord: {
       label: 'Bit Lord (500B)',
       unlock: 500,
       check: () => lifetime.bits >= 500,
       colors: ['#ffd95c', '#2ef8ff'],
+      draw: drawBitLordSkin,
     },
     bossbane: {
       label: 'Bossbane (3 bosses)',
       unlock: 3,
       check: () => lifetime.bossKills >= 3,
       colors: ['#ff5a7c', '#ffd95c'],
+      draw: drawBossbaneSkin,
     },
   };
   function isSkinUnlocked(key) {
     const skin = SKINS[key];
     return skin ? skin.check() : false;
   }
+  function getActiveSkin() {
+    return SKINS[activeSkin] && isSkinUnlocked(activeSkin) ? SKINS[activeSkin] : SKINS.default;
+  }
   function getSkinColors() {
-    const skin =
-      SKINS[activeSkin] && isSkinUnlocked(activeSkin) ? SKINS[activeSkin] : SKINS.default;
-    return skin.colors;
+    return getActiveSkin().colors;
   }
 
   function populateSkinSelect() {
@@ -595,7 +798,7 @@
           pendingSubmitNonceIssuedAt = 0;
         }
         throw error;
-      },
+      }
     );
     pendingSubmitNonce = promise;
     pendingSubmitNonceIssuedAt = 0;
@@ -1481,22 +1684,14 @@
   }
 
   function drawPlayer() {
-    const colors = getSkinColors();
+    const skin = getActiveSkin();
+    const colors = skin.colors;
     // While ducking, hitbox uses player.h directly; we just visually flatten.
     const drawY = player.y;
     const drawH = player.h;
-    const g = ctx.createLinearGradient(player.x, drawY, player.x + player.w, drawY + drawH);
-    g.addColorStop(0, colors[0]);
-    g.addColorStop(1, colors[1]);
-    ctx.fillStyle = g;
-    roundRect(ctx, player.x, drawY, player.w, drawH, 10);
-    ctx.fill();
-
-    ctx.fillStyle = '#e9f6ff';
-    ctx.font = 'bold 15px monospace';
-    if (drawH >= 30) {
-      ctx.fillText('</>', player.x + 7, drawY + Math.min(34, drawH - 14));
-    }
+    ctx.save();
+    (skin.draw || drawPulseSkin)(ctx, player.x, drawY, player.w, drawH, colors);
+    ctx.restore();
 
     // Shield aura
     if (pwr.shield > 0) {
