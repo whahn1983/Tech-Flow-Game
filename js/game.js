@@ -420,9 +420,28 @@
     return payload.nonce;
   }
 
-  async function submitScore(name, runScore) {
-    // Nonce is mandatory — both Node and PHP servers reject submissions without one.
-    const nonce = await fetchSubmitNonce();
+  // Server enforces a min-age (~4s) before a nonce can be consumed, so prime it
+  // when the modal opens — by the time the user clicks submit it will have aged.
+  let pendingSubmitNonce = null;
+
+  function primeSubmitNonce() {
+    pendingSubmitNonce = fetchSubmitNonce().catch((error) => {
+      pendingSubmitNonce = null;
+      throw error;
+    });
+  }
+
+  async function takeSubmitNonce() {
+    if (!pendingSubmitNonce) primeSubmitNonce();
+    const promise = pendingSubmitNonce;
+    try {
+      return await promise;
+    } finally {
+      if (pendingSubmitNonce === promise) pendingSubmitNonce = null;
+    }
+  }
+
+  async function submitScore(name, runScore, nonce) {
     const body = JSON.stringify({ name, score: runScore, nonce });
 
     const response = await fetch(leaderboardEndpoint, {
@@ -487,6 +506,7 @@
     scoreModal.hidden = false;
     document.addEventListener('keydown', trapScoreModalFocus);
     scoreModalName.focus();
+    primeSubmitNonce();
   }
 
   function closeScoreModal() {
@@ -520,7 +540,8 @@
     scoreModalStatus.textContent = 'Saving your score...';
 
     try {
-      const entries = await submitScore(name, scoreToSave);
+      const nonce = await takeSubmitNonce();
+      const entries = await submitScore(name, scoreToSave, nonce);
       renderLeaderboard(entries);
       setLeaderboardStatus(`Saved ${scoreToSave}m for ${name}. Reboot and beat it!`);
       announce(`Score saved: ${scoreToSave} meters for ${name}.`);
@@ -532,6 +553,8 @@
       scoreModalStatus.textContent = message;
       announce(message);
       scoreModalSubmit.disabled = false;
+      // Re-prime so the retry has an aged nonce ready to go.
+      primeSubmitNonce();
     }
   });
 
