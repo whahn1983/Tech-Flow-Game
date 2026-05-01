@@ -72,10 +72,13 @@ h1 {
 }
 .hud {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
   margin-bottom: 10px;
   font-weight: 700;
+}
+@media (max-width: 720px) {
+  .hud { grid-template-columns: repeat(3, 1fr); }
 }
 .chip {
   padding: 10px;
@@ -439,3 +442,80 @@ button:focus-visible {
     text-shadow: none;
   }
 }
+
+/* Power-up bar */
+#powerupBar {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  gap: 6px;
+  pointer-events: none;
+  z-index: 4;
+}
+.powerup-pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(5, 9, 16, 0.65);
+  border: 1px solid rgba(46, 248, 255, 0.45);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: var(--neon);
+  text-shadow: 0 0 6px rgba(46, 248, 255, 0.6);
+}
+.powerup-pill[data-kind="shield"]    { color: #2ef8ff; border-color: rgba(46,248,255,0.6); }
+.powerup-pill[data-kind="overclock"] { color: #ffd95c; border-color: rgba(255,217,92,0.6); }
+.powerup-pill[data-kind="magnet"]    { color: #ff5cd1; border-color: rgba(255,92,209,0.6); }
+.powerup-pill[data-kind="slowmo"]    { color: #75ffd4; border-color: rgba(117,255,212,0.6); }
+
+/* Run options */
+.run-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(5, 9, 16, 0.7);
+  border: 1px solid rgba(46, 248, 255, 0.3);
+  border-radius: 12px;
+  padding: 12px 14px;
+  pointer-events: auto;
+  max-width: 360px;
+  width: 92%;
+}
+.run-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.run-option select,
+.run-option input[type="checkbox"] {
+  font-family: inherit;
+  font-size: 0.88rem;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(46, 248, 255, 0.4);
+  background: rgba(5, 9, 16, 0.6);
+  color: var(--text);
+}
+.run-option-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  opacity: 0.75;
+  text-align: center;
+}
+
+/* Level palette tints — applied via body[data-palette] on level-up */
+body[data-palette="2"] { --neon: #75ffd4; --accent: #2ef8ff; }
+body[data-palette="3"] { --neon: #ffd95c; --accent: #ff8a3a; }
+body[data-palette="4"] { --neon: #ff5cd1; --accent: #8e5cff; }
+body[data-palette="5"] { --neon: #ff5a7c; --accent: #ffd95c; }
+body[data-palette="6"] { --neon: #b6ff5c; --accent: #2ef8ff; }
+body { transition: background 0.6s ease; }
+canvas { transition: border-color 0.6s ease, box-shadow 0.6s ease; }

@@ -31,11 +31,35 @@
 
   const settings = loadSettings();
 
+  const LIFETIME_KEY = 'techFlowRunnerLifetime';
+  function loadLifetime() {
+    try {
+      const raw = localStorage.getItem(LIFETIME_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      return {
+        distance: Number(parsed.distance) || 0,
+        bits: Number(parsed.bits) || 0,
+        runs: Number(parsed.runs) || 0,
+        bossKills: Number(parsed.bossKills) || 0
+      };
+    } catch {
+      return { distance: 0, bits: 0, runs: 0, bossKills: 0 };
+    }
+  }
+  function saveLifetime(stats) {
+    try { localStorage.setItem(LIFETIME_KEY, JSON.stringify(stats)); } catch { /* ignore */ }
+  }
+  const lifetime = loadLifetime();
+
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
   const scoreEl = document.getElementById('score');
   const speedEl = document.getElementById('speed');
   const bestEl = document.getElementById('best');
+  const bitsEl = document.getElementById('bits');
+  const comboEl = document.getElementById('combo');
+  const levelEl = document.getElementById('level');
+  const powerupBar = document.getElementById('powerupBar');
   const music = document.getElementById('bgm');
   const musicBtn = document.getElementById('musicBtn');
   const gameOverOverlay = document.getElementById('gameOverOverlay');
@@ -51,6 +75,34 @@
   const scoreModalStatus = document.getElementById('scoreModalStatus');
   const startOverlay = document.getElementById('startOverlay');
   const startBtn = document.getElementById('startBtn');
+  const dailyToggle = document.getElementById('dailyToggle');
+  const modifierSelect = document.getElementById('modifierSelect');
+  const skinSelect = document.getElementById('skinSelect');
+  const unlockHint = document.getElementById('unlockHint');
+
+  // ---------- Seedable RNG ----------
+  // Mulberry32. When `dailySeed` is on, all gameplay randomness derives from
+  // the day's seed so every player runs the same course.
+  let rngState = 0;
+  function setRngSeed(seed) {
+    rngState = (seed | 0) || 1;
+  }
+  function rng() {
+    rngState |= 0;
+    rngState = (rngState + 0x6D2B79F5) | 0;
+    let t = rngState;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+  let useSeededRng = false;
+  function gameRandom() {
+    return useSeededRng ? rng() : Math.random();
+  }
+  function dailySeedValue() {
+    const d = new Date();
+    return (d.getUTCFullYear() * 10000) + ((d.getUTCMonth() + 1) * 100) + d.getUTCDate();
+  }
 
   let gameStarted = false;
   let paused = false;
@@ -67,6 +119,43 @@
   let latestRunScore = 0;
   let lastSpawnAction = null;
   let queuedSpawnAction = null;
+
+  // ---------- Run extras (bits, combo, level, modifier, FX) ----------
+  let bitsCollected = 0;
+  let combo = 1;
+  let comboTimer = 0;
+  let level = 1;
+  let nextLevelAt = 500;
+  const LEVEL_INTERVAL = 500;
+  const BOSS_INTERVAL = 1500;
+  let nextBossAt = BOSS_INTERVAL;
+  let activeModifier = 'none';
+  let activeSkin = 'default';
+  let dailySeedActive = false;
+  const bits = [];
+  const powerupItems = [];
+  const particles = [];
+  const projectiles = [];
+  let boss = null;
+  let bossSpawnsSuppressed = 0;
+  let nearMissCooldown = 0;
+  let shakeFrames = 0;
+  let shakeIntensity = 0;
+  let hitstopFrames = 0;
+  let levelBannerFrames = 0;
+  let levelBannerText = '';
+  // Active power-up timers (frames remaining)
+  const pwr = { shield: 0, overclock: 0, magnet: 0, slowmo: 0 };
+  // Player input-feel state
+  let coyoteFrames = 0;
+  let jumpBufferFrames = 0;
+  let isDucking = false;
+  let dashFrames = 0;
+  let dashCooldown = 0;
+  let wallRunFrames = 0;
+  let wallRunCooldown = 0;
+  // Per-frame world speed (applied to ground/obstacles, separate from baseSpeed*speedMult).
+  let speedMultiplier = 1; // includes overclock / slowmo / dash blend.
 
   const gravity = 0.75;
   const player = {
@@ -199,6 +288,65 @@
 
   applyMusicMuted();
   setMusicButtonState(muted ? 'Play Music' : musicBtn.textContent);
+
+  const sfxExt = {
+    bit:    () => playTone(1100, 0.05, 'sine', 0.05),
+    combo:  () => playTone(1500, 0.07, 'triangle', 0.06),
+    powerup:() => { playTone(660, 0.07, 'square', 0.05); setTimeout(() => playTone(990, 0.09, 'square', 0.05), 70); },
+    shield: () => { playTone(440, 0.18, 'square', 0.07); setTimeout(() => playTone(880, 0.18, 'square', 0.07), 80); },
+    levelup:() => { playTone(520, 0.1, 'square', 0.07); setTimeout(() => playTone(780, 0.12, 'square', 0.07), 90); setTimeout(() => playTone(1040, 0.14, 'square', 0.07), 200); },
+    boss:   () => { playTone(110, 0.4, 'sawtooth', 0.08); setTimeout(() => playTone(75, 0.5, 'sawtooth', 0.07), 200); },
+    bossDie:() => { playTone(880, 0.18, 'square', 0.08); setTimeout(() => playTone(1320, 0.2, 'square', 0.08), 100); setTimeout(() => playTone(1760, 0.25, 'square', 0.08), 220); },
+    dash:   () => playTone(560, 0.08, 'sawtooth', 0.06),
+    laser:  () => playTone(220, 0.12, 'sawtooth', 0.05)
+  };
+
+  // ---------- Modifiers ----------
+  const MODIFIERS = {
+    none:        { label: 'None',         scoreMult: 1.0,  noDoubleJump: false, bitsMult: 1, gravityMult: 1,   allowShield: true  },
+    hardcore:    { label: 'Hardcore',     scoreMult: 1.5,  noDoubleJump: true,  bitsMult: 1, gravityMult: 1,   allowShield: true  },
+    bitrush:     { label: 'Bit Rush',     scoreMult: 1.2,  noDoubleJump: false, bitsMult: 2, gravityMult: 1,   allowShield: false },
+    featherfall: { label: 'Feather Fall', scoreMult: 1.25, noDoubleJump: false, bitsMult: 1, gravityMult: 0.6, allowShield: true  },
+    glasscannon: { label: 'Glass Cannon', scoreMult: 1.75, noDoubleJump: false, bitsMult: 1, gravityMult: 1,   allowShield: false }
+  };
+  function getMod() { return MODIFIERS[activeModifier] || MODIFIERS.none; }
+
+  // ---------- Skins ----------
+  const SKINS = {
+    default:   { label: 'Pulse',         unlock: 0,     check: () => true,                      colors: ['#2ef8ff', '#8e5cff'] },
+    sunset:    { label: 'Sunset (1km)',  unlock: 1000,  check: () => lifetime.distance >= 1000, colors: ['#ffd95c', '#ff5a7c'] },
+    matrix:    { label: 'Matrix (2.5km)',unlock: 2500,  check: () => lifetime.distance >= 2500, colors: ['#75ffd4', '#16f06b'] },
+    plasma:    { label: 'Plasma (5km)',  unlock: 5000,  check: () => lifetime.distance >= 5000, colors: ['#ff5cd1', '#8e5cff'] },
+    bitlord:   { label: 'Bit Lord (500B)', unlock: 500, check: () => lifetime.bits >= 500,      colors: ['#ffd95c', '#2ef8ff'] },
+    bossbane:  { label: 'Bossbane (3 bosses)', unlock: 3, check: () => lifetime.bossKills >= 3, colors: ['#ff5a7c', '#ffd95c'] }
+  };
+  function isSkinUnlocked(key) {
+    const skin = SKINS[key];
+    return skin ? skin.check() : false;
+  }
+  function getSkinColors() {
+    const skin = SKINS[activeSkin] && isSkinUnlocked(activeSkin) ? SKINS[activeSkin] : SKINS.default;
+    return skin.colors;
+  }
+
+  function populateSkinSelect() {
+    if (!skinSelect) return;
+    skinSelect.innerHTML = '';
+    Object.entries(SKINS).forEach(([key, skin]) => {
+      const opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = skin.label + (isSkinUnlocked(key) ? '' : ' (locked)');
+      opt.disabled = !isSkinUnlocked(key);
+      skinSelect.appendChild(opt);
+    });
+    activeSkin = settings.skin && isSkinUnlocked(settings.skin) ? settings.skin : 'default';
+    skinSelect.value = activeSkin;
+    if (unlockHint) {
+      const unlocked = Object.keys(SKINS).filter(isSkinUnlocked).length;
+      const total = Object.keys(SKINS).length;
+      unlockHint.textContent = `Skins unlocked: ${unlocked}/${total} · Lifetime: ${Math.floor(lifetime.distance)}m, ${lifetime.bits} bits, ${lifetime.bossKills} bosses defeated`;
+    }
+  }
 
   // ---------- Game over UI ----------
 
@@ -408,7 +556,7 @@
   };
 
   function rand(min, max) {
-    return min + Math.random() * (max - min);
+    return min + gameRandom() * (max - min);
   }
 
   function clamp(value, min, max) {
@@ -540,7 +688,7 @@
       terrain.currentY += (baseGroundY - terrain.currentY) * 0.04;
       terrain.currentY = clamp(terrain.currentY, baseGroundY - 110, baseGroundY + 44);
 
-      if (Math.random() < 0.09) {
+      if (gameRandom() < 0.09) {
         terrain.currentY += rand(-26, 22);
         terrain.currentY = clamp(terrain.currentY, baseGroundY - 110, baseGroundY + 44);
       }
@@ -580,7 +728,7 @@
       return { worldX, y: groundY - 138, w: 72, h: 22, type: 'drone', action: 'stay' };
     }
 
-    const typeRoll = Math.random();
+    const typeRoll = gameRandom();
     if (typeRoll < 0.34) {
       return { worldX, y: groundY - 20, w: 28, h: 20, type: 'bug', action: 'jump' };
     }
@@ -591,15 +739,15 @@
   }
 
   function pickRandomAction() {
-    return Math.random() < 0.24 ? 'stay' : 'jump';
+    return gameRandom() < 0.24 ? 'stay' : 'jump';
   }
 
   function getSpawnDelayMs(previousAction, nextAction) {
     const moveSpeed = baseSpeed * speedMult;
-    const baselineFrames = Math.round(23 + Math.random() * 35);
+    const baselineFrames = Math.round(23 + gameRandom() * 35);
     const randomGapPx = baselineFrames * moveSpeed;
     const minGapPx = getMinGapPx(previousAction, nextAction);
-    const maxGapPx = minGapPx + moveSpeed * (16 + Math.random() * 18);
+    const maxGapPx = minGapPx + moveSpeed * (16 + gameRandom() * 18);
     const gapPx = Math.max(minGapPx, Math.min(randomGapPx, maxGapPx));
     return (gapPx / moveSpeed) * (1000 / 60);
   }
@@ -823,6 +971,165 @@
     queuedSpawnAction = fallbackNextAction;
   }
 
+  // ---------- Bits, power-ups, particles, projectiles, boss ----------
+
+  function spawnBitArc(startWorldX) {
+    // 5–8 bits in a low arc, jumpable but tempting to grab.
+    const count = 5 + Math.floor(gameRandom() * 4);
+    const ground = getTerrainHeight(startWorldX);
+    const peakHeight = 80 + gameRandom() * 50;
+    for (let i = 0; i < count; i++) {
+      const t = i / Math.max(1, count - 1);
+      const x = startWorldX + i * 30;
+      const arc = -peakHeight * Math.sin(t * Math.PI);
+      bits.push({ worldX: x, y: ground + arc - 18, w: 14, h: 14, vy: 0, alive: true, value: 1 });
+    }
+  }
+
+  function spawnBitLine(startWorldX, atY) {
+    const count = 4 + Math.floor(gameRandom() * 3);
+    for (let i = 0; i < count; i++) {
+      bits.push({ worldX: startWorldX + i * 26, y: atY, w: 14, h: 14, vy: 0, alive: true, value: 1 });
+    }
+  }
+
+  function maybeSpawnBitsAround(obstacle) {
+    // 60% of the time, drop a small reward arc that spans the obstacle so the
+    // jump itself doubles as a collection move.
+    if (gameRandom() > 0.6) return;
+    const ahead = obstacle.worldX - 60;
+    spawnBitArc(ahead);
+  }
+
+  const POWERUP_KINDS = ['shield', 'overclock', 'magnet', 'slowmo'];
+  function maybeSpawnPowerup() {
+    // ~1 every ~600m of distance, biased to ground level.
+    if (gameRandom() > 0.012) return;
+    const allowed = POWERUP_KINDS.filter((k) => k !== 'shield' || getMod().allowShield);
+    const kind = allowed[Math.floor(gameRandom() * allowed.length)];
+    const worldX = worldOffset + canvas.width + 40;
+    const ground = getTerrainHeight(worldX);
+    powerupItems.push({
+      worldX, y: ground - 70 - gameRandom() * 40,
+      w: 24, h: 24, kind, alive: true, bob: gameRandom() * Math.PI * 2
+    });
+  }
+
+  function activatePowerup(kind) {
+    if (kind === 'shield')    pwr.shield = 1; // boolean (single hit absorb)
+    if (kind === 'overclock') pwr.overclock = 5 * 60;
+    if (kind === 'magnet')    pwr.magnet = 7 * 60;
+    if (kind === 'slowmo')    pwr.slowmo = 4 * 60;
+    sfxExt.powerup();
+    announce(`${kind} active`);
+    spawnBurst(player.x + player.w / 2, player.y + player.h / 2, 14, '#ffd95c');
+  }
+
+  function spawnBurst(x, y, count, color) {
+    for (let i = 0; i < count; i++) {
+      const a = (Math.PI * 2 * i) / count + Math.random() * 0.4;
+      const sp = 2 + Math.random() * 4;
+      particles.push({
+        x, y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - 1,
+        life: 22 + Math.random() * 12,
+        color
+      });
+    }
+  }
+
+  function spawnTrail() {
+    // Speed-tied trail particle behind the player.
+    if (reduceMotion) return;
+    if (Math.random() > 0.4) return;
+    const colors = getSkinColors();
+    particles.push({
+      x: player.x + 4 + Math.random() * 4,
+      y: player.y + player.h * 0.55 + Math.random() * 6,
+      vx: -1.5 - Math.random() * 1.5,
+      vy: -0.4 + Math.random() * 0.8,
+      life: 18 + Math.random() * 10,
+      color: Math.random() < 0.5 ? colors[0] : colors[1]
+    });
+  }
+
+  function triggerShake(intensity, frames) {
+    if (reduceMotion) return;
+    shakeIntensity = Math.max(shakeIntensity, intensity);
+    shakeFrames = Math.max(shakeFrames, frames);
+  }
+
+  function spawnBoss() {
+    if (boss) return;
+    boss = {
+      worldX: worldOffset + canvas.width + 80,
+      y: 60,
+      w: 110,
+      h: 70,
+      hp: 100,
+      maxHp: 100,
+      timer: 12 * 60,        // survive ~12s to win
+      cooldown: 60,
+      pattern: 0
+    };
+    bossSpawnsSuppressed = boss.timer + 60;
+    sfxExt.boss();
+    triggerShake(6, 30);
+    announce('Mainframe boss incoming');
+    levelBannerText = '⚠ MAINFRAME BOSS ⚠';
+    levelBannerFrames = 120;
+  }
+
+  function bossDefeated() {
+    if (!boss) return;
+    sfxExt.bossDie();
+    triggerShake(10, 40);
+    spawnBurst(boss.worldX - worldOffset + boss.w / 2, boss.y + boss.h / 2, 36, '#ffd95c');
+    // Reward: bit shower + temporary overclock + persistent stat.
+    const bx = boss.worldX - 200;
+    const by = boss.y + boss.h + 20;
+    spawnBitLine(bx, by);
+    spawnBitLine(bx + 30, by + 20);
+    pwr.overclock = Math.max(pwr.overclock, 4 * 60);
+    lifetime.bossKills += 1;
+    saveLifetime(lifetime);
+    populateSkinSelect();
+    boss = null;
+  }
+
+  function bossUpdate() {
+    if (!boss) return;
+    // Drift to a fixed screen position for telegraphed dodging.
+    const targetScreenX = canvas.width * 0.7;
+    const targetWorldX = worldOffset + targetScreenX - boss.w / 2;
+    boss.worldX += (targetWorldX - boss.worldX) * 0.04;
+    boss.y = 60 + Math.sin(performance.now() * 0.002) * 22;
+    boss.timer -= 1;
+    boss.cooldown -= 1;
+    if (boss.cooldown <= 0) {
+      // Fire a 3-laser fan staggered by pattern step.
+      const baseY = boss.y + boss.h - 8;
+      const baseX = boss.worldX + 12;
+      for (let i = 0; i < 3; i++) {
+        projectiles.push({
+          worldX: baseX,
+          y: baseY + i * 14,
+          w: 22, h: 8,
+          vx: -7 - speedMult * 0.6,
+          vy: 0,
+          life: 240
+        });
+      }
+      sfxExt.laser();
+      boss.cooldown = 70 - Math.min(40, level * 4);
+      boss.pattern += 1;
+    }
+    if (boss.timer <= 0) {
+      bossDefeated();
+    }
+  }
+
   // ---------- Rendering ----------
 
   function drawSkyline() {
@@ -900,16 +1207,50 @@
   }
 
   function drawPlayer() {
-    const g = ctx.createLinearGradient(player.x, player.y, player.x + player.w, player.y + player.h);
-    g.addColorStop(0, '#2ef8ff');
-    g.addColorStop(1, '#8e5cff');
+    const colors = getSkinColors();
+    // While ducking, hitbox uses player.h directly; we just visually flatten.
+    const drawY = player.y;
+    const drawH = player.h;
+    const g = ctx.createLinearGradient(player.x, drawY, player.x + player.w, drawY + drawH);
+    g.addColorStop(0, colors[0]);
+    g.addColorStop(1, colors[1]);
     ctx.fillStyle = g;
-    roundRect(ctx, player.x, player.y, player.w, player.h, 10);
+    roundRect(ctx, player.x, drawY, player.w, drawH, 10);
     ctx.fill();
 
     ctx.fillStyle = '#e9f6ff';
     ctx.font = 'bold 15px monospace';
-    ctx.fillText('</>', player.x + 7, player.y + 34);
+    if (drawH >= 30) {
+      ctx.fillText('</>', player.x + 7, drawY + Math.min(34, drawH - 14));
+    }
+
+    // Shield aura
+    if (pwr.shield > 0) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(46,248,255,0.85)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(player.x + player.w / 2, drawY + drawH / 2, Math.max(player.w, drawH) * 0.65, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+    // Overclock outline
+    if (pwr.overclock > 0) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,217,92,0.9)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(player.x - 3, drawY - 3, player.w + 6, drawH + 6);
+      ctx.restore();
+    }
+    // Dash trail emphasis
+    if (dashFrames > 0) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(255,255,255,0.25)';
+      ctx.fillRect(player.x - 18, drawY + 6, 18, drawH - 12);
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      ctx.fillRect(player.x - 36, drawY + 12, 18, drawH - 24);
+      ctx.restore();
+    }
   }
 
   function drawObstacle(ob) {
@@ -969,16 +1310,47 @@
     queuedSpawnAction = null;
     worldOffset = 0;
     latestRunScore = 0;
+    bitsCollected = 0;
+    combo = 1;
+    comboTimer = 0;
+    level = 1;
+    nextLevelAt = LEVEL_INTERVAL;
+    nextBossAt = BOSS_INTERVAL;
+    bits.length = 0;
+    powerupItems.length = 0;
+    particles.length = 0;
+    projectiles.length = 0;
+    boss = null;
+    bossSpawnsSuppressed = 0;
+    pwr.shield = 0; pwr.overclock = 0; pwr.magnet = 0; pwr.slowmo = 0;
+    coyoteFrames = 0;
+    jumpBufferFrames = 0;
+    isDucking = false;
+    dashFrames = 0;
+    dashCooldown = 0;
+    wallRunFrames = 0;
+    wallRunCooldown = 0;
+    nearMissCooldown = 0;
+    shakeFrames = 0;
+    shakeIntensity = 0;
+    hitstopFrames = 0;
+    levelBannerFrames = 0;
+    document.body.removeAttribute('data-palette');
     setScoreSubmissionState(false);
     setLeaderboardStatus('Finish a run, then save your score to the global board.');
     fetchLeaderboard();
+    // Re-seed RNG for daily mode so reboot replays the same course.
+    useSeededRng = dailySeedActive;
+    if (useSeededRng) setRngSeed(dailySeedValue());
     initTerrain();
     const spawnGround = getTerrainHeight(player.x + player.w * 0.5) || baseGroundY;
+    player.h = 58;
     player.y = spawnGround - player.h;
     player.vy = 0;
     player.onGround = true;
-    player.jumpsLeft = 2;
+    player.jumpsLeft = getMod().noDoubleJump ? 1 : 2;
     updateHud();
+    renderPowerupPills();
     requestAnimationFrame(loop);
   }
 
@@ -986,16 +1358,90 @@
     scoreEl.textContent = Math.floor(score);
     speedEl.textContent = speedMult.toFixed(1);
     bestEl.textContent = Math.floor(best);
+    if (bitsEl)  bitsEl.textContent  = bitsCollected;
+    if (comboEl) comboEl.textContent = 'x' + combo.toFixed(1);
+    if (levelEl) levelEl.textContent = level;
+  }
+
+  function renderPowerupPills() {
+    if (!powerupBar) return;
+    powerupBar.innerHTML = '';
+    const entries = [];
+    if (pwr.shield > 0)    entries.push(['shield',    'SHIELD']);
+    if (pwr.overclock > 0) entries.push(['overclock', 'OVERCLOCK ' + Math.ceil(pwr.overclock / 60) + 's']);
+    if (pwr.magnet > 0)    entries.push(['magnet',    'MAGNET '    + Math.ceil(pwr.magnet    / 60) + 's']);
+    if (pwr.slowmo > 0)    entries.push(['slowmo',    'SLOW-MO '   + Math.ceil(pwr.slowmo    / 60) + 's']);
+    entries.forEach(([kind, label]) => {
+      const div = document.createElement('div');
+      div.className = 'powerup-pill';
+      div.dataset.kind = kind;
+      div.textContent = label;
+      powerupBar.appendChild(div);
+    });
+  }
+
+  function tryHandleHit(_source) {
+    // Returns true if hit was absorbed/avoided; false if it kills the run.
+    if (pwr.shield > 0) {
+      pwr.shield = 0;
+      sfxExt.shield();
+      triggerShake(8, 18);
+      hitstopFrames = 6;
+      // Brief invuln window via tiny upward bump.
+      player.vy = Math.min(player.vy, -6);
+      spawnBurst(player.x + player.w / 2, player.y + player.h / 2, 18, '#2ef8ff');
+      return true;
+    }
+    return false;
+  }
+
+  function maybeLevelUp() {
+    if (score < nextLevelAt) return;
+    level += 1;
+    nextLevelAt += LEVEL_INTERVAL;
+    baseSpeed = Math.min(7.0, baseSpeed + 0.18);
+    levelBannerText = `LEVEL ${level}`;
+    levelBannerFrames = 90;
+    sfxExt.levelup();
+    document.body.setAttribute('data-palette', String(((level - 1) % 6) + 1));
+    announce(`Level ${level}`);
+    triggerShake(3, 14);
   }
 
   function update() {
     if (gameOver || paused) return;
+    if (hitstopFrames > 0) { hitstopFrames -= 1; updateHud(); return; }
 
-    score += 0.2 * speedMult;
+    // Power-up timers
+    if (pwr.overclock > 0) pwr.overclock -= 1;
+    if (pwr.magnet > 0)    pwr.magnet -= 1;
+    if (pwr.slowmo > 0)    pwr.slowmo -= 1;
+    if (dashFrames > 0)    dashFrames -= 1;
+    if (dashCooldown > 0)  dashCooldown -= 1;
+    if (wallRunFrames > 0) wallRunFrames -= 1;
+    if (wallRunCooldown > 0) wallRunCooldown -= 1;
+    if (nearMissCooldown > 0) nearMissCooldown -= 1;
+    if (bossSpawnsSuppressed > 0) bossSpawnsSuppressed -= 1;
+    if (levelBannerFrames > 0) levelBannerFrames -= 1;
+
+    // Combo decay (resets after ~3s without bit pickups)
+    if (comboTimer > 0) {
+      comboTimer -= 1;
+      if (comboTimer === 0) combo = 1;
+    }
+
+    // Score gains: distance scaled by speedMult, overclock, modifier
+    const overclockMult = pwr.overclock > 0 ? 2 : 1;
+    const scoreGain = 0.2 * speedMult * combo * overclockMult * getMod().scoreMult;
+    score += scoreGain;
     speedMult = Math.min(6, 1 + score / 340);
 
-    const moveSpeed = baseSpeed * speedMult;
-    worldOffset += moveSpeed;
+    // Slow-mo halves world speed but keeps player physics responsive.
+    const slowFactor = pwr.slowmo > 0 ? 0.55 : 1;
+    speedMultiplier = overclockMult * slowFactor;
+    const moveSpeed = baseSpeed * speedMult * speedMultiplier;
+    const dashBoost = dashFrames > 0 ? 4 : 0;
+    worldOffset += moveSpeed + dashBoost;
     ensureTerrainAhead(worldOffset + canvas.width + 460);
 
     const pruneX = worldOffset - canvas.width * 3;
@@ -1007,43 +1453,97 @@
     terrain.caves = terrain.caves.filter(c => c.end >= pruneX);
     terrain.precipices = terrain.precipices.filter(p => p.end >= pruneX);
 
-    player.vy += gravity;
+    // Apply gravity (modified by Feather Fall)
+    const grav = gravity * getMod().gravityMult;
+    player.vy += grav;
+    // Wall-run suspends gravity briefly
+    if (wallRunFrames > 0) player.vy = Math.min(player.vy, -1.5);
     player.y += player.vy;
+
+    // Duck shrinks the hitbox; release expands.
+    const targetH = isDucking && player.onGround ? 32 : 58;
+    if (player.h !== targetH) {
+      const groundDelta = targetH - player.h;
+      player.h = targetH;
+      // Keep feet planted when ducking on ground.
+      if (player.onGround) player.y -= groundDelta;
+    }
 
     const playerWorldCenter = worldOffset + player.x + player.w * 0.5;
     const currentGround = getTerrainHeight(playerWorldCenter);
+    let nowOnGround = false;
     if (isInPrecipice(playerWorldCenter)) {
       player.onGround = false;
       if (player.y + player.h >= currentGround) {
-        gameOver = true;
+        if (!tryHandleHit('fall')) { gameOver = true; }
+        else { player.y = currentGround - player.h - 40; }
       }
     } else if (player.y >= currentGround - player.h) {
       player.y = currentGround - player.h;
       player.vy = 0;
       player.onGround = true;
-      player.jumpsLeft = 2;
+      nowOnGround = true;
+      player.jumpsLeft = getMod().noDoubleJump ? 1 : 2;
+      coyoteFrames = 6;
     } else {
       player.onGround = false;
+      if (coyoteFrames > 0) coyoteFrames -= 1;
     }
 
+    // Cave ceiling: enable wall-run if player presses jump near ceiling.
     const activeCave = getCaveAt(playerWorldCenter);
     if (activeCave) {
       const ceilingWave = Math.sin((playerWorldCenter * 0.04) + activeCave.phase) * activeCave.amplitude;
       const ceilingY = activeCave.baseCeiling + ceilingWave;
       if (player.y <= ceilingY) {
-        gameOver = true;
+        // If player is wall-running, stick just below the ceiling.
+        if (wallRunFrames > 0) {
+          player.y = ceilingY + 2;
+          player.vy = 0;
+        } else if (!tryHandleHit('ceiling')) {
+          gameOver = true;
+        } else {
+          player.y = ceilingY + 8;
+          player.vy = 6;
+        }
       }
+    }
+
+    // Honor jump buffer if we just landed.
+    if (jumpBufferFrames > 0 && (nowOnGround || coyoteFrames > 0)) {
+      doJump();
+      jumpBufferFrames = 0;
+    } else if (jumpBufferFrames > 0) {
+      jumpBufferFrames -= 1;
     }
 
     if (player.y > canvas.height + 80) {
       gameOver = true;
     }
 
-    spawnTimer -= 16.7;
-    if (spawnTimer <= 0) {
-      scheduleNextObstacle();
+    // Trail particles
+    spawnTrail();
+
+    // Obstacle spawning suspended during boss fight
+    if (boss == null) {
+      spawnTimer -= 16.7;
+      if (spawnTimer <= 0) {
+        scheduleNextObstacle();
+        // chance to drop bits/powerups around the latest obstacle
+        const last = obstacles[obstacles.length - 1];
+        if (last) maybeSpawnBitsAround(last);
+        maybeSpawnPowerup();
+      }
     }
 
+    // Boss spawning: every 1500m, suppressed during current encounter
+    if (boss == null && score >= nextBossAt && bossSpawnsSuppressed === 0) {
+      spawnBoss();
+      nextBossAt += BOSS_INTERVAL;
+    }
+    bossUpdate();
+
+    // Obstacle collisions + near-miss detection
     for (let i = obstacles.length - 1; i >= 0; i--) {
       const ob = obstacles[i];
       const obScreenX = ob.worldX - worldOffset;
@@ -1054,9 +1554,29 @@
                   player.y + player.h > ob.y;
 
       if (hit) {
-        gameOver = true;
-        finalizeRun();
-        return;
+        if (!tryHandleHit('obstacle')) {
+          gameOver = true;
+          finalizeRun();
+          return;
+        }
+        obstacles.splice(i, 1);
+        continue;
+      }
+
+      // Near-miss: obstacle just passed and was within ~14px vertically
+      if (obScreenX + ob.w < player.x && obScreenX + ob.w > player.x - 6 && nearMissCooldown === 0) {
+        const verticalGap = Math.min(
+          Math.abs((ob.y + ob.h) - player.y),
+          Math.abs(ob.y - (player.y + player.h))
+        );
+        if (verticalGap > 0 && verticalGap < 14) {
+          nearMissCooldown = 30;
+          combo = Math.min(8, combo + 0.2);
+          comboTimer = 180;
+          score += 5;
+          spawnBurst(player.x + player.w, player.y + player.h * 0.3, 6, '#ffd95c');
+          sfxExt.combo();
+        }
       }
 
       if (obScreenX + ob.w < -20) {
@@ -1064,9 +1584,103 @@
       }
     }
 
+    // Bits update + collection
+    const magnetActive = pwr.magnet > 0;
+    for (let i = bits.length - 1; i >= 0; i--) {
+      const bit = bits[i];
+      const sx = bit.worldX - worldOffset;
+      // Magnet effect: pull bit toward player in world space.
+      if (magnetActive) {
+        const playerWorldX = worldOffset + player.x + player.w / 2;
+        const dx = playerWorldX - bit.worldX;
+        const dy = (player.y + player.h / 2) - bit.y;
+        const dist2 = dx * dx + dy * dy;
+        if (dist2 < 230 * 230) {
+          const d = Math.sqrt(dist2) || 1;
+          bit.worldX += (dx / d) * 5;
+          bit.y     += (dy / d) * 5;
+        }
+      }
+      const collide = player.x < sx + bit.w &&
+                      player.x + player.w > sx &&
+                      player.y < bit.y + bit.h &&
+                      player.y + player.h > bit.y;
+      if (collide) {
+        bits.splice(i, 1);
+        const value = bit.value * getMod().bitsMult;
+        bitsCollected += value;
+        combo = Math.min(8, combo + 0.1 * value);
+        comboTimer = 180;
+        score += 8 * value;
+        spawnBurst(sx + 4, bit.y + 4, 5, '#ffd95c');
+        sfxExt.bit();
+        continue;
+      }
+      if (sx + bit.w < -20) bits.splice(i, 1);
+    }
+
+    // Power-up items
+    for (let i = powerupItems.length - 1; i >= 0; i--) {
+      const it = powerupItems[i];
+      it.bob += 0.1;
+      const sx = it.worldX - worldOffset;
+      const drawY = it.y + Math.sin(it.bob) * 4;
+      const collide = player.x < sx + it.w &&
+                      player.x + player.w > sx &&
+                      player.y < drawY + it.h &&
+                      player.y + player.h > drawY;
+      if (collide) {
+        activatePowerup(it.kind);
+        powerupItems.splice(i, 1);
+        continue;
+      }
+      if (sx + it.w < -20) powerupItems.splice(i, 1);
+    }
+
+    // Projectile collisions
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+      const p = projectiles[i];
+      p.worldX += p.vx;
+      p.life -= 1;
+      const sx = p.worldX - worldOffset;
+      const collide = player.x < sx + p.w &&
+                      player.x + player.w > sx &&
+                      player.y < p.y + p.h &&
+                      player.y + player.h > p.y;
+      if (collide) {
+        projectiles.splice(i, 1);
+        if (!tryHandleHit('laser')) {
+          gameOver = true;
+          finalizeRun();
+          return;
+        }
+        continue;
+      }
+      if (sx < -40 || p.life <= 0) projectiles.splice(i, 1);
+    }
+
+    // Particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.15;
+      p.life -= 1;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+
+    // Shake decay
+    if (shakeFrames > 0) {
+      shakeFrames -= 1;
+      if (shakeFrames === 0) shakeIntensity = 0;
+    }
+
+    maybeLevelUp();
+
     if (gameOver) finalizeRun();
 
     updateHud();
+    renderPowerupPills();
   }
 
   function finalizeRun() {
@@ -1075,8 +1689,16 @@
     latestRunScore = Math.floor(score);
     setScoreSubmissionState(latestRunScore > 0);
     setLeaderboardStatus(`Run ended at ${latestRunScore}m. Submit your score or press R to restart.`);
-    announce(`Signal lost. Distance ${latestRunScore} meters.`);
+    announce(`Signal lost. Distance ${latestRunScore} meters. ${bitsCollected} bits.`);
     sfx.death();
+    triggerShake(10, 30);
+    spawnBurst(player.x + player.w / 2, player.y + player.h / 2, 24, '#ff5a7c');
+    // Persist lifetime stats for skin unlocks.
+    lifetime.distance += score;
+    lifetime.bits += bitsCollected;
+    lifetime.runs += 1;
+    saveLifetime(lifetime);
+    populateSkinSelect();
     updateHud();
   }
 
@@ -1094,15 +1716,124 @@
     ctx.textAlign = 'left';
   }
 
+  function drawBit(bit) {
+    const sx = bit.worldX - worldOffset;
+    const sy = bit.y;
+    ctx.save();
+    ctx.fillStyle = '#ffd95c';
+    ctx.shadowColor = 'rgba(255,217,92,0.85)';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.moveTo(sx + bit.w / 2, sy);
+    ctx.lineTo(sx + bit.w, sy + bit.h / 2);
+    ctx.lineTo(sx + bit.w / 2, sy + bit.h);
+    ctx.lineTo(sx, sy + bit.h / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawPowerupItem(it) {
+    const sx = it.worldX - worldOffset;
+    const sy = it.y + Math.sin(it.bob) * 4;
+    const colorMap = { shield: '#2ef8ff', overclock: '#ffd95c', magnet: '#ff5cd1', slowmo: '#75ffd4' };
+    const labelMap = { shield: 'S', overclock: 'O', magnet: 'M', slowmo: '~' };
+    ctx.save();
+    ctx.fillStyle = colorMap[it.kind] || '#fff';
+    ctx.shadowColor = colorMap[it.kind] || '#fff';
+    ctx.shadowBlur = 12;
+    roundRect(ctx, sx, sy, it.w, it.h, 6);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#0a1330';
+    ctx.font = 'bold 14px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(labelMap[it.kind] || '?', sx + it.w / 2, sy + it.h - 7);
+    ctx.textAlign = 'left';
+    ctx.restore();
+  }
+
+  function drawProjectile(p) {
+    const sx = p.worldX - worldOffset;
+    ctx.save();
+    const lg = ctx.createLinearGradient(sx, p.y, sx + p.w, p.y);
+    lg.addColorStop(0, 'rgba(255,83,112,0.0)');
+    lg.addColorStop(1, 'rgba(255,83,112,1.0)');
+    ctx.fillStyle = lg;
+    ctx.fillRect(sx, p.y, p.w, p.h);
+    ctx.restore();
+  }
+
+  function drawBoss() {
+    if (!boss) return;
+    const sx = boss.worldX - worldOffset;
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,90,124,0.92)';
+    roundRect(ctx, sx, boss.y, boss.w, boss.h, 14);
+    ctx.fill();
+    ctx.fillStyle = '#220009';
+    ctx.fillRect(sx + 18, boss.y + 18, 14, 14);
+    ctx.fillRect(sx + boss.w - 32, boss.y + 18, 14, 14);
+    ctx.fillStyle = '#ffd95c';
+    ctx.fillRect(sx + 24, boss.y + boss.h - 18, boss.w - 48, 6);
+    // Survival bar
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillRect(sx, boss.y - 12, boss.w, 6);
+    ctx.fillStyle = '#ffd95c';
+    const bossMaxTimer = 12 * 60;
+    const fill = clamp(1 - (boss.timer / bossMaxTimer), 0, 1);
+    ctx.fillRect(sx, boss.y - 12, boss.w * fill, 6);
+    ctx.restore();
+  }
+
+  function drawParticles() {
+    particles.forEach((p) => {
+      const a = clamp(p.life / 30, 0, 1);
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.fillStyle = p.color || '#fff';
+      ctx.fillRect(p.x, p.y, 3, 3);
+      ctx.restore();
+    });
+  }
+
+  function drawLevelBanner() {
+    if (levelBannerFrames <= 0) return;
+    const a = clamp(levelBannerFrames / 90, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.fillStyle = '#ffd95c';
+    ctx.font = '700 36px Segoe UI';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = 'rgba(255,217,92,0.7)';
+    ctx.shadowBlur = 18;
+    ctx.fillText(levelBannerText, canvas.width / 2, 90);
+    ctx.textAlign = 'left';
+    ctx.restore();
+  }
+
   function render() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    if (shakeFrames > 0 && shakeIntensity > 0) {
+      const dx = (Math.random() - 0.5) * 2 * shakeIntensity;
+      const dy = (Math.random() - 0.5) * 2 * shakeIntensity;
+      ctx.translate(dx, dy);
+    }
+    ctx.clearRect(-20, -20, canvas.width + 40, canvas.height + 40);
     drawSkyline();
     drawGround();
-    drawPlayer();
     obstacles.forEach((ob) => {
       const screenObstacle = { ...ob, x: ob.worldX - worldOffset };
       drawObstacle(screenObstacle);
     });
+    bits.forEach(drawBit);
+    powerupItems.forEach(drawPowerupItem);
+    projectiles.forEach(drawProjectile);
+    drawBoss();
+    drawPlayer();
+    drawParticles();
+    drawLevelBanner();
+    ctx.restore();
     if (gameOver) {
       drawGameOver();
       gameOverOverlay.classList.add('active');
@@ -1115,12 +1846,53 @@
     if (!gameOver) requestAnimationFrame(loop);
   }
 
-  function jump() {
-    if (!gameStarted || gameOver || paused || player.jumpsLeft <= 0) return;
+  function doJump() {
     player.vy = player.jumpPower;
     player.onGround = false;
     player.jumpsLeft -= 1;
-    (player.jumpsLeft === 1 ? sfx.jump : sfx.djump)();
+    coyoteFrames = 0;
+    (player.jumpsLeft >= 1 ? sfx.jump : sfx.djump)();
+  }
+
+  function jump() {
+    if (!gameStarted || gameOver || paused) return;
+    // Wall-run: if near a cave ceiling and rising, allow a short stick.
+    const playerWorldCenter = worldOffset + player.x + player.w * 0.5;
+    const cave = getCaveAt(playerWorldCenter);
+    if (cave && wallRunFrames === 0 && wallRunCooldown === 0 && !player.onGround) {
+      const ceilingWave = Math.sin((playerWorldCenter * 0.04) + cave.phase) * cave.amplitude;
+      const ceilingY = cave.baseCeiling + ceilingWave;
+      if (player.y < ceilingY + 60 && player.y > ceilingY) {
+        wallRunFrames = 30;
+        wallRunCooldown = 90;
+        player.vy = -2;
+        sfxExt.dash();
+        return;
+      }
+    }
+    if (player.onGround || coyoteFrames > 0) {
+      player.jumpsLeft = getMod().noDoubleJump ? 1 : 2;
+      doJump();
+      return;
+    }
+    if (player.jumpsLeft > 0 && !getMod().noDoubleJump) {
+      doJump();
+      return;
+    }
+    // Buffer the jump for ~6 frames so a too-early press still lands.
+    jumpBufferFrames = 6;
+  }
+
+  function startDuck() { isDucking = true; }
+  function endDuck()   { isDucking = false; }
+
+  function startDash() {
+    if (!gameStarted || gameOver || paused) return;
+    if (dashCooldown > 0 || dashFrames > 0) return;
+    dashFrames = 18;
+    dashCooldown = 90;
+    sfxExt.dash();
+    spawnBurst(player.x, player.y + player.h / 2, 8, '#ffffff');
   }
 
   function setPaused(next) {
@@ -1144,6 +1916,14 @@
       e.preventDefault();
       jump();
     }
+    if (key === 'arrowdown' || key === 's') {
+      e.preventDefault();
+      startDuck();
+    }
+    if (key === 'shift') {
+      e.preventDefault();
+      startDash();
+    }
     if (gameOver && key === 'r') {
       resetGame();
     }
@@ -1159,7 +1939,41 @@
     }
   });
 
-  canvas.addEventListener('pointerdown', jump);
+  window.addEventListener('keyup', (e) => {
+    const key = e.key.toLowerCase();
+    if (key === 'arrowdown' || key === 's') endDuck();
+  });
+
+  // Touch: tap = jump, swipe down = duck (held), swipe right = dash.
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchActive = false;
+  canvas.addEventListener('pointerdown', (e) => {
+    touchActive = true;
+    touchStartX = e.clientX;
+    touchStartY = e.clientY;
+    jump();
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!touchActive) return;
+    const dx = e.clientX - touchStartX;
+    const dy = e.clientY - touchStartY;
+    if (dy > 30 && Math.abs(dy) > Math.abs(dx)) {
+      startDuck();
+    }
+    if (dx > 50 && Math.abs(dx) > Math.abs(dy)) {
+      startDash();
+      touchActive = false;
+    }
+  });
+  canvas.addEventListener('pointerup', () => {
+    touchActive = false;
+    endDuck();
+  });
+  canvas.addEventListener('pointercancel', () => {
+    touchActive = false;
+    endDuck();
+  });
 
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && gameStarted && !gameOver) setPaused(true);
@@ -1205,9 +2019,46 @@
 
   render();
 
+  // Wire run-option controls to settings before first start.
+  if (modifierSelect) {
+    activeModifier = settings.modifier && MODIFIERS[settings.modifier] ? settings.modifier : 'none';
+    modifierSelect.value = activeModifier;
+    modifierSelect.addEventListener('change', () => {
+      activeModifier = modifierSelect.value;
+      saveSettings({ modifier: activeModifier });
+    });
+  }
+  if (skinSelect) {
+    populateSkinSelect();
+    skinSelect.addEventListener('change', () => {
+      if (!isSkinUnlocked(skinSelect.value)) {
+        skinSelect.value = activeSkin;
+        return;
+      }
+      activeSkin = skinSelect.value;
+      saveSettings({ skin: activeSkin });
+    });
+  }
+  if (dailyToggle) {
+    dailyToggle.checked = false;
+    dailyToggle.addEventListener('change', () => {
+      dailySeedActive = dailyToggle.checked;
+    });
+  }
+
   function startGame() {
     startOverlay.classList.add('hidden');
     gameStarted = true;
+    // Apply chosen options for this run.
+    dailySeedActive = !!(dailyToggle && dailyToggle.checked);
+    activeModifier = modifierSelect ? modifierSelect.value : 'none';
+    activeSkin = skinSelect && isSkinUnlocked(skinSelect.value) ? skinSelect.value : 'default';
+    useSeededRng = dailySeedActive;
+    if (useSeededRng) setRngSeed(dailySeedValue());
+    // Reset terrain with new RNG so the seed actually matters from frame zero.
+    initTerrain();
+    const sg = getTerrainHeight(player.x + player.w * 0.5) || baseGroundY;
+    player.y = sg - player.h;
     requestAnimationFrame(loop);
   }
 
