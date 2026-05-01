@@ -19,10 +19,17 @@ if ($requestOrigin !== '' && in_array($requestOrigin, $ALLOWED_ORIGINS, true)) {
     header('Access-Control-Max-Age: 600');
 }
 
-const LEADERBOARD_FILE   = __DIR__ . '/leaderboard.txt';
-const LEADERBOARD_DB     = __DIR__ . '/leaderboard.sqlite';
-const RATE_LIMIT_FILE    = __DIR__ . '/rate_limit.txt';
-const NONCE_FILE         = __DIR__ . '/nonces.txt';
+// Persisted state lives in a writable directory (mounted via Docker so the
+// app's read-only root filesystem doesn't block writes). Override paths via
+// DATA_DIR or the per-file env vars for non-Docker deployments.
+$DATA_DIR = getenv('DATA_DIR') ?: '/app/data';
+if (!is_dir($DATA_DIR)) {
+    @mkdir($DATA_DIR, 0755, true);
+}
+define('LEADERBOARD_FILE', getenv('LEADERBOARD_FILE') ?: $DATA_DIR . '/leaderboard.txt');
+define('LEADERBOARD_DB',   getenv('LEADERBOARD_DB')   ?: $DATA_DIR . '/leaderboard.sqlite');
+define('RATE_LIMIT_FILE',  getenv('RATE_LIMIT_FILE')  ?: $DATA_DIR . '/rate_limit.txt');
+define('NONCE_FILE',       getenv('NONCE_FILE')       ?: $DATA_DIR . '/nonces.txt');
 const MAX_ENTRIES        = 100;
 const MAX_SCORE          = 999999;
 const MAX_NAME_LENGTH    = 24;
