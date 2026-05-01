@@ -17,10 +17,11 @@ const HOST = '0.0.0.0';
 const PUBLIC_DIR = __dirname;
 // Persisted state lives in a writable directory mounted via Docker so the
 // app's read-only root filesystem doesn't block writes. Override paths via
-// LEADERBOARD_FILE / DAILY_SEED_FILE for non-Docker deployments.
+// LEADERBOARD_FILE / DAILY_SEED_FILE / NONCE_FILE for non-Docker deployments.
 const DATA_DIR = process.env.DATA_DIR || '/app/data';
 const LEADERBOARD_FILE = process.env.LEADERBOARD_FILE || path.join(DATA_DIR, 'leaderboard.txt');
 const DAILY_SEED_FILE = process.env.DAILY_SEED_FILE || path.join(DATA_DIR, 'dailyseed.txt');
+const NONCE_FILE = process.env.NONCE_FILE || path.join(DATA_DIR, 'nonces.txt');
 const MAX_ENTRIES = 100;
 const MAX_SCORE = 999999;
 const MAX_NAME_LENGTH = 24;
@@ -59,9 +60,14 @@ const pruneTimer = setInterval(() => {
   }
 
   const nonceCutoff = Date.now() - NONCE_LIFETIME_MS;
+  let prunedAny = false;
   for (const [nonce, ts] of nonceStore) {
-    if (ts < nonceCutoff) nonceStore.delete(nonce);
+    if (ts < nonceCutoff) {
+      nonceStore.delete(nonce);
+      prunedAny = true;
+    }
   }
+  if (prunedAny) persistNonceStore();
 }, 60 * 1000);
 pruneTimer.unref();
 
@@ -86,6 +92,7 @@ function issueNonce() {
     const oldestNonce = nonceStore.keys().next().value;
     if (oldestNonce !== undefined) nonceStore.delete(oldestNonce);
   }
+  persistNonceStore();
   return nonce;
 }
 
@@ -94,11 +101,45 @@ function consumeNonce(nonce) {
   const issuedAt = nonceStore.get(nonce);
   if (issuedAt === undefined) return false;
   nonceStore.delete(nonce);
+  persistNonceStore();
   const now = Date.now();
   if (now - issuedAt > NONCE_LIFETIME_MS) return false;
   if (now - issuedAt < NONCE_MIN_AGE_MS) return false;
   return true;
 }
+
+function loadNonceStore() {
+  try {
+    if (!fs.existsSync(NONCE_FILE)) return;
+    const raw = fs.readFileSync(NONCE_FILE, 'utf8').trim();
+    if (!raw) return;
+    const cutoff = Date.now() - NONCE_LIFETIME_MS;
+    for (const line of raw.split('\n')) {
+      const [nonce, tsRaw] = line.split('|');
+      if (!nonce || !/^[0-9a-f]+$/i.test(nonce)) continue;
+      const issuedAt = Number(tsRaw);
+      if (!Number.isFinite(issuedAt) || issuedAt < cutoff) continue;
+      nonceStore.set(nonce, issuedAt);
+    }
+  } catch (error) {
+    console.error('Failed to load nonce store:', error.message);
+  }
+}
+
+function persistNonceStore() {
+  try {
+    ensureDataDir();
+    const lines = [];
+    for (const [nonce, ts] of nonceStore) {
+      lines.push(`${nonce}|${ts}`);
+    }
+    fs.writeFileSync(NONCE_FILE, lines.join('\n'), { encoding: 'utf8', mode: 0o644 });
+  } catch (error) {
+    console.error('Failed to persist nonce store:', error.message);
+  }
+}
+
+loadNonceStore();
 
 function getClientIp(req) {
   // Only use the socket's remote address; never trust X-Forwarded-For without a verified proxy.
