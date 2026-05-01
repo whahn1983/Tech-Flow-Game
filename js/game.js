@@ -106,6 +106,7 @@
 
   let gameStarted = false;
   let paused = false;
+  let rafId = null;
   let score = 0;
   let best = Number(localStorage.getItem(BEST_KEY) || 0);
   let speedMult = 1;
@@ -1351,7 +1352,7 @@
     player.jumpsLeft = getMod().noDoubleJump ? 1 : 2;
     updateHud();
     renderPowerupPills();
-    requestAnimationFrame(loop);
+    scheduleLoop();
   }
 
   function updateHud() {
@@ -1841,9 +1842,16 @@
   }
 
   function loop() {
+    rafId = null;
+    if (paused || gameOver) return;
     update();
     render();
-    if (!gameOver) requestAnimationFrame(loop);
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function scheduleLoop() {
+    if (rafId !== null) return;
+    rafId = requestAnimationFrame(loop);
   }
 
   function doJump() {
@@ -1900,7 +1908,14 @@
     if (paused === next) return;
     paused = next;
     pauseOverlay.classList.toggle('active', paused);
-    if (!paused) requestAnimationFrame(loop);
+    if (paused) {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+    } else {
+      scheduleLoop();
+    }
   }
 
   function togglePause() {
@@ -2071,7 +2086,7 @@
     initTerrain();
     const sg = getTerrainHeight(player.x + player.w * 0.5) || baseGroundY;
     player.y = sg - player.h;
-    requestAnimationFrame(loop);
+    scheduleLoop();
   }
 
   startBtn.addEventListener('click', startGame);
