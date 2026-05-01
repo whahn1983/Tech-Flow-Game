@@ -5,9 +5,9 @@ services:
     container_name: tech-flow-game
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "5001:5001"
     environment:
-      PORT: 8080
+      PORT: 5001
     volumes:
       - leaderboard-data:/app/data
 
