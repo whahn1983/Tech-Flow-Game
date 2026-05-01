@@ -108,14 +108,14 @@ const MIME_TYPES = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.mp3': 'audio/mpeg',
-  '.txt': 'text/plain; charset=utf-8'
+  '.txt': 'text/plain; charset=utf-8',
 };
 
 // Security headers sent on every response.
 const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
-  'Referrer-Policy': 'strict-origin-when-cross-origin'
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
 };
 
 // CSP for HTML pages: scripts/styles are now in external files. style-src keeps
@@ -130,7 +130,7 @@ const HTML_CSP = [
   "worker-src 'self'",
   "base-uri 'self'",
   "form-action 'self'",
-  "frame-ancestors 'none'"
+  "frame-ancestors 'none'",
 ].join('; ');
 
 // CSP for JSON API responses: no sub-resources allowed.
@@ -154,7 +154,7 @@ function readLeaderboard() {
       return {
         name: (name || '').trim(),
         score: Number(score || 0),
-        savedAt: savedAt || new Date(0).toISOString()
+        savedAt: savedAt || new Date(0).toISOString(),
       };
     })
     .filter((entry) => entry.name && Number.isFinite(entry.score));
@@ -182,7 +182,7 @@ function corsHeadersFor(req) {
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Max-Age': '600',
-    Vary: 'Origin'
+    Vary: 'Origin',
   };
 }
 
@@ -193,7 +193,7 @@ function sendJson(res, statusCode, payload, req) {
     'Cache-Control': 'no-store',
     'Content-Security-Policy': API_CSP,
     ...SECURITY_HEADERS,
-    ...(req ? corsHeadersFor(req) : {})
+    ...(req ? corsHeadersFor(req) : {}),
   });
   res.end(body);
 }
@@ -271,10 +271,7 @@ function handleLeaderboardPost(req, res) {
       }
 
       const savedAt = new Date().toISOString();
-      const entries = sortedLeaderboard([
-        ...readLeaderboard(),
-        { name, score, savedAt }
-      ]);
+      const entries = sortedLeaderboard([...readLeaderboard(), { name, score, savedAt }]);
 
       writeLeaderboard(entries);
       sendJson(res, 201, { entries, saved: { name, score, savedAt } }, req);
@@ -324,7 +321,7 @@ function handleApi(req, res) {
   res.writeHead(405, {
     Allow: 'GET, POST, OPTIONS',
     'Content-Type': 'application/json; charset=utf-8',
-    ...SECURITY_HEADERS
+    ...SECURITY_HEADERS,
   });
   res.end(JSON.stringify({ error: 'Method not allowed.' }));
   return true;
@@ -350,9 +347,10 @@ function serveStatic(req, res) {
 
     const ext = path.extname(absolutePath).toLowerCase();
     const basename = path.basename(absolutePath);
-    const contentType = (basename === 'manifest.json'
-      ? 'application/manifest+json; charset=utf-8'
-      : MIME_TYPES[ext]) || 'application/octet-stream';
+    const contentType =
+      (basename === 'manifest.json'
+        ? 'application/manifest+json; charset=utf-8'
+        : MIME_TYPES[ext]) || 'application/octet-stream';
     const isHtml = ext === '.html';
 
     const headers = { 'Content-Type': contentType, ...SECURITY_HEADERS };
@@ -387,5 +385,5 @@ module.exports = {
   handleApi,
   server,
   // Exposed for tests to inspect/reset internal state.
-  _state: { rateLimitStore, nonceStore }
+  _state: { rateLimitStore, nonceStore },
 };

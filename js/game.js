@@ -40,14 +40,18 @@
         distance: Number(parsed.distance) || 0,
         bits: Number(parsed.bits) || 0,
         runs: Number(parsed.runs) || 0,
-        bossKills: Number(parsed.bossKills) || 0
+        bossKills: Number(parsed.bossKills) || 0,
       };
     } catch {
       return { distance: 0, bits: 0, runs: 0, bossKills: 0 };
     }
   }
   function saveLifetime(stats) {
-    try { localStorage.setItem(LIFETIME_KEY, JSON.stringify(stats)); } catch { /* ignore */ }
+    try {
+      localStorage.setItem(LIFETIME_KEY, JSON.stringify(stats));
+    } catch {
+      /* ignore */
+    }
   }
   const lifetime = loadLifetime();
 
@@ -85,11 +89,11 @@
   // the day's seed so every player runs the same course.
   let rngState = 0;
   function setRngSeed(seed) {
-    rngState = (seed | 0) || 1;
+    rngState = seed | 0 || 1;
   }
   function rng() {
     rngState |= 0;
-    rngState = (rngState + 0x6D2B79F5) | 0;
+    rngState = (rngState + 0x6d2b79f5) | 0;
     let t = rngState;
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
@@ -101,7 +105,7 @@
   }
   function dailySeedValue() {
     const d = new Date();
-    return (d.getUTCFullYear() * 10000) + ((d.getUTCMonth() + 1) * 100) + d.getUTCDate();
+    return d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate();
   }
 
   let gameStarted = false;
@@ -167,7 +171,7 @@
     vy: 0,
     jumpPower: -14,
     onGround: true,
-    jumpsLeft: 2
+    jumpsLeft: 2,
   };
   const baseGroundY = canvas.height - 72;
   const precipiceFloorY = canvas.height - 1;
@@ -176,8 +180,8 @@
   const obstacles = [];
   const transitionFrameBudget = {
     start: { jump: 24, stay: 20 },
-    jump:  { jump: 22, stay: 44 },
-    stay:  { jump: 26, stay: 18 }
+    jump: { jump: 22, stay: 44 },
+    stay: { jump: 26, stay: 18 },
   };
   const courseSafety = {
     minTakeoffBuffer: 96,
@@ -200,12 +204,12 @@
     obstacleSpacingBuffer: 28,
     minObstacleGapPx: {
       jump: { jump: 170, stay: 132 },
-      stay: { jump: 140, stay: 116 }
+      stay: { jump: 140, stay: 116 },
     },
     minObstacleGapPxInCave: {
       jump: { jump: 230, stay: 168 },
-      stay: { jump: 188, stay: 140 }
-    }
+      stay: { jump: 188, stay: 140 },
+    },
   };
 
   // ---------- Audio ----------
@@ -217,7 +221,11 @@
     if (audioCtx) return audioCtx;
     const Ctor = window.AudioContext || window.webkitAudioContext;
     if (!Ctor) return null;
-    try { audioCtx = new Ctor(); } catch { audioCtx = null; }
+    try {
+      audioCtx = new Ctor();
+    } catch {
+      audioCtx = null;
+    }
     return audioCtx;
   }
 
@@ -240,12 +248,12 @@
   }
 
   const sfx = {
-    jump:   () => playTone(620, 0.09, 'square', 0.06),
-    djump:  () => playTone(820, 0.09, 'square', 0.06),
-    death:  () => {
+    jump: () => playTone(620, 0.09, 'square', 0.06),
+    djump: () => playTone(820, 0.09, 'square', 0.06),
+    death: () => {
       playTone(180, 0.4, 'sawtooth', 0.09);
       setTimeout(() => playTone(90, 0.5, 'sawtooth', 0.07), 90);
-    }
+    },
   };
 
   function setMusicButtonState(label) {
@@ -262,11 +270,14 @@
   function tryPlayMusic() {
     if (muted) return;
     music.volume = 0.55;
-    music.play().then(() => {
-      setMusicButtonState('Music On');
-    }).catch(() => {
-      setMusicButtonState('Tap to Enable Music');
-    });
+    music
+      .play()
+      .then(() => {
+        setMusicButtonState('Music On');
+      })
+      .catch(() => {
+        setMusicButtonState('Tap to Enable Music');
+      });
   }
 
   musicBtn.addEventListener('click', () => {
@@ -291,42 +302,122 @@
   setMusicButtonState(muted ? 'Play Music' : musicBtn.textContent);
 
   const sfxExt = {
-    bit:    () => playTone(1100, 0.05, 'sine', 0.05),
-    combo:  () => playTone(1500, 0.07, 'triangle', 0.06),
-    powerup:() => { playTone(660, 0.07, 'square', 0.05); setTimeout(() => playTone(990, 0.09, 'square', 0.05), 70); },
-    shield: () => { playTone(440, 0.18, 'square', 0.07); setTimeout(() => playTone(880, 0.18, 'square', 0.07), 80); },
-    levelup:() => { playTone(520, 0.1, 'square', 0.07); setTimeout(() => playTone(780, 0.12, 'square', 0.07), 90); setTimeout(() => playTone(1040, 0.14, 'square', 0.07), 200); },
-    boss:   () => { playTone(110, 0.4, 'sawtooth', 0.08); setTimeout(() => playTone(75, 0.5, 'sawtooth', 0.07), 200); },
-    bossDie:() => { playTone(880, 0.18, 'square', 0.08); setTimeout(() => playTone(1320, 0.2, 'square', 0.08), 100); setTimeout(() => playTone(1760, 0.25, 'square', 0.08), 220); },
-    dash:   () => playTone(560, 0.08, 'sawtooth', 0.06),
-    laser:  () => playTone(220, 0.12, 'sawtooth', 0.05)
+    bit: () => playTone(1100, 0.05, 'sine', 0.05),
+    combo: () => playTone(1500, 0.07, 'triangle', 0.06),
+    powerup: () => {
+      playTone(660, 0.07, 'square', 0.05);
+      setTimeout(() => playTone(990, 0.09, 'square', 0.05), 70);
+    },
+    shield: () => {
+      playTone(440, 0.18, 'square', 0.07);
+      setTimeout(() => playTone(880, 0.18, 'square', 0.07), 80);
+    },
+    levelup: () => {
+      playTone(520, 0.1, 'square', 0.07);
+      setTimeout(() => playTone(780, 0.12, 'square', 0.07), 90);
+      setTimeout(() => playTone(1040, 0.14, 'square', 0.07), 200);
+    },
+    boss: () => {
+      playTone(110, 0.4, 'sawtooth', 0.08);
+      setTimeout(() => playTone(75, 0.5, 'sawtooth', 0.07), 200);
+    },
+    bossDie: () => {
+      playTone(880, 0.18, 'square', 0.08);
+      setTimeout(() => playTone(1320, 0.2, 'square', 0.08), 100);
+      setTimeout(() => playTone(1760, 0.25, 'square', 0.08), 220);
+    },
+    dash: () => playTone(560, 0.08, 'sawtooth', 0.06),
+    laser: () => playTone(220, 0.12, 'sawtooth', 0.05),
   };
 
   // ---------- Modifiers ----------
   const MODIFIERS = {
-    none:        { label: 'None',         scoreMult: 1.0,  noDoubleJump: false, bitsMult: 1, gravityMult: 1,   allowShield: true  },
-    hardcore:    { label: 'Hardcore',     scoreMult: 1.5,  noDoubleJump: true,  bitsMult: 1, gravityMult: 1,   allowShield: true  },
-    bitrush:     { label: 'Bit Rush',     scoreMult: 1.2,  noDoubleJump: false, bitsMult: 2, gravityMult: 1,   allowShield: false },
-    featherfall: { label: 'Feather Fall', scoreMult: 1.25, noDoubleJump: false, bitsMult: 1, gravityMult: 0.6, allowShield: true  },
-    glasscannon: { label: 'Glass Cannon', scoreMult: 1.75, noDoubleJump: false, bitsMult: 1, gravityMult: 1,   allowShield: false }
+    none: {
+      label: 'None',
+      scoreMult: 1.0,
+      noDoubleJump: false,
+      bitsMult: 1,
+      gravityMult: 1,
+      allowShield: true,
+    },
+    hardcore: {
+      label: 'Hardcore',
+      scoreMult: 1.5,
+      noDoubleJump: true,
+      bitsMult: 1,
+      gravityMult: 1,
+      allowShield: true,
+    },
+    bitrush: {
+      label: 'Bit Rush',
+      scoreMult: 1.2,
+      noDoubleJump: false,
+      bitsMult: 2,
+      gravityMult: 1,
+      allowShield: false,
+    },
+    featherfall: {
+      label: 'Feather Fall',
+      scoreMult: 1.25,
+      noDoubleJump: false,
+      bitsMult: 1,
+      gravityMult: 0.6,
+      allowShield: true,
+    },
+    glasscannon: {
+      label: 'Glass Cannon',
+      scoreMult: 1.75,
+      noDoubleJump: false,
+      bitsMult: 1,
+      gravityMult: 1,
+      allowShield: false,
+    },
   };
-  function getMod() { return MODIFIERS[activeModifier] || MODIFIERS.none; }
+  function getMod() {
+    return MODIFIERS[activeModifier] || MODIFIERS.none;
+  }
 
   // ---------- Skins ----------
   const SKINS = {
-    default:   { label: 'Pulse',         unlock: 0,     check: () => true,                      colors: ['#2ef8ff', '#8e5cff'] },
-    sunset:    { label: 'Sunset (1km)',  unlock: 1000,  check: () => lifetime.distance >= 1000, colors: ['#ffd95c', '#ff5a7c'] },
-    matrix:    { label: 'Matrix (2.5km)',unlock: 2500,  check: () => lifetime.distance >= 2500, colors: ['#75ffd4', '#16f06b'] },
-    plasma:    { label: 'Plasma (5km)',  unlock: 5000,  check: () => lifetime.distance >= 5000, colors: ['#ff5cd1', '#8e5cff'] },
-    bitlord:   { label: 'Bit Lord (500B)', unlock: 500, check: () => lifetime.bits >= 500,      colors: ['#ffd95c', '#2ef8ff'] },
-    bossbane:  { label: 'Bossbane (3 bosses)', unlock: 3, check: () => lifetime.bossKills >= 3, colors: ['#ff5a7c', '#ffd95c'] }
+    default: { label: 'Pulse', unlock: 0, check: () => true, colors: ['#2ef8ff', '#8e5cff'] },
+    sunset: {
+      label: 'Sunset (1km)',
+      unlock: 1000,
+      check: () => lifetime.distance >= 1000,
+      colors: ['#ffd95c', '#ff5a7c'],
+    },
+    matrix: {
+      label: 'Matrix (2.5km)',
+      unlock: 2500,
+      check: () => lifetime.distance >= 2500,
+      colors: ['#75ffd4', '#16f06b'],
+    },
+    plasma: {
+      label: 'Plasma (5km)',
+      unlock: 5000,
+      check: () => lifetime.distance >= 5000,
+      colors: ['#ff5cd1', '#8e5cff'],
+    },
+    bitlord: {
+      label: 'Bit Lord (500B)',
+      unlock: 500,
+      check: () => lifetime.bits >= 500,
+      colors: ['#ffd95c', '#2ef8ff'],
+    },
+    bossbane: {
+      label: 'Bossbane (3 bosses)',
+      unlock: 3,
+      check: () => lifetime.bossKills >= 3,
+      colors: ['#ff5a7c', '#ffd95c'],
+    },
   };
   function isSkinUnlocked(key) {
     const skin = SKINS[key];
     return skin ? skin.check() : false;
   }
   function getSkinColors() {
-    const skin = SKINS[activeSkin] && isSkinUnlocked(activeSkin) ? SKINS[activeSkin] : SKINS.default;
+    const skin =
+      SKINS[activeSkin] && isSkinUnlocked(activeSkin) ? SKINS[activeSkin] : SKINS.default;
     return skin.colors;
   }
 
@@ -405,7 +496,9 @@
       } else if (error instanceof SyntaxError) {
         setLeaderboardStatus('Leaderboard returned an invalid response. Please retry shortly.');
       } else {
-        setLeaderboardStatus('Global leaderboard unavailable. Ensure leaderboard.php is deployed and writable.');
+        setLeaderboardStatus(
+          'Global leaderboard unavailable. Ensure leaderboard.php is deployed and writable.'
+        );
       }
     }
   }
@@ -447,7 +540,7 @@
     const response = await fetch(leaderboardEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body
+      body,
     });
 
     let payload;
@@ -576,7 +669,7 @@
     currentY: baseGroundY,
     slope: 0,
     nextPrecipiceAt: 420,
-    nextCaveAt: 360
+    nextCaveAt: 360,
   };
 
   function rand(min, max) {
@@ -598,12 +691,16 @@
   function getCaveCeilingAt(worldX) {
     const cave = getCaveAt(worldX);
     if (!cave) return null;
-    const wave = Math.sin((worldX * 0.04) + cave.phase) * cave.amplitude;
+    const wave = Math.sin(worldX * 0.04 + cave.phase) * cave.amplitude;
     return cave.baseCeiling + wave;
   }
 
   function getPrecipiceNear(worldX, padding = 0) {
-    return terrain.precipices.find((drop) => worldX >= drop.start - padding && worldX <= drop.end + padding) || null;
+    return (
+      terrain.precipices.find(
+        (drop) => worldX >= drop.start - padding && worldX <= drop.end + padding
+      ) || null
+    );
   }
 
   function getRequiredGroundForJumpClearance(worldX) {
@@ -629,11 +726,15 @@
       const sampleGroundY = previousPoint.y + (adjustedNextY - previousPoint.y) * t;
       if (sampleGroundY >= requiredGroundY) return;
 
-      const requiredNextY = previousPoint.y + ((requiredGroundY - previousPoint.y) / t);
+      const requiredNextY = previousPoint.y + (requiredGroundY - previousPoint.y) / t;
       adjustedNextY = Math.max(adjustedNextY, requiredNextY);
     }
 
-    for (let sampleX = previousPoint.x + courseSafety.clearanceSampleStep; sampleX < nextPointX; sampleX += courseSafety.clearanceSampleStep) {
+    for (
+      let sampleX = previousPoint.x + courseSafety.clearanceSampleStep;
+      sampleX < nextPointX;
+      sampleX += courseSafety.clearanceSampleStep
+    ) {
       enforceAtSample(sampleX);
     }
     enforceAtSample(nextPointX);
@@ -701,7 +802,7 @@
           end: start + length,
           baseCeiling: ceiling,
           amplitude: rand(8, 18),
-          phase: rand(0, Math.PI * 2)
+          phase: rand(0, Math.PI * 2),
         });
         terrain.nextCaveAt = start + rand(520, 880);
       }
@@ -718,7 +819,11 @@
       }
 
       const previousPoint = terrain.points[terrain.points.length - 1];
-      terrain.currentY = enforceJumpClearanceOnSegment(previousPoint, terrain.lastX, terrain.currentY);
+      terrain.currentY = enforceJumpClearanceOnSegment(
+        previousPoint,
+        terrain.lastX,
+        terrain.currentY
+      );
       terrain.currentY = clamp(terrain.currentY, baseGroundY - 110, baseGroundY + 44);
 
       terrain.points.push({ x: terrain.lastX, y: terrain.currentY });
@@ -800,7 +905,10 @@
     let previous = null;
     for (const candidate of obstacles) {
       const candidateEnd = candidate.worldX + candidate.w;
-      if (candidateEnd <= obstacleStart && (!previous || candidateEnd > previous.worldX + previous.w)) {
+      if (
+        candidateEnd <= obstacleStart &&
+        (!previous || candidateEnd > previous.worldX + previous.w)
+      ) {
         previous = candidate;
       }
     }
@@ -808,7 +916,11 @@
   }
 
   function hasCaveInSpan(worldStart, worldEnd) {
-    for (let sampleX = worldStart; sampleX <= worldEnd; sampleX += courseSafety.clearanceSampleStep) {
+    for (
+      let sampleX = worldStart;
+      sampleX <= worldEnd;
+      sampleX += courseSafety.clearanceSampleStep
+    ) {
       if (getCaveCeilingAt(sampleX) != null) {
         return true;
       }
@@ -826,8 +938,10 @@
     const obstacleStart = obstacle.worldX;
     const obstacleEnd = obstacle.worldX + obstacle.w;
     const obstacleCenter = obstacleStart + obstacle.w * 0.5;
-    const requiredLandingBuffer = action === 'stay' ? courseSafety.minLandingBufferForStay : courseSafety.minLandingBuffer;
-    const requiredTakeoffBuffer = action === 'stay' ? courseSafety.minTakeoffBufferForStay : courseSafety.minTakeoffBuffer;
+    const requiredLandingBuffer =
+      action === 'stay' ? courseSafety.minLandingBufferForStay : courseSafety.minLandingBuffer;
+    const requiredTakeoffBuffer =
+      action === 'stay' ? courseSafety.minTakeoffBufferForStay : courseSafety.minTakeoffBuffer;
 
     if (action === 'jump') {
       const approachStart = obstacleStart - courseSafety.jumpObstacleCaveApproachBuffer;
@@ -844,7 +958,11 @@
       const postObstacleGround = getTerrainHeight(obstacleEnd);
       let lowestRunoutGround = postObstacleGround;
       const runoutEnd = obstacleEnd + courseSafety.stayObstacleRunoutDistance;
-      for (let sampleX = obstacleEnd + courseSafety.clearanceSampleStep; sampleX <= runoutEnd; sampleX += courseSafety.clearanceSampleStep) {
+      for (
+        let sampleX = obstacleEnd + courseSafety.clearanceSampleStep;
+        sampleX <= runoutEnd;
+        sampleX += courseSafety.clearanceSampleStep
+      ) {
         lowestRunoutGround = Math.max(lowestRunoutGround, getTerrainHeight(sampleX));
       }
 
@@ -855,7 +973,11 @@
 
       const droneApproachStart = obstacleStart - requiredTakeoffBuffer;
       let peakApproachY = getTerrainHeight(droneApproachStart);
-      for (let sampleX = droneApproachStart + courseSafety.clearanceSampleStep; sampleX < obstacleStart; sampleX += courseSafety.clearanceSampleStep) {
+      for (
+        let sampleX = droneApproachStart + courseSafety.clearanceSampleStep;
+        sampleX < obstacleStart;
+        sampleX += courseSafety.clearanceSampleStep
+      ) {
         peakApproachY = Math.min(peakApproachY, getTerrainHeight(sampleX));
       }
       const approachDrop = getTerrainHeight(obstacleStart) - peakApproachY;
@@ -884,22 +1006,29 @@
       }
     }
 
-    if (getPrecipiceNear(obstacleStart, courseSafety.precipiceAvoidanceBuffer) || getPrecipiceNear(obstacleEnd, courseSafety.precipiceAvoidanceBuffer)) {
+    if (
+      getPrecipiceNear(obstacleStart, courseSafety.precipiceAvoidanceBuffer) ||
+      getPrecipiceNear(obstacleEnd, courseSafety.precipiceAvoidanceBuffer)
+    ) {
       return false;
     }
 
-    const adjacentPrecipice = terrain.precipices.find((drop) => (
-      obstacleStart >= drop.end && obstacleStart - drop.end < requiredLandingBuffer
-    ) || (
-      obstacleEnd <= drop.start && drop.start - obstacleEnd < requiredTakeoffBuffer
-    ));
+    const adjacentPrecipice = terrain.precipices.find(
+      (drop) =>
+        (obstacleStart >= drop.end && obstacleStart - drop.end < requiredLandingBuffer) ||
+        (obstacleEnd <= drop.start && drop.start - obstacleEnd < requiredTakeoffBuffer)
+    );
     if (adjacentPrecipice) {
       return false;
     }
 
     const ceilingSampleStart = obstacleStart - player.w;
-    const ceilingSampleEnd   = obstacleEnd   + player.w;
-    for (let sampleX = ceilingSampleStart; sampleX <= ceilingSampleEnd; sampleX += courseSafety.clearanceSampleStep) {
+    const ceilingSampleEnd = obstacleEnd + player.w;
+    for (
+      let sampleX = ceilingSampleStart;
+      sampleX <= ceilingSampleEnd;
+      sampleX += courseSafety.clearanceSampleStep
+    ) {
       const groundY = getTerrainHeight(sampleX);
       const caveCeilingY = getCaveCeilingAt(sampleX);
 
@@ -986,12 +1115,19 @@
       obstacles.push(fallbackObstacle);
       lastSpawnAction = fallbackAction;
       const fallbackNextAction = 'jump';
-      applySpawnGap(getSpawnDelayMs(fallbackAction, fallbackNextAction) * moveSpeed * (60 / 1000) + fallbackShiftPx, moveSpeed);
+      applySpawnGap(
+        getSpawnDelayMs(fallbackAction, fallbackNextAction) * moveSpeed * (60 / 1000) +
+          fallbackShiftPx,
+        moveSpeed
+      );
       queuedSpawnAction = fallbackNextAction;
       return;
     }
     const fallbackNextAction = 'jump';
-    applySpawnGap(getSpawnDelayMs(fallbackAction, fallbackNextAction) * moveSpeed * (60 / 1000), moveSpeed);
+    applySpawnGap(
+      getSpawnDelayMs(fallbackAction, fallbackNextAction) * moveSpeed * (60 / 1000),
+      moveSpeed
+    );
     queuedSpawnAction = fallbackNextAction;
   }
 
@@ -1013,7 +1149,15 @@
   function spawnBitLine(startWorldX, atY) {
     const count = 4 + Math.floor(gameRandom() * 3);
     for (let i = 0; i < count; i++) {
-      bits.push({ worldX: startWorldX + i * 26, y: atY, w: 14, h: 14, vy: 0, alive: true, value: 1 });
+      bits.push({
+        worldX: startWorldX + i * 26,
+        y: atY,
+        w: 14,
+        h: 14,
+        vy: 0,
+        alive: true,
+        value: 1,
+      });
     }
   }
 
@@ -1034,16 +1178,21 @@
     const worldX = worldOffset + canvas.width + 40;
     const ground = getTerrainHeight(worldX);
     powerupItems.push({
-      worldX, y: ground - 70 - gameRandom() * 40,
-      w: 24, h: 24, kind, alive: true, bob: gameRandom() * Math.PI * 2
+      worldX,
+      y: ground - 70 - gameRandom() * 40,
+      w: 24,
+      h: 24,
+      kind,
+      alive: true,
+      bob: gameRandom() * Math.PI * 2,
     });
   }
 
   function activatePowerup(kind) {
-    if (kind === 'shield')    pwr.shield = 1; // boolean (single hit absorb)
+    if (kind === 'shield') pwr.shield = 1; // boolean (single hit absorb)
     if (kind === 'overclock') pwr.overclock = 5 * 60;
-    if (kind === 'magnet')    pwr.magnet = 7 * 60;
-    if (kind === 'slowmo')    pwr.slowmo = 4 * 60;
+    if (kind === 'magnet') pwr.magnet = 7 * 60;
+    if (kind === 'slowmo') pwr.slowmo = 4 * 60;
     sfxExt.powerup();
     announce(`${kind} active`);
     spawnBurst(player.x + player.w / 2, player.y + player.h / 2, 14, '#ffd95c');
@@ -1054,11 +1203,12 @@
       const a = (Math.PI * 2 * i) / count + Math.random() * 0.4;
       const sp = 2 + Math.random() * 4;
       particles.push({
-        x, y,
+        x,
+        y,
         vx: Math.cos(a) * sp,
         vy: Math.sin(a) * sp - 1,
         life: 22 + Math.random() * 12,
-        color
+        color,
       });
     }
   }
@@ -1074,7 +1224,7 @@
       vx: -1.5 - Math.random() * 1.5,
       vy: -0.4 + Math.random() * 0.8,
       life: 18 + Math.random() * 10,
-      color: Math.random() < 0.5 ? colors[0] : colors[1]
+      color: Math.random() < 0.5 ? colors[0] : colors[1],
     });
   }
 
@@ -1093,9 +1243,9 @@
       h: 70,
       hp: 100,
       maxHp: 100,
-      timer: 12 * 60,        // survive ~12s to win
+      timer: 12 * 60, // survive ~12s to win
       cooldown: 60,
-      pattern: 0
+      pattern: 0,
     };
     bossSpawnsSuppressed = boss.timer + 60;
     sfxExt.boss();
@@ -1139,10 +1289,11 @@
         projectiles.push({
           worldX: baseX,
           y: baseY + i * 14,
-          w: 22, h: 8,
+          w: 22,
+          h: 8,
           vx: -7 - speedMult * 0.6,
           vy: 0,
-          life: 240
+          life: 240,
         });
       }
       sfxExt.laser();
@@ -1158,11 +1309,11 @@
 
   function drawSkyline() {
     const parallax = reduceMotion ? 0.05 : 0.3;
-    sceneryOffset += (baseSpeed * speedMult) * parallax;
+    sceneryOffset += baseSpeed * speedMult * parallax;
 
     for (let i = 0; i < 6; i++) {
       const width = 130;
-      const x = (i * 170) - (sceneryOffset % 170);
+      const x = i * 170 - (sceneryOffset % 170);
       const h = 110 + (i % 3) * 30;
       ctx.fillStyle = 'rgba(141,89,255,0.22)';
       ctx.fillRect(x, baseGroundY - h, width, h);
@@ -1219,10 +1370,10 @@
       ctx.lineTo(startX, cave.baseCeiling);
       for (let worldX = cave.start; worldX <= cave.end; worldX += 16) {
         const sx = worldX - renderWorldOffset;
-        const wave = Math.sin((worldX * 0.04) + cave.phase) * cave.amplitude;
+        const wave = Math.sin(worldX * 0.04 + cave.phase) * cave.amplitude;
         ctx.lineTo(sx, cave.baseCeiling + wave);
       }
-      const endWave = Math.sin((cave.end * 0.04) + cave.phase) * cave.amplitude;
+      const endWave = Math.sin(cave.end * 0.04 + cave.phase) * cave.amplitude;
       ctx.lineTo(endX, cave.baseCeiling + endWave);
       ctx.lineTo(endX, 0);
       ctx.closePath();
@@ -1254,7 +1405,13 @@
       ctx.strokeStyle = 'rgba(46,248,255,0.85)';
       ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.arc(player.x + player.w / 2, drawY + drawH / 2, Math.max(player.w, drawH) * 0.65, 0, Math.PI * 2);
+      ctx.arc(
+        player.x + player.w / 2,
+        drawY + drawH / 2,
+        Math.max(player.w, drawH) * 0.65,
+        0,
+        Math.PI * 2
+      );
       ctx.stroke();
       ctx.restore();
     }
@@ -1346,7 +1503,10 @@
     projectiles.length = 0;
     boss = null;
     bossSpawnsSuppressed = 0;
-    pwr.shield = 0; pwr.overclock = 0; pwr.magnet = 0; pwr.slowmo = 0;
+    pwr.shield = 0;
+    pwr.overclock = 0;
+    pwr.magnet = 0;
+    pwr.slowmo = 0;
     coyoteFrames = 0;
     jumpBufferFrames = 0;
     isDucking = false;
@@ -1382,7 +1542,7 @@
     scoreEl.textContent = Math.floor(score);
     speedEl.textContent = speedMult.toFixed(1);
     bestEl.textContent = Math.floor(best);
-    if (bitsEl)  bitsEl.textContent  = bitsCollected;
+    if (bitsEl) bitsEl.textContent = bitsCollected;
     if (comboEl) comboEl.textContent = 'x' + combo.toFixed(1);
     if (levelEl) levelEl.textContent = level;
   }
@@ -1391,10 +1551,11 @@
     if (!powerupBar) return;
     powerupBar.innerHTML = '';
     const entries = [];
-    if (pwr.shield > 0)    entries.push(['shield',    'SHIELD']);
-    if (pwr.overclock > 0) entries.push(['overclock', 'OVERCLOCK ' + Math.ceil(pwr.overclock / 60) + 's']);
-    if (pwr.magnet > 0)    entries.push(['magnet',    'MAGNET '    + Math.ceil(pwr.magnet    / 60) + 's']);
-    if (pwr.slowmo > 0)    entries.push(['slowmo',    'SLOW-MO '   + Math.ceil(pwr.slowmo    / 60) + 's']);
+    if (pwr.shield > 0) entries.push(['shield', 'SHIELD']);
+    if (pwr.overclock > 0)
+      entries.push(['overclock', 'OVERCLOCK ' + Math.ceil(pwr.overclock / 60) + 's']);
+    if (pwr.magnet > 0) entries.push(['magnet', 'MAGNET ' + Math.ceil(pwr.magnet / 60) + 's']);
+    if (pwr.slowmo > 0) entries.push(['slowmo', 'SLOW-MO ' + Math.ceil(pwr.slowmo / 60) + 's']);
     entries.forEach(([kind, label]) => {
       const div = document.createElement('div');
       div.className = 'powerup-pill';
@@ -1434,14 +1595,18 @@
 
   function update() {
     if (gameOver || paused) return;
-    if (hitstopFrames > 0) { hitstopFrames -= 1; updateHud(); return; }
+    if (hitstopFrames > 0) {
+      hitstopFrames -= 1;
+      updateHud();
+      return;
+    }
 
     // Power-up timers
     if (pwr.overclock > 0) pwr.overclock -= 1;
-    if (pwr.magnet > 0)    pwr.magnet -= 1;
-    if (pwr.slowmo > 0)    pwr.slowmo -= 1;
-    if (dashFrames > 0)    dashFrames -= 1;
-    if (dashCooldown > 0)  dashCooldown -= 1;
+    if (pwr.magnet > 0) pwr.magnet -= 1;
+    if (pwr.slowmo > 0) pwr.slowmo -= 1;
+    if (dashFrames > 0) dashFrames -= 1;
+    if (dashCooldown > 0) dashCooldown -= 1;
     if (wallRunFrames > 0) wallRunFrames -= 1;
     if (wallRunCooldown > 0) wallRunCooldown -= 1;
     if (nearMissCooldown > 0) nearMissCooldown -= 1;
@@ -1474,8 +1639,8 @@
       pruneTo++;
     }
     if (pruneTo > 0) terrain.points.splice(0, pruneTo);
-    terrain.caves = terrain.caves.filter(c => c.end >= pruneX);
-    terrain.precipices = terrain.precipices.filter(p => p.end >= pruneX);
+    terrain.caves = terrain.caves.filter((c) => c.end >= pruneX);
+    terrain.precipices = terrain.precipices.filter((p) => p.end >= pruneX);
 
     // Apply gravity (modified by Feather Fall)
     const grav = gravity * getMod().gravityMult;
@@ -1499,8 +1664,11 @@
     if (isInPrecipice(playerWorldCenter)) {
       player.onGround = false;
       if (player.y + player.h >= currentGround) {
-        if (!tryHandleHit('fall')) { gameOver = true; }
-        else { player.y = currentGround - player.h - 40; }
+        if (!tryHandleHit('fall')) {
+          gameOver = true;
+        } else {
+          player.y = currentGround - player.h - 40;
+        }
       }
     } else if (player.y >= currentGround - player.h) {
       player.y = currentGround - player.h;
@@ -1517,7 +1685,8 @@
     // Cave ceiling: enable wall-run if player presses jump near ceiling.
     const activeCave = getCaveAt(playerWorldCenter);
     if (activeCave) {
-      const ceilingWave = Math.sin((playerWorldCenter * 0.04) + activeCave.phase) * activeCave.amplitude;
+      const ceilingWave =
+        Math.sin(playerWorldCenter * 0.04 + activeCave.phase) * activeCave.amplitude;
       const ceilingY = activeCave.baseCeiling + ceilingWave;
       if (player.y <= ceilingY) {
         // If player is wall-running, stick just below the ceiling.
@@ -1572,10 +1741,11 @@
       const ob = obstacles[i];
       const obScreenX = ob.worldX - worldOffset;
 
-      const hit = player.x < obScreenX + ob.w &&
-                  player.x + player.w > obScreenX &&
-                  player.y < ob.y + ob.h &&
-                  player.y + player.h > ob.y;
+      const hit =
+        player.x < obScreenX + ob.w &&
+        player.x + player.w > obScreenX &&
+        player.y < ob.y + ob.h &&
+        player.y + player.h > ob.y;
 
       if (hit) {
         if (!tryHandleHit('obstacle')) {
@@ -1588,9 +1758,13 @@
       }
 
       // Near-miss: obstacle just passed and was within ~14px vertically
-      if (obScreenX + ob.w < player.x && obScreenX + ob.w > player.x - 6 && nearMissCooldown === 0) {
+      if (
+        obScreenX + ob.w < player.x &&
+        obScreenX + ob.w > player.x - 6 &&
+        nearMissCooldown === 0
+      ) {
         const verticalGap = Math.min(
-          Math.abs((ob.y + ob.h) - player.y),
+          Math.abs(ob.y + ob.h - player.y),
           Math.abs(ob.y - (player.y + player.h))
         );
         if (verticalGap > 0 && verticalGap < 14) {
@@ -1617,18 +1791,19 @@
       if (magnetActive) {
         const playerWorldX = worldOffset + player.x + player.w / 2;
         const dx = playerWorldX - bit.worldX;
-        const dy = (player.y + player.h / 2) - bit.y;
+        const dy = player.y + player.h / 2 - bit.y;
         const dist2 = dx * dx + dy * dy;
         if (dist2 < 230 * 230) {
           const d = Math.sqrt(dist2) || 1;
           bit.worldX += (dx / d) * 5;
-          bit.y     += (dy / d) * 5;
+          bit.y += (dy / d) * 5;
         }
       }
-      const collide = player.x < sx + bit.w &&
-                      player.x + player.w > sx &&
-                      player.y < bit.y + bit.h &&
-                      player.y + player.h > bit.y;
+      const collide =
+        player.x < sx + bit.w &&
+        player.x + player.w > sx &&
+        player.y < bit.y + bit.h &&
+        player.y + player.h > bit.y;
       if (collide) {
         bits.splice(i, 1);
         const value = bit.value * getMod().bitsMult;
@@ -1649,10 +1824,11 @@
       it.bob += 0.1;
       const sx = it.worldX - worldOffset;
       const drawY = it.y + Math.sin(it.bob) * 4;
-      const collide = player.x < sx + it.w &&
-                      player.x + player.w > sx &&
-                      player.y < drawY + it.h &&
-                      player.y + player.h > drawY;
+      const collide =
+        player.x < sx + it.w &&
+        player.x + player.w > sx &&
+        player.y < drawY + it.h &&
+        player.y + player.h > drawY;
       if (collide) {
         activatePowerup(it.kind);
         powerupItems.splice(i, 1);
@@ -1667,10 +1843,11 @@
       p.worldX += p.vx;
       p.life -= 1;
       const sx = p.worldX - worldOffset;
-      const collide = player.x < sx + p.w &&
-                      player.x + player.w > sx &&
-                      player.y < p.y + p.h &&
-                      player.y + player.h > p.y;
+      const collide =
+        player.x < sx + p.w &&
+        player.x + player.w > sx &&
+        player.y < p.y + p.h &&
+        player.y + player.h > p.y;
       if (collide) {
         projectiles.splice(i, 1);
         if (!tryHandleHit('laser')) {
@@ -1712,7 +1889,9 @@
     localStorage.setItem(BEST_KEY, String(Math.floor(best)));
     latestRunScore = Math.floor(score);
     setScoreSubmissionState(latestRunScore > 0);
-    setLeaderboardStatus(`Run ended at ${latestRunScore}m. Submit your score or press R to restart.`);
+    setLeaderboardStatus(
+      `Run ended at ${latestRunScore}m. Submit your score or press R to restart.`
+    );
     announce(`Signal lost. Distance ${latestRunScore} meters. ${bitsCollected} bits.`);
     sfx.death();
     triggerShake(10, 30);
@@ -1736,7 +1915,11 @@
     ctx.font = '600 24px Segoe UI';
     ctx.fillText(`Distance: ${Math.floor(score)}m`, canvas.width / 2, canvas.height / 2 + 12);
     ctx.font = '500 18px Segoe UI';
-    ctx.fillText('Press R to restart  ·  Use Submit Score to save', canvas.width / 2, canvas.height / 2 + 48);
+    ctx.fillText(
+      'Press R to restart  ·  Use Submit Score to save',
+      canvas.width / 2,
+      canvas.height / 2 + 48
+    );
     ctx.textAlign = 'left';
   }
 
@@ -1760,7 +1943,12 @@
   function drawPowerupItem(it) {
     const sx = it.worldX - worldOffset;
     const sy = it.y + Math.sin(it.bob) * 4;
-    const colorMap = { shield: '#2ef8ff', overclock: '#ffd95c', magnet: '#ff5cd1', slowmo: '#75ffd4' };
+    const colorMap = {
+      shield: '#2ef8ff',
+      overclock: '#ffd95c',
+      magnet: '#ff5cd1',
+      slowmo: '#75ffd4',
+    };
     const labelMap = { shield: 'S', overclock: 'O', magnet: 'M', slowmo: '~' };
     ctx.save();
     ctx.fillStyle = colorMap[it.kind] || '#fff';
@@ -1805,7 +1993,7 @@
     ctx.fillRect(sx, boss.y - 12, boss.w, 6);
     ctx.fillStyle = '#ffd95c';
     const bossMaxTimer = 12 * 60;
-    const fill = clamp(1 - (boss.timer / bossMaxTimer), 0, 1);
+    const fill = clamp(1 - boss.timer / bossMaxTimer, 0, 1);
     ctx.fillRect(sx, boss.y - 12, boss.w * fill, 6);
     ctx.restore();
   }
@@ -1891,7 +2079,7 @@
     const playerWorldCenter = worldOffset + player.x + player.w * 0.5;
     const cave = getCaveAt(playerWorldCenter);
     if (cave && wallRunFrames === 0 && wallRunCooldown === 0 && !player.onGround) {
-      const ceilingWave = Math.sin((playerWorldCenter * 0.04) + cave.phase) * cave.amplitude;
+      const ceilingWave = Math.sin(playerWorldCenter * 0.04 + cave.phase) * cave.amplitude;
       const ceilingY = cave.baseCeiling + ceilingWave;
       if (player.y < ceilingY + 60 && player.y > ceilingY) {
         wallRunFrames = 30;
@@ -1914,8 +2102,12 @@
     jumpBufferFrames = 6;
   }
 
-  function startDuck() { isDucking = true; }
-  function endDuck()   { isDucking = false; }
+  function startDuck() {
+    isDucking = true;
+  }
+  function endDuck() {
+    isDucking = false;
+  }
 
   function startDash() {
     if (!gameStarted || gameOver || paused) return;
@@ -1985,7 +2177,11 @@
       muted = !muted;
       saveSettings({ muted });
       applyMusicMuted();
-      musicBtn.textContent = muted ? 'Play Music' : (music.paused ? 'Tap to Enable Music' : 'Music On');
+      musicBtn.textContent = muted
+        ? 'Play Music'
+        : music.paused
+          ? 'Tap to Enable Music'
+          : 'Music On';
     }
   });
 
@@ -2114,18 +2310,22 @@
 
   startBtn.addEventListener('click', startGame);
 
-  window.addEventListener('keydown', (e) => {
-    if (!gameStarted) {
-      // Don't hijack space/arrows when the user is interacting with a
-      // run-option pulldown (Daily Seed checkbox / Modifier / Skin select).
-      if (isFormElementFocused()) return;
-      const k = e.key.toLowerCase();
-      if (k === ' ' || k === 'arrowup' || k === 'w') {
-        e.preventDefault();
-        startGame();
+  window.addEventListener(
+    'keydown',
+    (e) => {
+      if (!gameStarted) {
+        // Don't hijack space/arrows when the user is interacting with a
+        // run-option pulldown (Daily Seed checkbox / Modifier / Skin select).
+        if (isFormElementFocused()) return;
+        const k = e.key.toLowerCase();
+        if (k === ' ' || k === 'arrowup' || k === 'w') {
+          e.preventDefault();
+          startGame();
+        }
       }
-    }
-  }, { capture: true });
+    },
+    { capture: true }
+  );
 
   // ---------- Fullscreen / Scroll-lock ----------
 
@@ -2140,15 +2340,22 @@
     return !!(document.fullscreenElement || document.webkitFullscreenElement);
   }
 
-  const FS_ENTER_SVG     = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>';
-  const FS_EXIT_SVG      = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>';
-  const SCROLL_LOCK_SVG   = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>';
-  const SCROLL_UNLOCK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M12 1C9.24 1 7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2H9V6c0-1.66 1.34-3 3-3 1.66 0 3 1.34 3 3h2c0-2.76-2.24-5-5-5zm0 15c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>';
+  const FS_ENTER_SVG =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>';
+  const FS_EXIT_SVG =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>';
+  const SCROLL_LOCK_SVG =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>';
+  const SCROLL_UNLOCK_SVG =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M12 1C9.24 1 7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2H9V6c0-1.66 1.34-3 3-3 1.66 0 3 1.34 3 3h2c0-2.76-2.24-5-5-5zm0 15c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>';
 
   if (isFullscreenSupported()) {
     function updateFullscreenBtn() {
       fullscreenBtn.innerHTML = isFullscreen() ? FS_EXIT_SVG : FS_ENTER_SVG;
-      fullscreenBtn.setAttribute('aria-label', isFullscreen() ? 'Exit full screen' : 'Enter full screen');
+      fullscreenBtn.setAttribute(
+        'aria-label',
+        isFullscreen() ? 'Exit full screen' : 'Enter full screen'
+      );
       document.body.classList.toggle('game-fullscreen', isFullscreen());
     }
 
@@ -2168,14 +2375,17 @@
 
     document.addEventListener('fullscreenchange', updateFullscreenBtn);
     document.addEventListener('webkitfullscreenchange', updateFullscreenBtn);
-
   } else if (navigator.maxTouchPoints > 0) {
     let scrollLocked = false;
     let savedScrollY = 0;
     const viewportMeta = document.querySelector('meta[name="viewport"]');
 
-    function preventScroll(e) { e.preventDefault(); }
-    function preventZoom(e) { if (e.touches.length > 1) e.preventDefault(); }
+    function preventScroll(e) {
+      e.preventDefault();
+    }
+    function preventZoom(e) {
+      if (e.touches.length > 1) e.preventDefault();
+    }
 
     function lockBodyScroll() {
       savedScrollY = window.scrollY;
@@ -2189,7 +2399,8 @@
       document.addEventListener('touchmove', preventScroll, { passive: false });
       document.addEventListener('touchstart', preventZoom, { passive: false });
       if (viewportMeta) {
-        viewportMeta.content = 'width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, maximum-scale=1.0';
+        viewportMeta.content =
+          'width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, maximum-scale=1.0';
       }
     }
 
@@ -2266,7 +2477,8 @@
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js')
+      navigator.serviceWorker
+        .register('/sw.js')
         .then((reg) => {
           reg.update();
           reg.onupdatefound = () => {

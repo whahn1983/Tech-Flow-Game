@@ -7,14 +7,17 @@ This software is owned by whahn1983. All rights reserved.
 This program is not open-source and cannot be modified or distributed without the owner's explicit permission. All music and audio contained within is also owned by whahn1983.
 
 ## Overview
+
 Tech Flow Runner is an engaging game that challenges players to navigate through a circuit board filled with various obstacles. The objective is to guide the Tech Flow Runner through levels while enjoying incredible original music.
 
 ## Gameplay
+
 - Players control the Tech Flow Runner using keyboard commands or screen taps.
 - The Runner auto-scrolls through the level; players must jump (including double jump) to evade obstacles and enemies.
 - There are multiple levels, each with unique challenges and a boss fight at the end.
 
 ## Features
+
 - **Dynamic Obstacles:** Different types of obstacles that may move or change.
 - **Global Leaderboard:** Save your best runs to a server-backed leaderboard shared by all players.
 - **Power-Ups:** Obtain various power-ups to enhance abilities temporarily.
@@ -25,6 +28,7 @@ Tech Flow Runner is an engaging game that challenges players to navigate through
 - **PWA / Offline:** Installable on desktop and mobile, plays offline after first load.
 
 ## Controls
+
 - **Space / W / Up Arrow:** Jump (supports double jump).
 - **P / Esc:** Pause / resume.
 - **M:** Toggle mute (persists across sessions).
@@ -104,20 +108,20 @@ npm run format              # Prettier (check); use format:fix to write
 
 ## Environment variables
 
-| Variable          | Default | Description                                                                 |
-|-------------------|---------|-----------------------------------------------------------------------------|
-| `PORT`            | `8080`  | TCP port the Node server listens on (1024–65535).                           |
+| Variable          | Default | Description                                                                                                                                                |
+| ----------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`            | `8080`  | TCP port the Node server listens on (1024–65535).                                                                                                          |
 | `ALLOWED_ORIGINS` | _empty_ | Comma-separated list of origins permitted to call the leaderboard API.<br>Empty means same-origin only. Honored by both `server.js` and `leaderboard.php`. |
-| `NODE_ENV`        | _unset_ | Standard Node convention; the Dockerfile sets it to `production`.            |
+| `NODE_ENV`        | _unset_ | Standard Node convention; the Dockerfile sets it to `production`.                                                                                          |
 
 ## Leaderboard API
 
-| Method  | Path                            | Purpose                              |
-|--------:|---------------------------------|--------------------------------------|
-| GET     | `/leaderboard.php`              | Top 100 entries                      |
-| GET     | `/leaderboard.php?action=nonce` | Issue a single-use submission nonce  |
-| POST    | `/leaderboard.php`              | Submit `{ name, score, nonce }`      |
-| OPTIONS | `/leaderboard.php`              | CORS preflight                       |
+|  Method | Path                            | Purpose                             |
+| ------: | ------------------------------- | ----------------------------------- |
+|     GET | `/leaderboard.php`              | Top 100 entries                     |
+|     GET | `/leaderboard.php?action=nonce` | Issue a single-use submission nonce |
+|    POST | `/leaderboard.php`              | Submit `{ name, score, nonce }`     |
+| OPTIONS | `/leaderboard.php`              | CORS preflight                      |
 
 The Node server additionally responds at `/api/leaderboard` with the same semantics.
 
@@ -184,6 +188,7 @@ Additional defences:
 - Hardened Docker runtime (`read_only`, `cap_drop`, `no-new-privileges`).
 
 ## PWA Icon Assets
+
 To keep this repository code-only, generated PNG icon files are not committed.
 
 Run the icon generator before creating a release/build so PWA and iOS home-screen icons exist:
@@ -193,6 +198,7 @@ python scripts/generate_pwa_icons.py
 ```
 
 This creates:
+
 - `apple-touch-icon.png`
 - `icons/icon-192.png`
 - `icons/icon-512.png`
@@ -220,9 +226,11 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full contributor guide and
 [`CHANGELOG.md`](CHANGELOG.md) for release notes.
 
 ## License
+
 This project is proprietary and owned exclusively by whahn1983. See LICENSE file for details.
 
 ## Contact
+
 For more information, bug reports, or feature requests, open an issue on [GitHub](https://github.com/whahn1983/Tech-Flow-Game/issues) or contact whahn1983 directly.
 
 For security issues, please open a private security advisory rather than a

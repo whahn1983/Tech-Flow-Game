@@ -8,6 +8,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ## [Unreleased]
 
 ### Added
+
 - **SQLite-backed leaderboard** for the PHP backend. Scores are now stored in
   `leaderboard.sqlite` (via PDO + WAL) when the SQLite driver is available.
   Whenever the `scores` table is empty, the backend imports any existing
@@ -31,6 +32,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   Husky + lint-staged scaffolding.
 
 ### Changed
+
 - **Nonces are now mandatory** on score submissions. Previously the server
   accepted submissions without a nonce for legacy clients; that fallback has
   been removed on both the Node and PHP backends. The bundled client always
@@ -56,6 +58,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   check and the unit test job are now part of the pipeline.
 
 ### Security
+
 - Mandatory nonce on score submissions (see above).
 - Explicit CORS allowlist with `Vary: Origin`.
 - Hardened Docker runtime defaults (read-only filesystem, dropped capabilities,
