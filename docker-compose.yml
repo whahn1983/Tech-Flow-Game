@@ -22,6 +22,12 @@ services:
       # Persists leaderboard.txt, dailyseed.txt, and nonces.txt across container restarts.
       # The container's root filesystem is read-only, so all writable state
       # must live under /app/data.
+      #
+      # The image runs as a fixed UID/GID (1001:1001). If you migrate from an
+      # older image that used auto-assigned IDs and see EACCES on writes, fix
+      # the volume's ownership once with:
+      #   docker compose run --rm --user root tech-flow-game \
+      #     chown -R 1001:1001 /app/data
       - leaderboard-data:/app/data
 
 volumes:

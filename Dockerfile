@@ -5,12 +5,18 @@ FROM node:24.1.0-alpine3.20
 
 WORKDIR /app
 
-RUN addgroup -S app && adduser -S app -G app
+# Pin the UID/GID so a persisted /app/data volume keeps matching ownership
+# across rebuilds. With `adduser -S` (no explicit UID) Alpine auto-assigns,
+# and the value can drift when the base image's existing system users change —
+# leaving the volume owned by a UID the rebuilt container no longer maps to,
+# which surfaces as EACCES on leaderboard writes.
+RUN addgroup -S -g 1001 app && adduser -S -u 1001 -G app app
 
 COPY --chown=app:app . .
 
 RUN mkdir -p /app/data \
     && chown -R app:app /app/data \
+    && chmod 0755 /app/data \
     && chmod -R go-w /app
 
 USER app
