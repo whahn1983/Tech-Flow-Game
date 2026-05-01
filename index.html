@@ -35,10 +35,14 @@
       <div class="chip">Distance: <span id="score">0</span>m</div>
       <div class="chip">Speed: <span id="speed">1.0</span>x</div>
       <div class="chip">Best: <span id="best">0</span>m</div>
+      <div class="chip">Bits: <span id="bits">0</span></div>
+      <div class="chip">Combo: <span id="combo">x1.0</span></div>
+      <div class="chip">Level: <span id="level">1</span></div>
     </section>
     <div id="ariaLive" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
     <div id="canvasWrapper">
       <canvas id="game" width="900" height="420" aria-label="Tech Flow jump runner"></canvas>
+      <div id="powerupBar" aria-label="Active power-ups"></div>
       <button id="fullscreenBtn" type="button" aria-label="Toggle full screen"></button>
       <div id="pauseOverlay" aria-hidden="true">PAUSED</div>
       <div id="gameOverOverlay">
@@ -47,13 +51,34 @@
       </div>
       <div id="startOverlay">
         <button id="startBtn" type="button">&#9654; Start</button>
+        <div class="run-options" id="runOptions">
+          <label class="run-option">
+            <input id="dailyToggle" type="checkbox" />
+            <span>Daily Seed</span>
+          </label>
+          <label class="run-option">
+            <span>Modifier</span>
+            <select id="modifierSelect">
+              <option value="none">None</option>
+              <option value="hardcore">Hardcore — no double jump (+50%)</option>
+              <option value="bitrush">Bit Rush — 2× bits, no shields (+20%)</option>
+              <option value="featherfall">Feather Fall — low gravity (+25%)</option>
+              <option value="glasscannon">Glass Cannon — 1 hit max (+75%)</option>
+            </select>
+          </label>
+          <label class="run-option">
+            <span>Skin</span>
+            <select id="skinSelect"></select>
+          </label>
+          <p id="unlockHint" class="run-option-hint"></p>
+        </div>
         <span id="startHint" class="keyboard-hint">Press <strong>Space</strong> to start</span>
         <span id="startHintTouch" class="touch-hint start-hint-touch">Tap to start</span>
       </div>
     </div>
     <div class="controls">
-      <span class="keyboard-hint">Double jump with <strong>Space</strong>, <strong>W</strong>, or <strong>↑</strong>. <strong>P</strong>/<strong>Esc</strong> to pause, <strong>M</strong> to mute, <strong>R</strong> to restart.</span>
-      <span class="touch-hint">Tap the game to double jump. Tap Reboot Run to restart or Submit Score to save to the leaderboard.</span>
+      <span class="keyboard-hint">Jump <strong>Space</strong>/<strong>W</strong>/<strong>↑</strong> · Duck <strong>S</strong>/<strong>↓</strong> · Dash <strong>Shift</strong> · <strong>P</strong>/<strong>Esc</strong> pause · <strong>M</strong> mute · <strong>R</strong> restart</span>
+      <span class="touch-hint">Tap to jump · Swipe down to duck · Swipe right to dash · Tap Reboot to restart.</span>
     </div>
     <div class="button-row">
       <button id="musicBtn" type="button" aria-pressed="false">Play Music</button>
