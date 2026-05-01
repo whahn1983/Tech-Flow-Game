@@ -4,15 +4,20 @@ header('Cache-Control: no-store');
 header("Content-Security-Policy: default-src 'none'");
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
+header('Referrer-Policy: no-referrer');
 
 const LEADERBOARD_FILE  = __DIR__ . '/leaderboard.txt';
 const RATE_LIMIT_FILE   = __DIR__ . '/rate_limit.txt';
+const NONCE_FILE        = __DIR__ . '/nonces.txt';
 const MAX_ENTRIES       = 100;
 const MAX_SCORE         = 999999;
 const MAX_NAME_LENGTH   = 24;
 const MAX_BODY_BYTES    = 10240; // 10 KB
 const RATE_LIMIT_MAX    = 5;     // max POST submissions per window
 const RATE_LIMIT_WINDOW = 60;    // seconds
+const NONCE_LIFETIME    = 600;   // seconds a nonce remains valid (10 min)
+const NONCE_MIN_AGE     = 4;     // submissions must wait at least this long after issuance
+const NONCE_MAX_TRACKED = 4096;  // hard cap to keep the nonce file bounded
 
 function send_json(int $statusCode, array $payload): void {
     http_response_code($statusCode);
@@ -233,9 +238,137 @@ function append_score_with_lock(string $name, int $score, string $savedAt): arra
     return $entries;
 }
 
+/**
+ * Issue a new nonce and persist it. Returns the nonce string.
+ *
+ * Nonces add a required round-trip before submission, deterring trivial replays
+ * and direct-POST scripted spam. They are NOT cryptographic anti-cheat — a JS
+ * client cannot keep secrets from a determined attacker.
+ */
+function issue_nonce(): string {
+    $nonce = bin2hex(random_bytes(16));
+    $now   = time();
+
+    $handle = @fopen(NONCE_FILE, 'c+');
+    if ($handle === false) {
+        // Fail open: if we can't persist nonces, still return one so the client flow works.
+        return $nonce;
+    }
+
+    if (!flock($handle, LOCK_EX)) {
+        fclose($handle);
+        return $nonce;
+    }
+
+    $rawContents = stream_get_contents($handle);
+    $cutoff      = $now - NONCE_LIFETIME;
+    $kept        = [];
+
+    if ($rawContents !== false && trim($rawContents) !== '') {
+        foreach (explode("\n", trim($rawContents)) as $line) {
+            $parts = explode('|', $line, 2);
+            if (count($parts) !== 2) {
+                continue;
+            }
+            $entryTs = (int)$parts[1];
+            if ($entryTs < $cutoff) {
+                continue;
+            }
+            $kept[] = $line;
+        }
+    }
+
+    $kept[] = $nonce . '|' . $now;
+
+    // Hard cap on tracked entries — drop oldest if we somehow blow past the limit.
+    if (count($kept) > NONCE_MAX_TRACKED) {
+        $kept = array_slice($kept, -NONCE_MAX_TRACKED);
+    }
+
+    rewind($handle);
+    ftruncate($handle, 0);
+    fwrite($handle, implode("\n", $kept));
+    fflush($handle);
+    flock($handle, LOCK_UN);
+    fclose($handle);
+
+    return $nonce;
+}
+
+/**
+ * Consume a nonce. Returns true if the nonce existed, was issued at least
+ * NONCE_MIN_AGE seconds ago, and is still within NONCE_LIFETIME. The nonce is
+ * removed on success.
+ *
+ * If the nonce file is unreadable we fail open so legacy clients keep working.
+ */
+function consume_nonce(string $nonce): bool {
+    if ($nonce === '' || !ctype_xdigit($nonce)) {
+        return false;
+    }
+
+    $handle = @fopen(NONCE_FILE, 'c+');
+    if ($handle === false) {
+        return true; // Fail open.
+    }
+
+    if (!flock($handle, LOCK_EX)) {
+        fclose($handle);
+        return true; // Fail open.
+    }
+
+    $rawContents = stream_get_contents($handle);
+    $now         = time();
+    $cutoff      = $now - NONCE_LIFETIME;
+    $kept        = [];
+    $matched     = false;
+    $matchTs     = 0;
+
+    if ($rawContents !== false && trim($rawContents) !== '') {
+        foreach (explode("\n", trim($rawContents)) as $line) {
+            $parts = explode('|', $line, 2);
+            if (count($parts) !== 2) {
+                continue;
+            }
+            $entryNonce = $parts[0];
+            $entryTs    = (int)$parts[1];
+
+            if ($entryTs < $cutoff) {
+                continue; // Expired — drop.
+            }
+
+            if (!$matched && hash_equals($entryNonce, $nonce)) {
+                $matched = true;
+                $matchTs = $entryTs;
+                continue; // Consume — do not keep.
+            }
+
+            $kept[] = $line;
+        }
+    }
+
+    rewind($handle);
+    ftruncate($handle, 0);
+    fwrite($handle, implode("\n", $kept));
+    fflush($handle);
+    flock($handle, LOCK_UN);
+    fclose($handle);
+
+    if (!$matched) {
+        return false;
+    }
+
+    // Reject submissions that arrive too quickly after issuance — basic anti-script gate.
+    return ($now - $matchTs) >= NONCE_MIN_AGE;
+}
+
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 if ($method === 'GET') {
+    $action = $_GET['action'] ?? '';
+    if ($action === 'nonce') {
+        send_json(200, ['nonce' => issue_nonce()]);
+    }
     send_json(200, ['entries' => sort_leaderboard(read_leaderboard())]);
 }
 
@@ -266,6 +399,7 @@ if ($method === 'POST') {
 
     $name  = clean_player_name($payload['name'] ?? '');
     $score = $payload['score'] ?? null;
+    $nonce = isset($payload['nonce']) ? (string)$payload['nonce'] : '';
 
     if ($name === '') {
         send_json(400, ['error' => 'Player name is required.']);
@@ -279,6 +413,12 @@ if ($method === 'POST') {
         (int)$score > MAX_SCORE
     ) {
         send_json(400, ['error' => 'Score must be a whole number between 0 and ' . MAX_SCORE . '.']);
+    }
+
+    // Validate nonce when one is provided. Older clients can still submit without
+    // a nonce, but the server prefers — and the bundled client always sends — one.
+    if ($nonce !== '' && !consume_nonce($nonce)) {
+        send_json(400, ['error' => 'Submission expired or invalid. Please try again.']);
     }
 
     $score   = (int)$score;

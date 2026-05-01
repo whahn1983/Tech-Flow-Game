@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  syntax:
+    name: Syntax & lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: none
+
+      - name: Node syntax check
+        run: |
+          node --check server.js
+          node --check js/game.js
+          node --check sw.js
+
+      - name: PHP syntax check
+        run: php -l leaderboard.php
+
+      - name: Validate manifest.json
+        run: node -e "JSON.parse(require('fs').readFileSync('manifest.json','utf8'));"
+
+      - name: ESLint (best-effort)
+        run: |
+          npx --yes eslint@8 --no-eslintrc --config .eslintrc.json \
+            'js/**/*.js' 'sw.js' 'server.js' || true

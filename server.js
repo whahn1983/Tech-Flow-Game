@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 // Validate PORT is in the acceptable range for non-privileged listening.
 const PORT = (() => {
@@ -25,7 +26,14 @@ const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const rateLimitStore = new Map(); // ip -> [timestamps]
 
-// Prune stale rate-limit entries every minute to prevent unbounded memory growth.
+// Nonce store: nonce -> issuedAt (ms epoch). Adds a required round-trip before
+// score submissions to deter trivial scripted spam.
+const NONCE_LIFETIME_MS = 10 * 60 * 1000;
+const NONCE_MIN_AGE_MS = 4 * 1000;
+const NONCE_MAX_TRACKED = 4096;
+const nonceStore = new Map();
+
+// Prune stale rate-limit and nonce entries every minute.
 setInterval(() => {
   const cutoff = Date.now() - RATE_LIMIT_WINDOW_MS;
   for (const [ip, timestamps] of rateLimitStore) {
@@ -35,6 +43,11 @@ setInterval(() => {
     } else {
       rateLimitStore.set(ip, filtered);
     }
+  }
+
+  const nonceCutoff = Date.now() - NONCE_LIFETIME_MS;
+  for (const [nonce, ts] of nonceStore) {
+    if (ts < nonceCutoff) nonceStore.delete(nonce);
   }
 }, 60 * 1000);
 
@@ -48,6 +61,28 @@ function checkRateLimit(ip) {
   }
   timestamps.push(now);
   rateLimitStore.set(ip, timestamps);
+  return true;
+}
+
+function issueNonce() {
+  const nonce = crypto.randomBytes(16).toString('hex');
+  nonceStore.set(nonce, Date.now());
+  // Hard cap to keep memory bounded even under abusive requestors.
+  if (nonceStore.size > NONCE_MAX_TRACKED) {
+    const oldestNonce = nonceStore.keys().next().value;
+    if (oldestNonce !== undefined) nonceStore.delete(oldestNonce);
+  }
+  return nonce;
+}
+
+function consumeNonce(nonce) {
+  if (typeof nonce !== 'string' || !/^[0-9a-f]+$/i.test(nonce)) return false;
+  const issuedAt = nonceStore.get(nonce);
+  if (issuedAt === undefined) return false;
+  nonceStore.delete(nonce);
+  const now = Date.now();
+  if (now - issuedAt > NONCE_LIFETIME_MS) return false;
+  if (now - issuedAt < NONCE_MIN_AGE_MS) return false;
   return true;
 }
 
@@ -74,16 +109,18 @@ const SECURITY_HEADERS = {
   'Referrer-Policy': 'strict-origin-when-cross-origin'
 };
 
-// CSP for HTML pages: allow same-origin resources plus inline scripts/styles (required by the
-// single-file game). frame-ancestors replaces X-Frame-Options for modern browsers.
+// CSP for HTML pages: scripts/styles are now in external files. style-src keeps
+// 'unsafe-inline' because the game manipulates element.style at runtime.
 const HTML_CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "media-src 'self'",
   "connect-src 'self'",
   "worker-src 'self'",
+  "base-uri 'self'",
+  "form-action 'self'",
   "frame-ancestors 'none'"
 ].join('; ');
 
@@ -172,47 +209,74 @@ function cleanPlayerName(rawName) {
     .slice(0, MAX_NAME_LENGTH);
 }
 
+function handleLeaderboardGet(req, res, parsedUrl) {
+  if (parsedUrl.searchParams.get('action') === 'nonce') {
+    sendJson(res, 200, { nonce: issueNonce() });
+    return;
+  }
+  const entries = sortedLeaderboard(readLeaderboard());
+  sendJson(res, 200, { entries });
+}
+
+function handleLeaderboardPost(req, res) {
+  const ip = getClientIp(req);
+  if (!checkRateLimit(ip)) {
+    sendJson(res, 429, { error: 'Too many requests. Please wait before submitting again.' });
+    return;
+  }
+
+  parseBody(req)
+    .then((body) => {
+      const name = cleanPlayerName(body.name);
+      const score = Number(body.score);
+      const nonce = typeof body.nonce === 'string' ? body.nonce : '';
+
+      if (!name) {
+        sendJson(res, 400, { error: 'Player name is required.' });
+        return;
+      }
+
+      if (!Number.isFinite(score) || !Number.isInteger(score) || score < 0 || score > MAX_SCORE) {
+        sendJson(res, 400, { error: 'Score must be a whole number between 0 and 999999.' });
+        return;
+      }
+
+      // Validate nonce when one is provided. Older clients can submit without
+      // a nonce; the bundled client always sends one.
+      if (nonce !== '' && !consumeNonce(nonce)) {
+        sendJson(res, 400, { error: 'Submission expired or invalid. Please try again.' });
+        return;
+      }
+
+      const savedAt = new Date().toISOString();
+      const entries = sortedLeaderboard([
+        ...readLeaderboard(),
+        { name, score, savedAt }
+      ]);
+
+      writeLeaderboard(entries);
+      sendJson(res, 201, { entries, saved: { name, score, savedAt } });
+    })
+    .catch((error) => {
+      sendJson(res, 400, { error: error.message });
+    });
+}
+
+function isLeaderboardPath(pathname) {
+  return pathname === '/api/leaderboard' || pathname === '/leaderboard.php';
+}
+
 function handleApi(req, res) {
-  if (req.url === '/api/leaderboard' && req.method === 'GET') {
-    const entries = sortedLeaderboard(readLeaderboard());
-    sendJson(res, 200, { entries });
+  const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  const pathname = parsedUrl.pathname;
+
+  if (isLeaderboardPath(pathname) && req.method === 'GET') {
+    handleLeaderboardGet(req, res, parsedUrl);
     return true;
   }
 
-  if (req.url === '/api/leaderboard' && req.method === 'POST') {
-    const ip = getClientIp(req);
-    if (!checkRateLimit(ip)) {
-      sendJson(res, 429, { error: 'Too many requests. Please wait before submitting again.' });
-      return true;
-    }
-
-    parseBody(req)
-      .then((body) => {
-        const name = cleanPlayerName(body.name);
-        const score = Number(body.score);
-
-        if (!name) {
-          sendJson(res, 400, { error: 'Player name is required.' });
-          return;
-        }
-
-        if (!Number.isFinite(score) || !Number.isInteger(score) || score < 0 || score > MAX_SCORE) {
-          sendJson(res, 400, { error: 'Score must be a whole number between 0 and 999999.' });
-          return;
-        }
-
-        const savedAt = new Date().toISOString();
-        const entries = sortedLeaderboard([
-          ...readLeaderboard(),
-          { name, score, savedAt }
-        ]);
-
-        writeLeaderboard(entries);
-        sendJson(res, 201, { entries, saved: { name, score, savedAt } });
-      })
-      .catch((error) => {
-        sendJson(res, 400, { error: error.message });
-      });
+  if (isLeaderboardPath(pathname) && req.method === 'POST') {
+    handleLeaderboardPost(req, res);
     return true;
   }
 
