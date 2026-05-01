@@ -28,11 +28,11 @@ jobs:
           tools: none
           extensions: pdo_sqlite, mbstring
 
+      - name: Install dependencies
+        run: npm ci
+
       - name: Node syntax check
-        run: |
-          node --check server.js
-          node --check js/game.js
-          node --check sw.js
+        run: npm run syntax
 
       - name: PHP syntax check
         run: php -l leaderboard.php
@@ -41,14 +41,10 @@ jobs:
         run: node -e "JSON.parse(require('fs').readFileSync('manifest.json','utf8'));"
 
       - name: ESLint
-        run: |
-          npx --yes eslint@8 --no-eslintrc --config .eslintrc.json \
-            'js/**/*.js' 'sw.js' 'server.js' 'tests/**/*.js'
+        run: npm run lint
 
       - name: Prettier (check)
-        run: |
-          npx --yes prettier@3 --check \
-            'js/**/*.js' 'css/**/*.css' '*.json' 'sw.js' 'server.js' 'tests/**/*.js'
+        run: npm run format
 
   test:
     name: Unit tests
@@ -61,5 +57,8 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Install dependencies
+        run: npm ci
+
       - name: Run tests
-        run: node --test tests/server.test.js
+        run: npm test
