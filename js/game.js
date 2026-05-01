@@ -578,25 +578,35 @@
   let pendingSubmitNonceIssuedAt = 0;
 
   function primeSubmitNonce() {
-    const issuedAt = Date.now();
-    const promise = fetchSubmitNonce().catch((error) => {
-      if (pendingSubmitNonce === promise) {
-        pendingSubmitNonce = null;
-        pendingSubmitNonceIssuedAt = 0;
-      }
-      throw error;
-    });
+    // Stamp issuedAt only after the GET resolves so the server-side delta is
+    // never less than what the client measures — otherwise a slow GET (cold
+    // start, slow network) eats into the 4s min-age budget and the server
+    // rejects the POST as too young.
+    const promise = fetchSubmitNonce().then(
+      (nonce) => {
+        if (pendingSubmitNonce === promise) {
+          pendingSubmitNonceIssuedAt = Date.now();
+        }
+        return nonce;
+      },
+      (error) => {
+        if (pendingSubmitNonce === promise) {
+          pendingSubmitNonce = null;
+          pendingSubmitNonceIssuedAt = 0;
+        }
+        throw error;
+      },
+    );
     pendingSubmitNonce = promise;
-    pendingSubmitNonceIssuedAt = issuedAt;
+    pendingSubmitNonceIssuedAt = 0;
   }
 
   async function takeSubmitNonce() {
     if (!pendingSubmitNonce) primeSubmitNonce();
     const promise = pendingSubmitNonce;
-    const issuedAt = pendingSubmitNonceIssuedAt;
     try {
       const nonce = await promise;
-      const elapsed = Date.now() - issuedAt;
+      const elapsed = Date.now() - pendingSubmitNonceIssuedAt;
       if (elapsed < NONCE_MIN_AGE_MS) {
         await new Promise((resolve) => setTimeout(resolve, NONCE_MIN_AGE_MS - elapsed));
       }
