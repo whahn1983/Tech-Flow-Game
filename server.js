@@ -15,7 +15,12 @@ const PORT = (() => {
 
 const HOST = '0.0.0.0';
 const PUBLIC_DIR = __dirname;
-const LEADERBOARD_FILE = path.join(__dirname, 'leaderboard.txt');
+// Persisted state lives in a writable directory mounted via Docker so the
+// app's read-only root filesystem doesn't block writes. Override paths via
+// LEADERBOARD_FILE / DAILY_SEED_FILE for non-Docker deployments.
+const DATA_DIR = process.env.DATA_DIR || '/app/data';
+const LEADERBOARD_FILE = process.env.LEADERBOARD_FILE || path.join(DATA_DIR, 'leaderboard.txt');
+const DAILY_SEED_FILE = process.env.DAILY_SEED_FILE || path.join(DATA_DIR, 'dailyseed.txt');
 const MAX_ENTRIES = 100;
 const MAX_SCORE = 999999;
 const MAX_NAME_LENGTH = 24;
@@ -136,10 +141,59 @@ const HTML_CSP = [
 // CSP for JSON API responses: no sub-resources allowed.
 const API_CSP = "default-src 'none'";
 
+function ensureDataDir() {
+  const dir = path.dirname(LEADERBOARD_FILE);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true, mode: 0o755 });
+  }
+}
+
 function ensureLeaderboardFile() {
+  ensureDataDir();
   if (!fs.existsSync(LEADERBOARD_FILE)) {
     fs.writeFileSync(LEADERBOARD_FILE, '', { encoding: 'utf8', mode: 0o644 });
   }
+}
+
+function todayUtcStamp() {
+  const d = new Date();
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function seedFromDateStamp(stamp) {
+  // Deterministic 31-bit seed derived from the date string. Same date -> same
+  // seed across processes / restarts; different dates -> different seeds.
+  const hash = crypto.createHash('sha256').update(stamp).digest();
+  return hash.readUInt32BE(0) & 0x7fffffff || 1;
+}
+
+function readDailySeed() {
+  const today = todayUtcStamp();
+  ensureDataDir();
+  if (fs.existsSync(DAILY_SEED_FILE)) {
+    try {
+      const raw = fs.readFileSync(DAILY_SEED_FILE, 'utf8').trim();
+      const [storedDate, storedSeed] = raw.split('|');
+      if (storedDate === today) {
+        const parsed = Number(storedSeed);
+        if (Number.isFinite(parsed) && Number.isInteger(parsed) && parsed > 0) {
+          return { date: storedDate, seed: parsed };
+        }
+      }
+    } catch {
+      // Fall through to regenerate.
+    }
+  }
+  const seed = seedFromDateStamp(today);
+  try {
+    fs.writeFileSync(DAILY_SEED_FILE, `${today}|${seed}`, { encoding: 'utf8', mode: 0o644 });
+  } catch (error) {
+    console.error('Failed to persist daily seed:', error.message);
+  }
+  return { date: today, seed };
 }
 
 function readLeaderboard() {
@@ -285,6 +339,20 @@ function isLeaderboardPath(pathname) {
   return pathname === '/api/leaderboard' || pathname === '/leaderboard.php';
 }
 
+function isDailySeedPath(pathname) {
+  return pathname === '/api/daily-seed';
+}
+
+function handleDailySeedGet(req, res) {
+  try {
+    const { date, seed } = readDailySeed();
+    sendJson(res, 200, { date, seed }, req);
+  } catch (error) {
+    sendJson(res, 500, { error: 'Daily seed unavailable.' }, req);
+    console.error('Daily seed error:', error.message);
+  }
+}
+
 function handleCorsPreflight(req, res) {
   const cors = corsHeadersFor(req);
   if (Object.keys(cors).length === 0) {
@@ -299,6 +367,24 @@ function handleCorsPreflight(req, res) {
 function handleApi(req, res) {
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = parsedUrl.pathname;
+
+  if (isDailySeedPath(pathname)) {
+    if (req.method === 'OPTIONS') {
+      handleCorsPreflight(req, res);
+      return true;
+    }
+    if (req.method === 'GET') {
+      handleDailySeedGet(req, res);
+      return true;
+    }
+    res.writeHead(405, {
+      Allow: 'GET, OPTIONS',
+      'Content-Type': 'application/json; charset=utf-8',
+      ...SECURITY_HEADERS,
+    });
+    res.end(JSON.stringify({ error: 'Method not allowed.' }));
+    return true;
+  }
 
   if (!isLeaderboardPath(pathname)) return false;
 
@@ -382,6 +468,9 @@ module.exports = {
   consumeNonce,
   sortedLeaderboard,
   isLeaderboardPath,
+  isDailySeedPath,
+  seedFromDateStamp,
+  todayUtcStamp,
   handleApi,
   server,
   // Exposed for tests to inspect/reset internal state.

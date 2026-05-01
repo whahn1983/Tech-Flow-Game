@@ -10,7 +10,6 @@ RUN addgroup -S app && adduser -S app -G app
 COPY --chown=app:app . .
 
 RUN mkdir -p /app/data \
-    && ln -sf /app/data/leaderboard.txt /app/leaderboard.txt \
     && chown -R app:app /app/data \
     && chmod -R go-w /app
 
