@@ -570,24 +570,42 @@
     return payload.nonce;
   }
 
-  // Server enforces a min-age (~4s) before a nonce can be consumed, so prime it
-  // when the modal opens — by the time the user clicks submit it will have aged.
+  // Server enforces a min-age (~4s) before a nonce can be consumed. Prime as
+  // early as possible (game over) and, if the user still beats the timer, wait
+  // out the remaining age client-side before posting.
+  const NONCE_MIN_AGE_MS = 4500;
   let pendingSubmitNonce = null;
+  let pendingSubmitNonceIssuedAt = 0;
 
   function primeSubmitNonce() {
-    pendingSubmitNonce = fetchSubmitNonce().catch((error) => {
-      pendingSubmitNonce = null;
+    const issuedAt = Date.now();
+    const promise = fetchSubmitNonce().catch((error) => {
+      if (pendingSubmitNonce === promise) {
+        pendingSubmitNonce = null;
+        pendingSubmitNonceIssuedAt = 0;
+      }
       throw error;
     });
+    pendingSubmitNonce = promise;
+    pendingSubmitNonceIssuedAt = issuedAt;
   }
 
   async function takeSubmitNonce() {
     if (!pendingSubmitNonce) primeSubmitNonce();
     const promise = pendingSubmitNonce;
+    const issuedAt = pendingSubmitNonceIssuedAt;
     try {
-      return await promise;
+      const nonce = await promise;
+      const elapsed = Date.now() - issuedAt;
+      if (elapsed < NONCE_MIN_AGE_MS) {
+        await new Promise((resolve) => setTimeout(resolve, NONCE_MIN_AGE_MS - elapsed));
+      }
+      return nonce;
     } finally {
-      if (pendingSubmitNonce === promise) pendingSubmitNonce = null;
+      if (pendingSubmitNonce === promise) {
+        pendingSubmitNonce = null;
+        pendingSubmitNonceIssuedAt = 0;
+      }
     }
   }
 
@@ -1981,6 +1999,7 @@
     localStorage.setItem(BEST_KEY, String(Math.floor(best)));
     latestRunScore = Math.floor(score);
     setScoreSubmissionState(latestRunScore > 0);
+    if (latestRunScore > 0) primeSubmitNonce();
     setLeaderboardStatus(
       `Run ended at ${latestRunScore}m. Submit your score or press R to restart.`
     );
