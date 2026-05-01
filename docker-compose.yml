@@ -1,0 +1,15 @@
+services:
+  tech-flow-game:
+    build: .
+    image: tech-flow-game:latest
+    container_name: tech-flow-game
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+    volumes:
+      - leaderboard-data:/app/data
+
+volumes:
+  leaderboard-data:
