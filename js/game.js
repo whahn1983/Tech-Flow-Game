@@ -183,9 +183,9 @@
   let combo = 1;
   let comboTimer = 0;
   let level = 1;
-  let nextLevelAt = 1000;
-  const LEVEL_INTERVAL = 1000;
-  const BOSS_INTERVAL = 3000;
+  let nextLevelAt = 1500;
+  const LEVEL_INTERVAL = 1500;
+  const BOSS_INTERVAL = 4500;
   let nextBossAt = BOSS_INTERVAL;
   let activeModifier = 'none';
   let activeSkin = 'default';
@@ -1742,7 +1742,9 @@
     const overclockMult = pwr.overclock > 0 ? 2 : 1;
     const scoreGain = 0.2 * speedMult * combo * overclockMult * getMod().scoreMult;
     score += scoreGain;
-    speedMult = Math.min(6, 1 + score / 700);
+    // Sub-linear (sqrt) ramp so each level's speed bump shrinks instead of
+    // compounding — keeps later levels from feeling like a brick wall.
+    speedMult = Math.min(5, 1 + Math.sqrt(score) * 0.04);
 
     // Slow-mo halves world speed but keeps player physics responsive.
     const slowFactor = pwr.slowmo > 0 ? 0.55 : 1;
