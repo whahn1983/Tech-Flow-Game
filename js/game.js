@@ -105,9 +105,58 @@
   function gameRandom() {
     return useSeededRng ? rng() : Math.random();
   }
-  function dailySeedValue() {
+  function localDailySeedFallback() {
     const d = new Date();
     return d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate();
+  }
+  // Cached server-issued daily seed: { date: 'YYYY-MM-DD', seed: <int> }.
+  // The server persists today's seed in dailyseed.txt so every player —
+  // including incognito sessions and different browsers — gets the same value.
+  let dailySeedCache = null;
+  let dailySeedFetch = null;
+  async function fetchDailySeed() {
+    const response = await fetch('/api/daily-seed', { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Daily seed request failed (HTTP ${response.status})`);
+    const payload = await response.json();
+    if (!payload || typeof payload.seed !== 'number' || typeof payload.date !== 'string') {
+      throw new Error('Daily seed response was malformed.');
+    }
+    return { date: payload.date, seed: payload.seed | 0 || 1 };
+  }
+  function todayUtcDateString() {
+    const d = new Date();
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+  async function ensureDailySeed() {
+    const today = todayUtcDateString();
+    if (dailySeedCache && dailySeedCache.date === today) return dailySeedCache;
+    if (!dailySeedFetch) {
+      dailySeedFetch = fetchDailySeed()
+        .then((value) => {
+          dailySeedCache = value;
+          return value;
+        })
+        .catch((error) => {
+          dailySeedCache = null;
+          throw error;
+        })
+        .finally(() => {
+          dailySeedFetch = null;
+        });
+    }
+    return dailySeedFetch;
+  }
+  function dailySeedValue() {
+    if (dailySeedCache && dailySeedCache.date === todayUtcDateString()) {
+      return dailySeedCache.seed;
+    }
+    // Fallback if the server is unreachable. ensureDailySeed() should be
+    // awaited before starting a daily run so this branch is only hit when
+    // offline.
+    return localDailySeedFallback();
   }
 
   let gameStarted = false;
@@ -2350,16 +2399,26 @@
     dailyToggle.checked = false;
     dailyToggle.addEventListener('change', () => {
       dailySeedActive = dailyToggle.checked;
+      // Prime the seed early so startGame() doesn't pay the round trip.
+      if (dailySeedActive) ensureDailySeed().catch(() => {});
     });
   }
 
-  function startGame() {
-    startOverlay.classList.add('hidden');
-    gameStarted = true;
+  async function startGame() {
     // Apply chosen options for this run.
     dailySeedActive = !!(dailyToggle && dailyToggle.checked);
     activeModifier = modifierSelect ? modifierSelect.value : 'none';
     activeSkin = skinSelect && isSkinUnlocked(skinSelect.value) ? skinSelect.value : 'default';
+    if (dailySeedActive) {
+      try {
+        await ensureDailySeed();
+      } catch {
+        // Fall through to local fallback so the player isn't blocked on a
+        // network hiccup; dailySeedValue() handles the offline case.
+      }
+    }
+    startOverlay.classList.add('hidden');
+    gameStarted = true;
     useSeededRng = dailySeedActive;
     if (useSeededRng) setRngSeed(dailySeedValue());
     // Reset terrain with new RNG so the seed actually matters from frame zero.
