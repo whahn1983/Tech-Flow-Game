@@ -40,6 +40,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - **Method handling** on `/api/leaderboard` and `/leaderboard.php` — non
   GET/POST/OPTIONS now return an explicit `405 Method Not Allowed` with an
   `Allow` header.
+- **Service worker** bumped to `tech-flow-runner-v13` to evict any stale
+  caches alongside the leaderboard EACCES fix, ensuring clients pick up the
+  current client bundle on next load.
 - **Service worker** bumped to `tech-flow-runner-v7`.
   - Removed the MP3 from the static cache regex; the ~7 MB audio file is now
     fetched lazily when playback starts instead of being precached.
