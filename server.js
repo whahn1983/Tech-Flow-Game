@@ -23,9 +23,14 @@ const LEADERBOARD_FILE = process.env.LEADERBOARD_FILE || path.join(DATA_DIR, 'le
 const DAILY_SEED_FILE = process.env.DAILY_SEED_FILE || path.join(DATA_DIR, 'dailyseed.txt');
 const NONCE_FILE = process.env.NONCE_FILE || path.join(DATA_DIR, 'nonces.txt');
 const MAX_ENTRIES = 100;
+const MAX_PER_CATEGORY = 10;
 const MAX_SCORE = 999999;
 const MAX_NAME_LENGTH = 24;
 const MAX_PAYLOAD_BYTES = 10240; // 10 KB — name + score never exceeds a few hundred bytes
+
+// Modifier categories. 'og' is reserved for legacy entries from the original
+// distance-only scoring system; everything else maps to a current run modifier.
+const VALID_MODIFIERS = ['og', 'none', 'hardcore', 'bitrush', 'featherfall', 'glasscannon'];
 
 // CORS allowlist. Defaults to same-origin only. Set ALLOWED_ORIGINS to a
 // comma-separated list of origins to permit cross-origin API access.
@@ -245,18 +250,25 @@ function readLeaderboard() {
   return raw
     .split('\n')
     .map((line) => {
-      const [name, score, savedAt] = line.split('|');
+      const [name, score, savedAt, modifier] = line.split('|');
+      // Optional 4th field: modifier. Legacy rows are categorized as 'og'.
+      const normalizedModifier =
+        modifier && VALID_MODIFIERS.includes(modifier.trim()) ? modifier.trim() : 'og';
       return {
         name: (name || '').trim(),
         score: Number(score || 0),
         savedAt: savedAt || new Date(0).toISOString(),
+        modifier: normalizedModifier,
       };
     })
     .filter((entry) => entry.name && Number.isFinite(entry.score));
 }
 
 function writeLeaderboard(entries) {
-  const rows = entries.map((entry) => `${entry.name}|${Math.floor(entry.score)}|${entry.savedAt}`);
+  const rows = entries.map((entry) => {
+    const modifier = VALID_MODIFIERS.includes(entry.modifier) ? entry.modifier : 'og';
+    return `${entry.name}|${Math.floor(entry.score)}|${entry.savedAt}|${modifier}`;
+  });
   fs.writeFileSync(LEADERBOARD_FILE, rows.join('\n'), { encoding: 'utf8', mode: 0o644 });
 }
 
@@ -267,6 +279,38 @@ function sortedLeaderboard(entries) {
       return new Date(a.savedAt).getTime() - new Date(b.savedAt).getTime();
     })
     .slice(0, MAX_ENTRIES);
+}
+
+// Group entries by modifier, sort each bucket, and trim to MAX_PER_CATEGORY.
+// Categories with no entries still appear (as []) so the client can render a
+// consistent set of sections.
+function categorizeLeaderboard(entries) {
+  const buckets = {};
+  for (const modifier of VALID_MODIFIERS) {
+    buckets[modifier] = [];
+  }
+  for (const entry of entries) {
+    const modifier = VALID_MODIFIERS.includes(entry.modifier) ? entry.modifier : 'og';
+    buckets[modifier].push(entry);
+  }
+  for (const modifier of VALID_MODIFIERS) {
+    buckets[modifier].sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return new Date(a.savedAt).getTime() - new Date(b.savedAt).getTime();
+    });
+    buckets[modifier] = buckets[modifier].slice(0, MAX_PER_CATEGORY);
+  }
+  return buckets;
+}
+
+function flattenCategories(categories) {
+  const flat = [];
+  for (const modifier of VALID_MODIFIERS) {
+    for (const entry of categories[modifier] || []) {
+      flat.push(entry);
+    }
+  }
+  return flat;
 }
 
 function corsHeadersFor(req) {
@@ -331,8 +375,10 @@ function handleLeaderboardGet(req, res, parsedUrl) {
     sendJson(res, 200, { nonce: issueNonce() }, req);
     return;
   }
-  const entries = sortedLeaderboard(readLeaderboard());
-  sendJson(res, 200, { entries }, req);
+  const categories = categorizeLeaderboard(readLeaderboard());
+  // `entries` is retained as a flat list for older clients; `categories` holds
+  // the per-modifier top-10 buckets used by the current UI.
+  sendJson(res, 200, { categories, entries: flattenCategories(categories) }, req);
 }
 
 function handleLeaderboardPost(req, res) {
@@ -345,8 +391,11 @@ function handleLeaderboardPost(req, res) {
   parseBody(req)
     .then((body) => {
       const name = cleanPlayerName(body.name);
-      const score = Number(body.score);
+      // Accept either `points` (current clients) or `score` (legacy field name).
+      const rawScore = body.points !== undefined ? body.points : body.score;
+      const score = Number(rawScore);
       const nonce = typeof body.nonce === 'string' ? body.nonce : '';
+      const modifier = typeof body.modifier === 'string' ? body.modifier : 'none';
 
       if (!name) {
         sendJson(res, 400, { error: 'Player name is required.' }, req);
@@ -358,6 +407,13 @@ function handleLeaderboardPost(req, res) {
         return;
       }
 
+      // Modifier must be one of the known categories. 'og' is reserved for
+      // legacy migration and rejected on direct submission.
+      if (!VALID_MODIFIERS.includes(modifier) || modifier === 'og') {
+        sendJson(res, 400, { error: 'Unknown run modifier.' }, req);
+        return;
+      }
+
       // Nonce is mandatory. Score submissions must obtain a single-use nonce
       // via GET ?action=nonce and present it here.
       if (!consumeNonce(nonce)) {
@@ -366,10 +422,23 @@ function handleLeaderboardPost(req, res) {
       }
 
       const savedAt = new Date().toISOString();
-      const entries = sortedLeaderboard([...readLeaderboard(), { name, score, savedAt }]);
+      const categories = categorizeLeaderboard([
+        ...readLeaderboard(),
+        { name, score, savedAt, modifier },
+      ]);
+      const entries = flattenCategories(categories);
 
       writeLeaderboard(entries);
-      sendJson(res, 201, { entries, saved: { name, score, savedAt } }, req);
+      sendJson(
+        res,
+        201,
+        {
+          categories,
+          entries,
+          saved: { name, score, points: score, savedAt, modifier },
+        },
+        req,
+      );
     })
     .catch((error) => {
       sendJson(res, 400, { error: error.message }, req);
@@ -508,6 +577,9 @@ module.exports = {
   issueNonce,
   consumeNonce,
   sortedLeaderboard,
+  categorizeLeaderboard,
+  flattenCategories,
+  VALID_MODIFIERS,
   isLeaderboardPath,
   isDailySeedPath,
   seedFromDateStamp,

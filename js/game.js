@@ -172,6 +172,9 @@
   let spawnTimer = 0;
   let worldOffset = 0;
   let latestRunScore = 0;
+  // Modifier captured at the moment the run ended. Used at submission time so
+  // changing the menu picker after death doesn't mis-categorize the score.
+  let latestRunModifier = 'none';
   let lastSpawnAction = null;
   let queuedSpawnAction = null;
   // Frames elapsed since the last obstacle was placed. Tracking in frames
@@ -519,19 +522,94 @@
     document.getElementById('gameOverSubmitBtn').disabled = !isEnabled;
   }
 
-  function renderLeaderboard(entries) {
+  // Display order + labels for the leaderboard category sections. Keep 'og'
+  // first so legacy distance-only scores stay visible as their own bucket.
+  const LEADERBOARD_CATEGORIES = [
+    { key: 'og', label: 'OG (Original)' },
+    { key: 'none', label: 'None' },
+    { key: 'hardcore', label: 'Hardcore' },
+    { key: 'bitrush', label: 'Bit Rush' },
+    { key: 'featherfall', label: 'Feather Fall' },
+    { key: 'glasscannon', label: 'Glass Cannon' },
+  ];
+
+  function bucketEntriesByModifier(entries) {
+    const buckets = {};
+    LEADERBOARD_CATEGORIES.forEach(({ key }) => {
+      buckets[key] = [];
+    });
+    (entries || []).forEach((entry) => {
+      const key = buckets[entry && entry.modifier] ? entry.modifier : 'og';
+      buckets[key].push(entry);
+    });
+    Object.keys(buckets).forEach((key) => {
+      buckets[key].sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return String(a.savedAt).localeCompare(String(b.savedAt));
+      });
+      buckets[key] = buckets[key].slice(0, 10);
+    });
+    return buckets;
+  }
+
+  function renderLeaderboard(payload) {
     leaderboardList.innerHTML = '';
-    if (!entries.length) {
+    // Accept either { categories: {...} } from the server or a flat array
+    // of entries (older payloads). Always re-bucket client-side so the UI
+    // stays consistent if the server ever returns extras.
+    const flatEntries = Array.isArray(payload)
+      ? payload
+      : (payload && Array.isArray(payload.entries) ? payload.entries : []);
+    const fromServer = payload && payload.categories && typeof payload.categories === 'object'
+      ? payload.categories
+      : null;
+    const buckets = fromServer
+      ? LEADERBOARD_CATEGORIES.reduce((acc, { key }) => {
+          const arr = Array.isArray(fromServer[key]) ? fromServer[key].slice(0, 10) : [];
+          acc[key] = arr;
+          return acc;
+        }, {})
+      : bucketEntriesByModifier(flatEntries);
+
+    const totalEntries = LEADERBOARD_CATEGORIES.reduce(
+      (sum, { key }) => sum + (buckets[key] ? buckets[key].length : 0),
+      0,
+    );
+    if (totalEntries === 0) {
       const item = document.createElement('li');
+      item.className = 'leaderboard-empty';
       item.textContent = 'No scores yet. Be the first to upload a run!';
       leaderboardList.appendChild(item);
       return;
     }
 
-    entries.forEach((entry, index) => {
-      const item = document.createElement('li');
-      item.textContent = `#${index + 1} ${entry.name} — ${Math.floor(entry.score)}m`;
-      leaderboardList.appendChild(item);
+    LEADERBOARD_CATEGORIES.forEach(({ key, label }) => {
+      const entries = buckets[key] || [];
+      const section = document.createElement('li');
+      section.className = 'leaderboard-category';
+
+      const heading = document.createElement('h3');
+      heading.className = 'leaderboard-category-title';
+      heading.textContent = label;
+      section.appendChild(heading);
+
+      if (entries.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'leaderboard-category-empty';
+        empty.textContent = 'No scores yet.';
+        section.appendChild(empty);
+      } else {
+        const list = document.createElement('ol');
+        list.className = 'leaderboard-category-list';
+        entries.forEach((entry, index) => {
+          const row = document.createElement('li');
+          row.textContent = `#${index + 1} ${entry.name} — ${Math.floor(entry.score)} pts`;
+          list.appendChild(row);
+        });
+        section.appendChild(list);
+      }
+
+      leaderboardList.appendChild(section);
     });
   }
 
@@ -542,7 +620,7 @@
         throw new Error(`Leaderboard request failed (HTTP ${response.status})`);
       }
       const payload = await response.json();
-      renderLeaderboard(payload.entries || []);
+      renderLeaderboard(payload);
       if (!gameStarted) {
         setLeaderboardStatus('Finish a run, then save your score to the global board.');
       }
@@ -619,8 +697,14 @@
     }
   }
 
-  async function submitScore(name, runScore, nonce) {
-    const body = JSON.stringify({ name, score: runScore, nonce });
+  async function submitScore(name, runPoints, runModifier, nonce) {
+    const body = JSON.stringify({
+      name,
+      points: runPoints,
+      score: runPoints,
+      modifier: runModifier,
+      nonce,
+    });
 
     const response = await fetch(leaderboardEndpoint, {
       method: 'POST',
@@ -641,7 +725,9 @@
       throw new Error((payload && payload.error) || 'Unable to save score.');
     }
 
-    return payload.entries || [];
+    // Pass the whole payload through so the renderer can use categories when
+    // the server provides them, falling back to flat entries otherwise.
+    return payload;
   }
 
   let scoreModalLastFocus = null;
@@ -657,7 +743,7 @@
     if (event.key === 'Escape') {
       event.preventDefault();
       closeScoreModal();
-      setLeaderboardStatus(`Run ended at ${latestRunScore}m. Press R to reboot.`);
+      setLeaderboardStatus(`Run ended at ${latestRunScore} pts. Press R to reboot.`);
       return;
     }
     if (event.key !== 'Tab') return;
@@ -679,7 +765,8 @@
     scoreModalLastFocus = document.activeElement;
     scoreModalStatus.textContent = '';
     scoreModalName.value = settings.lastName || '';
-    scoreModalDist.textContent = `Distance: ${latestRunScore}m`;
+    const modLabel = (MODIFIERS[latestRunModifier] && MODIFIERS[latestRunModifier].label) || 'None';
+    scoreModalDist.textContent = `Points: ${latestRunScore} · Modifier: ${modLabel}`;
     scoreModalSubmit.disabled = false;
     scoreModal.hidden = false;
     document.addEventListener('keydown', trapScoreModalFocus);
@@ -719,10 +806,11 @@
 
     try {
       const nonce = await takeSubmitNonce();
-      const entries = await submitScore(name, scoreToSave, nonce);
-      renderLeaderboard(entries);
-      setLeaderboardStatus(`Saved ${scoreToSave}m for ${name}. Reboot and beat it!`);
-      announce(`Score saved: ${scoreToSave} meters for ${name}.`);
+      const submitModifier = MODIFIERS[latestRunModifier] ? latestRunModifier : 'none';
+      const payload = await submitScore(name, scoreToSave, submitModifier, nonce);
+      renderLeaderboard(payload);
+      setLeaderboardStatus(`Saved ${scoreToSave} pts for ${name}. Reboot and beat it!`);
+      announce(`Score saved: ${scoreToSave} points for ${name}.`);
       setScoreSubmissionState(false);
       saveSettings({ lastName: name });
       closeScoreModal();
@@ -1738,7 +1826,11 @@
       if (comboTimer === 0) combo = 1;
     }
 
-    // Score gains: distance scaled by speedMult, overclock, modifier
+    // Points formula: each frame contributes distance-derived points scaled by
+    // speed, combo, overclock, and the active modifier's scoreMult. Bits add
+    // 8 * bitValue points on pickup (bitValue already includes the modifier's
+    // bitsMult), and near-misses add a flat 5-point bonus. The leaderboard
+    // submits the floored running total as the run's points.
     const overclockMult = pwr.overclock > 0 ? 2 : 1;
     const scoreGain = 0.2 * speedMult * combo * overclockMult * getMod().scoreMult;
     score += scoreGain;
@@ -2014,12 +2106,13 @@
     best = Math.max(best, score);
     localStorage.setItem(BEST_KEY, String(Math.floor(best)));
     latestRunScore = Math.floor(score);
+    latestRunModifier = MODIFIERS[activeModifier] ? activeModifier : 'none';
     setScoreSubmissionState(latestRunScore > 0);
     if (latestRunScore > 0) primeSubmitNonce();
     setLeaderboardStatus(
-      `Run ended at ${latestRunScore}m. Submit your score or press R to restart.`
+      `Run ended at ${latestRunScore} pts. Submit your score or press R to restart.`
     );
-    announce(`Signal lost. Distance ${latestRunScore} meters. ${bitsCollected} bits.`);
+    announce(`Signal lost. ${latestRunScore} points. ${bitsCollected} bits.`);
     sfx.death();
     triggerShake(10, 30);
     spawnBurst(player.x + player.w / 2, player.y + player.h / 2, 24, '#ff5a7c');
