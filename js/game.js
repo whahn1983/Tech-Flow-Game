@@ -193,7 +193,7 @@
   let level = 1;
   // Levels advance based on distance traveled (worldOffset) so every modifier
   // progresses at the same rate. A boss spawns once per level.
-  const LEVEL_INTERVAL = 30000;
+  const LEVEL_INTERVAL = 20000;
   let nextLevelAt = LEVEL_INTERVAL;
   let lastBossLevel = 1;
   let activeModifier = 'none';
