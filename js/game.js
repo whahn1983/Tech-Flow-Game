@@ -211,6 +211,9 @@
   let coyoteFrames = 0;
   let jumpBufferFrames = 0;
   let isDucking = false;
+  let duckHeldFrames = 0;
+  let duckLockedOut = false;
+  const DUCK_MAX_FRAMES = 120;
   let dashFrames = 0;
   let dashCooldown = 0;
   let wallRunFrames = 0;
@@ -1891,6 +1894,8 @@
     coyoteFrames = 0;
     jumpBufferFrames = 0;
     isDucking = false;
+    duckHeldFrames = 0;
+    duckLockedOut = false;
     dashFrames = 0;
     dashCooldown = 0;
     wallRunFrames = 0;
@@ -2059,6 +2064,16 @@
     // Wall-run suspends gravity briefly
     if (wallRunFrames > 0) player.vy = Math.min(player.vy, -1.5);
     player.y += player.vy;
+
+    // Cap continuous duck at 2s so the player can't camp ducked the whole run;
+    // releasing the input clears the lockout, so re-ducking works freely.
+    if (isDucking) {
+      duckHeldFrames += 1;
+      if (duckHeldFrames >= DUCK_MAX_FRAMES) {
+        isDucking = false;
+        duckLockedOut = true;
+      }
+    }
 
     // Duck shrinks the hitbox; release expands. Hold-duck while jumping is
     // honored so the player can tuck through low ceilings mid-air.
@@ -2529,10 +2544,13 @@
   }
 
   function startDuck() {
+    if (duckLockedOut) return;
     isDucking = true;
   }
   function endDuck() {
     isDucking = false;
+    duckHeldFrames = 0;
+    duckLockedOut = false;
   }
 
   function startDash() {
