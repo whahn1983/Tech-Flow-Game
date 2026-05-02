@@ -437,7 +437,7 @@ function handleLeaderboardPost(req, res) {
           entries,
           saved: { name, score, points: score, savedAt, modifier },
         },
-        req,
+        req
       );
     })
     .catch((error) => {
