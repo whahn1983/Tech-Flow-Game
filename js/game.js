@@ -2443,7 +2443,7 @@
     ctx.font = '700 44px Segoe UI';
     ctx.fillText('Signal Lost', canvas.width / 2, canvas.height / 2 - 28);
     ctx.font = '600 24px Segoe UI';
-    ctx.fillText(`Distance: ${Math.floor(score)}m`, canvas.width / 2, canvas.height / 2 + 12);
+    ctx.fillText(`Points: ${Math.floor(score)} pts`, canvas.width / 2, canvas.height / 2 + 12);
     ctx.font = '500 18px Segoe UI';
     ctx.fillText(
       'Press R to restart  ·  Use Submit Score to save',
