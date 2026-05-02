@@ -175,6 +175,11 @@
   // Modifier captured at the moment the run ended. Used at submission time so
   // changing the menu picker after death doesn't mis-categorize the score.
   let latestRunModifier = 'none';
+  // Daily-seed flag + seed date captured at the moment the run ended. Sent
+  // to the server so the daily leaderboard section can attribute the score
+  // to the correct seed.
+  let latestRunDaily = false;
+  let latestRunSeedDate = '';
   let lastSpawnAction = null;
   let queuedSpawnAction = null;
   // Frames elapsed since the last obstacle was placed. Tracking in frames
@@ -758,11 +763,40 @@
     return buckets;
   }
 
+  function modifierLabelFor(key) {
+    const fromCategories = LEADERBOARD_CATEGORIES.find((c) => c.key === key);
+    if (fromCategories) return fromCategories.label;
+    return (MODIFIERS[key] && MODIFIERS[key].label) || key || '';
+  }
+
+  function appendCategoryEntryRow(list, entry, index) {
+    const row = document.createElement('li');
+    const modKey = entry && entry.modifier;
+    const modLabel = modifierLabelFor(modKey);
+    row.textContent = `#${index + 1} ${entry.name} — ${Math.floor(entry.score)} pts`;
+    if (entry && entry.daily) {
+      row.classList.add('leaderboard-entry-daily');
+      const badge = document.createElement('span');
+      badge.className = 'leaderboard-daily-badge';
+      badge.textContent = 'Daily';
+      badge.title = entry.seedDate ? `Daily seed: ${entry.seedDate}` : 'Played on a daily seed';
+      row.appendChild(document.createTextNode(' '));
+      row.appendChild(badge);
+    }
+    if (modLabel && list.dataset.includeModifier === '1') {
+      const tag = document.createElement('span');
+      tag.className = 'leaderboard-mod-tag';
+      tag.textContent = ` (${modLabel})`;
+      row.appendChild(tag);
+    }
+    list.appendChild(row);
+  }
+
   function renderLeaderboard(payload) {
     leaderboardList.innerHTML = '';
-    // Accept either { categories: {...} } from the server or a flat array
-    // of entries (older payloads). Always re-bucket client-side so the UI
-    // stays consistent if the server ever returns extras.
+    // Accept either { categories: {...}, daily: {...} } from the server or a
+    // flat array of entries (older payloads). Always re-bucket client-side so
+    // the UI stays consistent if the server ever returns extras.
     const flatEntries = Array.isArray(payload)
       ? payload
       : payload && Array.isArray(payload.entries)
@@ -780,17 +814,62 @@
         }, {})
       : bucketEntriesByModifier(flatEntries);
 
-    const totalEntries = LEADERBOARD_CATEGORIES.reduce(
+    // Build (or fall back to) the daily section. Server returns
+    // { daily: { date, entries } } describing today's daily seed top scores.
+    // If absent (older server / flat-array payload), derive from flatEntries
+    // by filtering daily=true && seedDate=today.
+    const todayDate = todayUtcDateString();
+    let dailyDate = todayDate;
+    let dailyEntries = [];
+    if (payload && payload.daily && typeof payload.daily === 'object') {
+      dailyDate =
+        typeof payload.daily.date === 'string' && payload.daily.date
+          ? payload.daily.date
+          : todayDate;
+      dailyEntries = Array.isArray(payload.daily.entries) ? payload.daily.entries.slice(0, 10) : [];
+    } else {
+      dailyEntries = flatEntries
+        .filter((entry) => entry && entry.daily && entry.seedDate === todayDate)
+        .sort((a, b) => {
+          if (b.score !== a.score) return b.score - a.score;
+          return String(a.savedAt).localeCompare(String(b.savedAt));
+        })
+        .slice(0, 10);
+    }
+
+    const totalCategoryEntries = LEADERBOARD_CATEGORIES.reduce(
       (sum, { key }) => sum + (buckets[key] ? buckets[key].length : 0),
       0
     );
-    if (totalEntries === 0) {
+    if (totalCategoryEntries === 0 && dailyEntries.length === 0) {
       const item = document.createElement('li');
       item.className = 'leaderboard-empty';
       item.textContent = 'No scores yet. Be the first to upload a run!';
       leaderboardList.appendChild(item);
       return;
     }
+
+    // Daily-seed section — pinned at the top so today's seed leaderboard
+    // is the first thing players see.
+    const dailySection = document.createElement('li');
+    dailySection.className = 'leaderboard-category leaderboard-category-daily';
+    const dailyHeading = document.createElement('h3');
+    dailyHeading.className = 'leaderboard-category-title';
+    dailyHeading.textContent = `Daily Seed — ${dailyDate}`;
+    dailySection.appendChild(dailyHeading);
+    if (dailyEntries.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'leaderboard-category-empty';
+      empty.textContent = 'No daily-seed scores yet. Toggle Daily Seed before starting a run.';
+      dailySection.appendChild(empty);
+    } else {
+      const list = document.createElement('ol');
+      list.className = 'leaderboard-category-list';
+      list.dataset.includeModifier = '1';
+      dailyEntries.forEach((entry, index) => appendCategoryEntryRow(list, entry, index));
+      dailySection.appendChild(list);
+    }
+    leaderboardList.appendChild(dailySection);
 
     LEADERBOARD_CATEGORIES.forEach(({ key, label }) => {
       const entries = buckets[key] || [];
@@ -810,11 +889,7 @@
       } else {
         const list = document.createElement('ol');
         list.className = 'leaderboard-category-list';
-        entries.forEach((entry, index) => {
-          const row = document.createElement('li');
-          row.textContent = `#${index + 1} ${entry.name} — ${Math.floor(entry.score)} pts`;
-          list.appendChild(row);
-        });
+        entries.forEach((entry, index) => appendCategoryEntryRow(list, entry, index));
         section.appendChild(list);
       }
 
@@ -906,12 +981,14 @@
     }
   }
 
-  async function submitScore(name, runPoints, runModifier, nonce) {
+  async function submitScore(name, runPoints, runModifier, nonce, runDaily, runSeedDate) {
     const body = JSON.stringify({
       name,
       points: runPoints,
       score: runPoints,
       modifier: runModifier,
+      daily: !!runDaily,
+      seedDate: runDaily ? runSeedDate : '',
       nonce,
     });
 
@@ -975,7 +1052,8 @@
     scoreModalStatus.textContent = '';
     scoreModalName.value = settings.lastName || '';
     const modLabel = (MODIFIERS[latestRunModifier] && MODIFIERS[latestRunModifier].label) || 'None';
-    scoreModalDist.textContent = `Points: ${latestRunScore} · Modifier: ${modLabel}`;
+    const dailySuffix = latestRunDaily ? ` · Daily Seed (${latestRunSeedDate})` : '';
+    scoreModalDist.textContent = `Points: ${latestRunScore} · Modifier: ${modLabel}${dailySuffix}`;
     scoreModalSubmit.disabled = false;
     scoreModal.hidden = false;
     document.addEventListener('keydown', trapScoreModalFocus);
@@ -1016,7 +1094,14 @@
     try {
       const nonce = await takeSubmitNonce();
       const submitModifier = MODIFIERS[latestRunModifier] ? latestRunModifier : 'none';
-      const payload = await submitScore(name, scoreToSave, submitModifier, nonce);
+      const payload = await submitScore(
+        name,
+        scoreToSave,
+        submitModifier,
+        nonce,
+        latestRunDaily,
+        latestRunSeedDate
+      );
       renderLeaderboard(payload);
       setLeaderboardStatus(`Saved ${scoreToSave} pts for ${name}. Reboot and beat it!`);
       announce(`Score saved: ${scoreToSave} points for ${name}.`);
@@ -1878,6 +1963,8 @@
     framesSinceLastSpawn = Number.POSITIVE_INFINITY;
     worldOffset = 0;
     latestRunScore = 0;
+    latestRunDaily = false;
+    latestRunSeedDate = '';
     bitsCollected = 0;
     combo = 1;
     comboTimer = 0;
@@ -2320,6 +2407,14 @@
     localStorage.setItem(BEST_KEY, String(Math.floor(best)));
     latestRunScore = Math.floor(score);
     latestRunModifier = MODIFIERS[activeModifier] ? activeModifier : 'none';
+    latestRunDaily = !!dailySeedActive;
+    // Record the seed date the run was actually played against. Prefer the
+    // server-issued cache; if the cache is stale (date rollover) or missing,
+    // fall back to today's UTC stamp so the submission still attributes to
+    // a valid date the server can validate.
+    latestRunSeedDate = latestRunDaily
+      ? (dailySeedCache && dailySeedCache.date) || todayUtcDateString()
+      : '';
     setScoreSubmissionState(latestRunScore > 0);
     if (latestRunScore > 0) primeSubmitNonce();
     setLeaderboardStatus(

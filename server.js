@@ -24,7 +24,9 @@ const DAILY_SEED_FILE = process.env.DAILY_SEED_FILE || path.join(DATA_DIR, 'dail
 const NONCE_FILE = process.env.NONCE_FILE || path.join(DATA_DIR, 'nonces.txt');
 const MAX_ENTRIES = 100;
 const MAX_PER_CATEGORY = 10;
+const MAX_DAILY_ENTRIES = 10;
 const MAX_SCORE = 999999;
+const DAILY_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_NAME_LENGTH = 24;
 const MAX_PAYLOAD_BYTES = 10240; // 10 KB — name + score never exceeds a few hundred bytes
 
@@ -250,15 +252,22 @@ function readLeaderboard() {
   return raw
     .split('\n')
     .map((line) => {
-      const [name, score, savedAt, modifier] = line.split('|');
+      const [name, score, savedAt, modifier, daily, seedDate] = line.split('|');
       // Optional 4th field: modifier. Legacy rows are categorized as 'og'.
       const normalizedModifier =
         modifier && VALID_MODIFIERS.includes(modifier.trim()) ? modifier.trim() : 'og';
+      // Optional 5th/6th fields: daily flag + seed date. Legacy rows default to false/''.
+      const normalizedDaily = String(daily || '').trim() === '1';
+      const rawSeedDate = String(seedDate || '').trim();
+      const normalizedSeedDate =
+        normalizedDaily && DAILY_DATE_PATTERN.test(rawSeedDate) ? rawSeedDate : '';
       return {
         name: (name || '').trim(),
         score: Number(score || 0),
         savedAt: savedAt || new Date(0).toISOString(),
         modifier: normalizedModifier,
+        daily: normalizedDaily && normalizedSeedDate !== '',
+        seedDate: normalizedSeedDate,
       };
     })
     .filter((entry) => entry.name && Number.isFinite(entry.score));
@@ -267,7 +276,9 @@ function readLeaderboard() {
 function writeLeaderboard(entries) {
   const rows = entries.map((entry) => {
     const modifier = VALID_MODIFIERS.includes(entry.modifier) ? entry.modifier : 'og';
-    return `${entry.name}|${Math.floor(entry.score)}|${entry.savedAt}|${modifier}`;
+    const daily = entry.daily && DAILY_DATE_PATTERN.test(entry.seedDate || '') ? '1' : '0';
+    const seedDate = daily === '1' ? entry.seedDate : '';
+    return `${entry.name}|${Math.floor(entry.score)}|${entry.savedAt}|${modifier}|${daily}|${seedDate}`;
   });
   fs.writeFileSync(LEADERBOARD_FILE, rows.join('\n'), { encoding: 'utf8', mode: 0o644 });
 }
@@ -311,6 +322,21 @@ function flattenCategories(categories) {
     }
   }
   return flat;
+}
+
+// Top scores for a given daily-seed date, across all modifier categories.
+// Used to render the dedicated "Daily Seed" section above the modifier
+// leaderboards. Caller passes the date stamp (UTC, YYYY-MM-DD) of the
+// currently-active daily seed.
+function dailyLeaderboard(entries, seedDate) {
+  if (!DAILY_DATE_PATTERN.test(String(seedDate || ''))) return [];
+  return entries
+    .filter((entry) => entry.daily && entry.seedDate === seedDate)
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return new Date(a.savedAt).getTime() - new Date(b.savedAt).getTime();
+    })
+    .slice(0, MAX_DAILY_ENTRIES);
 }
 
 function corsHeadersFor(req) {
@@ -375,10 +401,17 @@ function handleLeaderboardGet(req, res, parsedUrl) {
     sendJson(res, 200, { nonce: issueNonce() }, req);
     return;
   }
-  const categories = categorizeLeaderboard(readLeaderboard());
+  const allEntries = readLeaderboard();
+  const categories = categorizeLeaderboard(allEntries);
+  const todayDate = todayUtcStamp();
+  const daily = {
+    date: todayDate,
+    entries: dailyLeaderboard(allEntries, todayDate),
+  };
   // `entries` is retained as a flat list for older clients; `categories` holds
-  // the per-modifier top-10 buckets used by the current UI.
-  sendJson(res, 200, { categories, entries: flattenCategories(categories) }, req);
+  // the per-modifier top-10 buckets used by the current UI; `daily` holds the
+  // top scores for today's daily seed across all modifiers.
+  sendJson(res, 200, { categories, daily, entries: flattenCategories(categories) }, req);
 }
 
 function handleLeaderboardPost(req, res) {
@@ -396,6 +429,8 @@ function handleLeaderboardPost(req, res) {
       const score = Number(rawScore);
       const nonce = typeof body.nonce === 'string' ? body.nonce : '';
       const modifier = typeof body.modifier === 'string' ? body.modifier : 'none';
+      const daily = body.daily === true;
+      const seedDate = typeof body.seedDate === 'string' ? body.seedDate.trim() : '';
 
       if (!name) {
         sendJson(res, 400, { error: 'Player name is required.' }, req);
@@ -414,6 +449,28 @@ function handleLeaderboardPost(req, res) {
         return;
       }
 
+      // Daily-seed runs must be tagged with the seed's date stamp. Reject
+      // mismatched (daily without date, date without daily, or wrong date)
+      // submissions so the daily section can't be polluted with bogus seeds.
+      if (daily) {
+        if (!DAILY_DATE_PATTERN.test(seedDate)) {
+          sendJson(res, 400, { error: 'Daily-seed submissions require a valid seedDate.' }, req);
+          return;
+        }
+        if (seedDate !== todayUtcStamp()) {
+          sendJson(
+            res,
+            400,
+            { error: 'Daily seed has rolled over. Reload to play today’s seed.' },
+            req
+          );
+          return;
+        }
+      } else if (seedDate !== '') {
+        sendJson(res, 400, { error: 'seedDate is only allowed on daily runs.' }, req);
+        return;
+      }
+
       // Nonce is mandatory. Score submissions must obtain a single-use nonce
       // via GET ?action=nonce and present it here.
       if (!consumeNonce(nonce)) {
@@ -422,11 +479,21 @@ function handleLeaderboardPost(req, res) {
       }
 
       const savedAt = new Date().toISOString();
-      const categories = categorizeLeaderboard([
-        ...readLeaderboard(),
-        { name, score, savedAt, modifier },
-      ]);
-      const entries = flattenCategories(categories);
+      const newEntry = { name, score, savedAt, modifier, daily, seedDate: daily ? seedDate : '' };
+      const allEntries = [...readLeaderboard(), newEntry];
+      const categories = categorizeLeaderboard(allEntries);
+      const flatCategoryEntries = flattenCategories(categories);
+      // Persist the union of category top-N and the daily top-N so a daily
+      // entry that doesn't crack its modifier's top-10 is still retained
+      // for the daily section.
+      const dailyEntries = dailyLeaderboard(allEntries, todayUtcStamp());
+      const persistKey = (entry) =>
+        `${entry.name}|${entry.score}|${entry.savedAt}|${entry.modifier}`;
+      const persistMap = new Map();
+      for (const entry of [...flatCategoryEntries, ...dailyEntries]) {
+        persistMap.set(persistKey(entry), entry);
+      }
+      const entries = Array.from(persistMap.values());
 
       writeLeaderboard(entries);
       sendJson(
@@ -434,8 +501,17 @@ function handleLeaderboardPost(req, res) {
         201,
         {
           categories,
-          entries,
-          saved: { name, score, points: score, savedAt, modifier },
+          daily: { date: todayUtcStamp(), entries: dailyEntries },
+          entries: flatCategoryEntries,
+          saved: {
+            name,
+            score,
+            points: score,
+            savedAt,
+            modifier,
+            daily,
+            seedDate: daily ? seedDate : '',
+          },
         },
         req
       );
@@ -579,6 +655,7 @@ module.exports = {
   sortedLeaderboard,
   categorizeLeaderboard,
   flattenCategories,
+  dailyLeaderboard,
   VALID_MODIFIERS,
   isLeaderboardPath,
   isDailySeedPath,
