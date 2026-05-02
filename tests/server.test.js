@@ -51,6 +51,42 @@ test('sortedLeaderboard sorts descending by score, ascending by savedAt', () => 
   );
 });
 
+test('categorizeLeaderboard buckets by modifier and caps each at 10', () => {
+  const entries = [];
+  // Seed 12 entries each for two categories — top 10 should survive per bucket.
+  for (let i = 0; i < 12; i++) {
+    entries.push({
+      name: `H${i}`,
+      score: 1000 + i,
+      savedAt: `2024-01-01T00:00:0${i % 10}Z`,
+      modifier: 'hardcore',
+    });
+    entries.push({
+      name: `B${i}`,
+      score: 200 + i,
+      savedAt: `2024-01-02T00:00:0${i % 10}Z`,
+      modifier: 'bitrush',
+    });
+  }
+  // A row with a missing modifier should land in 'og'.
+  entries.push({ name: 'Legacy', score: 50, savedAt: '2023-12-31T00:00:00Z' });
+  const buckets = server.categorizeLeaderboard(entries);
+  assert.equal(buckets.hardcore.length, 10);
+  assert.equal(buckets.bitrush.length, 10);
+  assert.equal(buckets.hardcore[0].name, 'H11', 'top hardcore score should be the highest');
+  assert.equal(buckets.og.length, 1);
+  assert.equal(buckets.og[0].name, 'Legacy');
+  assert.equal(buckets.none.length, 0);
+});
+
+test('categorizeLeaderboard treats unknown modifiers as og', () => {
+  const buckets = server.categorizeLeaderboard([
+    { name: 'X', score: 5, savedAt: '2024-01-01T00:00:00Z', modifier: 'cheater' },
+  ]);
+  assert.equal(buckets.og.length, 1);
+  assert.equal(buckets.og[0].name, 'X');
+});
+
 test('sortedLeaderboard caps at 100 entries', () => {
   const entries = Array.from({ length: 250 }, (_, i) => ({
     name: `P${i}`,

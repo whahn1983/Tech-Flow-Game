@@ -1,7 +1,7 @@
 // Bump CACHE_NAME on every released change. The activate handler purges any
 // caches that don't match this name, so old assets are evicted on first load
 // after a deploy.
-const CACHE_NAME = 'tech-flow-runner-v13';
+const CACHE_NAME = 'tech-flow-runner-v14';
 
 // Critical assets: must be cached for the install event to succeed.
 const CRITICAL_ASSETS = [

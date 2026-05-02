@@ -30,7 +30,7 @@ define('LEADERBOARD_FILE', getenv('LEADERBOARD_FILE') ?: $DATA_DIR . '/leaderboa
 define('LEADERBOARD_DB',   getenv('LEADERBOARD_DB')   ?: $DATA_DIR . '/leaderboard.sqlite');
 define('RATE_LIMIT_FILE',  getenv('RATE_LIMIT_FILE')  ?: $DATA_DIR . '/rate_limit.txt');
 define('NONCE_FILE',       getenv('NONCE_FILE')       ?: $DATA_DIR . '/nonces.txt');
-const MAX_ENTRIES        = 100;
+const MAX_PER_CATEGORY   = 10;    // top-N retained per modifier category
 const MAX_SCORE          = 999999;
 const MAX_NAME_LENGTH    = 24;
 const MAX_BODY_BYTES     = 10240; // 10 KB
@@ -39,6 +39,10 @@ const RATE_LIMIT_WINDOW  = 60;    // seconds
 const NONCE_LIFETIME     = 600;   // seconds a nonce remains valid (10 min)
 const NONCE_MIN_AGE      = 4;     // submissions must wait at least this long after issuance
 const NONCE_MAX_TRACKED  = 4096;  // hard cap to keep the nonce file bounded
+
+// Modifier categories. 'og' is reserved for legacy entries from the original
+// distance-only scoring system; everything else maps to a current run modifier.
+const VALID_MODIFIERS = ['og', 'none', 'hardcore', 'bitrush', 'featherfall', 'glasscannon'];
 
 function send_json(int $statusCode, array $payload): void {
     http_response_code($statusCode);
@@ -69,7 +73,7 @@ function import_leaderboard_txt(PDO $pdo): int {
         return 0;
     }
 
-    $insert   = $pdo->prepare('INSERT INTO scores (name, score, saved_at) VALUES (?, ?, ?)');
+    $insert   = $pdo->prepare('INSERT INTO scores (name, score, saved_at, modifier) VALUES (?, ?, ?, ?)');
     $imported = 0;
 
     $pdo->beginTransaction();
@@ -82,10 +86,15 @@ function import_leaderboard_txt(PDO $pdo): int {
             $name    = trim($parts[0]);
             $score   = (int)$parts[1];
             $savedAt = $parts[2];
+            // Optional 4th field: modifier. Legacy entries default to 'og'.
+            $modifier = isset($parts[3]) ? trim($parts[3]) : 'og';
+            if (!in_array($modifier, VALID_MODIFIERS, true)) {
+                $modifier = 'og';
+            }
             if ($name === '' || $score < 0) {
                 continue;
             }
-            $insert->execute([$name, $score, $savedAt]);
+            $insert->execute([$name, $score, $savedAt, $modifier]);
             $imported++;
         }
         $pdo->commit();
@@ -126,10 +135,26 @@ function get_db(): ?PDO {
                 id       INTEGER PRIMARY KEY AUTOINCREMENT,
                 name     TEXT    NOT NULL,
                 score    INTEGER NOT NULL,
-                saved_at TEXT    NOT NULL
+                saved_at TEXT    NOT NULL,
+                modifier TEXT    NOT NULL DEFAULT \'og\'
             )'
         );
+        // Backfill `modifier` column on databases created before categorization
+        // landed. Pre-existing rows are treated as 'og' (original game).
+        $columns = $pdo->query("PRAGMA table_info('scores')")->fetchAll(PDO::FETCH_ASSOC);
+        $hasModifier = false;
+        foreach ($columns as $col) {
+            if (($col['name'] ?? '') === 'modifier') {
+                $hasModifier = true;
+                break;
+            }
+        }
+        if (!$hasModifier) {
+            $pdo->exec("ALTER TABLE scores ADD COLUMN modifier TEXT NOT NULL DEFAULT 'og'");
+            $pdo->exec("UPDATE scores SET modifier = 'og' WHERE modifier IS NULL OR modifier = ''");
+        }
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_scores_score ON scores (score DESC, saved_at ASC)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_scores_modifier ON scores (modifier, score DESC, saved_at ASC)');
 
         // If the scores table is empty, try to seed it from the legacy flat
         // file. This handles both first-time migrations from a flat-file
@@ -231,15 +256,18 @@ function clean_player_name($rawName): string {
 function read_leaderboard(): array {
     $db = get_db();
     if ($db !== null) {
-        $stmt = $db->query(
-            'SELECT name, score, saved_at FROM scores ORDER BY score DESC, saved_at ASC LIMIT ' . MAX_ENTRIES
-        );
+        $stmt = $db->query('SELECT name, score, saved_at, modifier FROM scores');
         $entries = [];
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $modifier = (string)($row['modifier'] ?? 'og');
+            if (!in_array($modifier, VALID_MODIFIERS, true)) {
+                $modifier = 'og';
+            }
             $entries[] = [
-                'name'    => $row['name'],
-                'score'   => (int)$row['score'],
-                'savedAt' => $row['saved_at']
+                'name'     => $row['name'],
+                'score'    => (int)$row['score'],
+                'savedAt'  => $row['saved_at'],
+                'modifier' => $modifier,
             ];
         }
         return $entries;
@@ -267,53 +295,109 @@ function read_leaderboard(): array {
         $name    = trim($parts[0]);
         $score   = (int)$parts[1];
         $savedAt = $parts[2];
+        // Optional 4th field: modifier. Legacy rows are categorized as 'og'.
+        $modifier = isset($parts[3]) ? trim($parts[3]) : 'og';
+        if (!in_array($modifier, VALID_MODIFIERS, true)) {
+            $modifier = 'og';
+        }
 
         if ($name === '' || $score < 0) {
             continue;
         }
 
         $entries[] = [
-            'name'    => $name,
-            'score'   => $score,
-            'savedAt' => $savedAt
+            'name'     => $name,
+            'score'    => $score,
+            'savedAt'  => $savedAt,
+            'modifier' => $modifier,
         ];
     }
 
     return $entries;
 }
 
-function sort_leaderboard(array $entries): array {
-    usort($entries, function ($a, $b) {
-        if ($b['score'] !== $a['score']) {
-            return $b['score'] <=> $a['score'];
+/**
+ * Group entries by their `modifier` field, sort each bucket by score (desc)
+ * with savedAt (asc) as the tiebreaker, and trim each bucket to MAX_PER_CATEGORY.
+ *
+ * Categories that don't appear in $entries still show up (as empty arrays) so
+ * the client can render a consistent set of sections.
+ */
+function categorize_leaderboard(array $entries): array {
+    $categories = [];
+    foreach (VALID_MODIFIERS as $modifier) {
+        $categories[$modifier] = [];
+    }
+    foreach ($entries as $entry) {
+        $modifier = $entry['modifier'] ?? 'og';
+        if (!in_array($modifier, VALID_MODIFIERS, true)) {
+            $modifier = 'og';
         }
+        $categories[$modifier][] = $entry;
+    }
+    foreach ($categories as $modifier => &$bucket) {
+        usort($bucket, function ($a, $b) {
+            if ($b['score'] !== $a['score']) {
+                return $b['score'] <=> $a['score'];
+            }
+            return strtotime($a['savedAt']) <=> strtotime($b['savedAt']);
+        });
+        $bucket = array_slice($bucket, 0, MAX_PER_CATEGORY);
+    }
+    unset($bucket);
+    return $categories;
+}
 
-        return strtotime($a['savedAt']) <=> strtotime($b['savedAt']);
-    });
-
-    return array_slice($entries, 0, MAX_ENTRIES);
+/**
+ * Flatten categorized entries back to a single trimmed list — used when
+ * persisting to the legacy flat file so it stays at the top-N-per-category cap.
+ */
+function flatten_categories(array $categories): array {
+    $flat = [];
+    foreach ($categories as $bucket) {
+        foreach ($bucket as $entry) {
+            $flat[] = $entry;
+        }
+    }
+    return $flat;
 }
 
 function encode_leaderboard_rows(array $entries): string {
     $rows = array_map(function ($entry) {
-        return sprintf('%s|%d|%s', $entry['name'], (int)$entry['score'], $entry['savedAt']);
+        $modifier = $entry['modifier'] ?? 'og';
+        if (!in_array($modifier, VALID_MODIFIERS, true)) {
+            $modifier = 'og';
+        }
+        return sprintf('%s|%d|%s|%s', $entry['name'], (int)$entry['score'], $entry['savedAt'], $modifier);
     }, $entries);
 
     return implode("\n", $rows);
 }
 
-function append_score_with_lock(string $name, int $score, string $savedAt): array {
+function append_score_with_lock(string $name, int $score, string $savedAt, string $modifier): array {
     $db = get_db();
     if ($db !== null) {
-        $insert = $db->prepare('INSERT INTO scores (name, score, saved_at) VALUES (?, ?, ?)');
-        $insert->execute([$name, $score, $savedAt]);
+        $insert = $db->prepare('INSERT INTO scores (name, score, saved_at, modifier) VALUES (?, ?, ?, ?)');
+        $insert->execute([$name, $score, $savedAt, $modifier]);
 
-        // Trim the table to MAX_ENTRIES — keep top scores by (score DESC, saved_at ASC).
-        $db->exec(
+        // Trim each category bucket to its top MAX_PER_CATEGORY by (score DESC, saved_at ASC).
+        // Done as a single delete that whitelists the per-category top-N IDs.
+        $delete = $db->prepare(
             'DELETE FROM scores WHERE id NOT IN (
-                SELECT id FROM scores ORDER BY score DESC, saved_at ASC LIMIT ' . MAX_ENTRIES . '
+                SELECT id FROM scores AS s1
+                WHERE (
+                    SELECT COUNT(*) FROM scores AS s2
+                    WHERE s2.modifier = s1.modifier
+                      AND (
+                        s2.score > s1.score
+                        OR (s2.score = s1.score AND s2.saved_at < s1.saved_at)
+                        OR (s2.score = s1.score AND s2.saved_at = s1.saved_at AND s2.id < s1.id)
+                      )
+                ) < :cap
             )'
         );
+        $delete->bindValue(':cap', MAX_PER_CATEGORY, PDO::PARAM_INT);
+        $delete->execute();
 
         return read_leaderboard();
     }
@@ -346,28 +430,35 @@ function append_score_with_lock(string $name, int $score, string $savedAt): arra
                 continue;
             }
 
-            $entryName    = trim($parts[0]);
-            $entryScore   = (int)$parts[1];
-            $entrySavedAt = $parts[2];
+            $entryName     = trim($parts[0]);
+            $entryScore    = (int)$parts[1];
+            $entrySavedAt  = $parts[2];
+            $entryModifier = isset($parts[3]) ? trim($parts[3]) : 'og';
+            if (!in_array($entryModifier, VALID_MODIFIERS, true)) {
+                $entryModifier = 'og';
+            }
 
             if ($entryName === '' || $entryScore < 0) {
                 continue;
             }
 
             $entries[] = [
-                'name'    => $entryName,
-                'score'   => $entryScore,
-                'savedAt' => $entrySavedAt
+                'name'     => $entryName,
+                'score'    => $entryScore,
+                'savedAt'  => $entrySavedAt,
+                'modifier' => $entryModifier,
             ];
         }
     }
 
     $entries[] = [
-        'name'    => $name,
-        'score'   => $score,
-        'savedAt' => $savedAt
+        'name'     => $name,
+        'score'    => $score,
+        'savedAt'  => $savedAt,
+        'modifier' => $modifier,
     ];
-    $entries = sort_leaderboard($entries);
+    $categories = categorize_leaderboard($entries);
+    $entries    = flatten_categories($categories);
 
     $payload = encode_leaderboard_rows($entries);
 
@@ -523,7 +614,13 @@ if ($method === 'GET') {
     if ($action === 'nonce') {
         send_json(200, ['nonce' => issue_nonce()]);
     }
-    send_json(200, ['entries' => sort_leaderboard(read_leaderboard())]);
+    $categories = categorize_leaderboard(read_leaderboard());
+    // `entries` is retained as a flattened convenience for older clients;
+    // `categories` carries the per-modifier top-10 buckets.
+    send_json(200, [
+        'categories' => $categories,
+        'entries'    => flatten_categories($categories),
+    ]);
 }
 
 if ($method === 'POST') {
@@ -552,8 +649,10 @@ if ($method === 'POST') {
     }
 
     $name  = clean_player_name($payload['name'] ?? '');
-    $score = $payload['score'] ?? null;
+    // Accept either `points` (current clients) or `score` (legacy field name).
+    $score = $payload['points'] ?? $payload['score'] ?? null;
     $nonce = isset($payload['nonce']) ? (string)$payload['nonce'] : '';
+    $modifier = isset($payload['modifier']) ? (string)$payload['modifier'] : 'none';
 
     if ($name === '') {
         send_json(400, ['error' => 'Player name is required.']);
@@ -569,23 +668,33 @@ if ($method === 'POST') {
         send_json(400, ['error' => 'Score must be a whole number between 0 and ' . MAX_SCORE . '.']);
     }
 
+    // Modifier must be one of the known categories. 'og' is reserved for
+    // legacy migration and rejected on direct submission.
+    if (!in_array($modifier, VALID_MODIFIERS, true) || $modifier === 'og') {
+        send_json(400, ['error' => 'Unknown run modifier.']);
+    }
+
     // Nonce is mandatory. Clients must obtain a single-use nonce via
     // GET ?action=nonce and present it on submission.
     if (!consume_nonce($nonce)) {
         send_json(400, ['error' => 'Submission expired or invalid. Please try again.']);
     }
 
-    $score   = (int)$score;
-    $savedAt = gmdate('c');
-    $entries = append_score_with_lock($name, $score, $savedAt);
+    $score      = (int)$score;
+    $savedAt    = gmdate('c');
+    $entries    = append_score_with_lock($name, $score, $savedAt, $modifier);
+    $categories = categorize_leaderboard($entries);
 
     send_json(201, [
-        'entries' => $entries,
-        'saved'   => [
-            'name'    => $name,
-            'score'   => $score,
-            'savedAt' => $savedAt
-        ]
+        'categories' => $categories,
+        'entries'    => flatten_categories($categories),
+        'saved'      => [
+            'name'     => $name,
+            'score'    => $score,
+            'points'   => $score,
+            'savedAt'  => $savedAt,
+            'modifier' => $modifier,
+        ],
     ]);
 }
 
