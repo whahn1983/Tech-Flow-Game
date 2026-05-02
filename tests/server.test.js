@@ -146,3 +146,87 @@ test('consumeNonce removes the entry from the on-disk nonce file', () => {
   const raw = fs.existsSync(NONCE_FILE) ? fs.readFileSync(NONCE_FILE, 'utf8') : '';
   assert.ok(!raw.includes(aged), 'consumed nonce should no longer appear in nonces.txt');
 });
+
+test('dailyLeaderboard returns only entries matching the seed date, top 10, ranked by score', () => {
+  const today = '2026-05-02';
+  const otherDay = '2026-05-01';
+  const entries = [];
+  for (let i = 0; i < 12; i++) {
+    entries.push({
+      name: `D${i}`,
+      score: 500 + i,
+      savedAt: `2026-05-02T00:00:0${i % 10}Z`,
+      modifier: 'none',
+      daily: true,
+      seedDate: today,
+    });
+  }
+  // Same date, mixed modifier — should also be eligible for the daily section.
+  entries.push({
+    name: 'Mixed',
+    score: 9999,
+    savedAt: '2026-05-02T00:00:00Z',
+    modifier: 'hardcore',
+    daily: true,
+    seedDate: today,
+  });
+  // Different date — must be excluded.
+  entries.push({
+    name: 'Yesterday',
+    score: 100000,
+    savedAt: '2026-05-01T00:00:00Z',
+    modifier: 'none',
+    daily: true,
+    seedDate: otherDay,
+  });
+  // Non-daily — must be excluded even with a matching seedDate field.
+  entries.push({
+    name: 'NotDaily',
+    score: 100000,
+    savedAt: '2026-05-02T00:00:00Z',
+    modifier: 'none',
+    daily: false,
+    seedDate: today,
+  });
+
+  const top = server.dailyLeaderboard(entries, today);
+  assert.equal(top.length, 10, 'caps at MAX_DAILY_ENTRIES');
+  assert.equal(top[0].name, 'Mixed', 'top score across modifiers wins');
+  assert.ok(
+    top.every((e) => e.seedDate === today && e.daily),
+    "only today's daily entries are returned"
+  );
+});
+
+test('dailyLeaderboard rejects malformed seed-date inputs', () => {
+  const entries = [
+    {
+      name: 'A',
+      score: 1,
+      savedAt: '2026-05-02T00:00:00Z',
+      modifier: 'none',
+      daily: true,
+      seedDate: '2026-05-02',
+    },
+  ];
+  assert.deepEqual(server.dailyLeaderboard(entries, ''), []);
+  assert.deepEqual(server.dailyLeaderboard(entries, 'bogus'), []);
+  assert.deepEqual(server.dailyLeaderboard(entries, '2026-05-2'), []);
+});
+
+test('categorizeLeaderboard preserves daily/seedDate fields on entries', () => {
+  const entries = [
+    {
+      name: 'Solo',
+      score: 42,
+      savedAt: '2026-05-02T00:00:00Z',
+      modifier: 'none',
+      daily: true,
+      seedDate: '2026-05-02',
+    },
+  ];
+  const buckets = server.categorizeLeaderboard(entries);
+  assert.equal(buckets.none.length, 1);
+  assert.equal(buckets.none[0].daily, true);
+  assert.equal(buckets.none[0].seedDate, '2026-05-02');
+});

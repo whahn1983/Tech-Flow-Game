@@ -31,6 +31,8 @@ define('LEADERBOARD_DB',   getenv('LEADERBOARD_DB')   ?: $DATA_DIR . '/leaderboa
 define('RATE_LIMIT_FILE',  getenv('RATE_LIMIT_FILE')  ?: $DATA_DIR . '/rate_limit.txt');
 define('NONCE_FILE',       getenv('NONCE_FILE')       ?: $DATA_DIR . '/nonces.txt');
 const MAX_PER_CATEGORY   = 10;    // top-N retained per modifier category
+const MAX_DAILY_ENTRIES  = 10;    // top-N retained for the daily-seed section
+const DAILY_DATE_PATTERN = '/^\d{4}-\d{2}-\d{2}$/';
 const MAX_SCORE          = 999999;
 const MAX_NAME_LENGTH    = 24;
 const MAX_BODY_BYTES     = 10240; // 10 KB
@@ -73,7 +75,7 @@ function import_leaderboard_txt(PDO $pdo): int {
         return 0;
     }
 
-    $insert   = $pdo->prepare('INSERT INTO scores (name, score, saved_at, modifier) VALUES (?, ?, ?, ?)');
+    $insert   = $pdo->prepare('INSERT INTO scores (name, score, saved_at, modifier, daily, seed_date) VALUES (?, ?, ?, ?, ?, ?)');
     $imported = 0;
 
     $pdo->beginTransaction();
@@ -91,10 +93,18 @@ function import_leaderboard_txt(PDO $pdo): int {
             if (!in_array($modifier, VALID_MODIFIERS, true)) {
                 $modifier = 'og';
             }
+            // Optional 5th/6th fields: daily flag + seed date. Legacy rows
+            // default to non-daily.
+            $daily = isset($parts[4]) && trim($parts[4]) === '1' ? 1 : 0;
+            $seedDate = isset($parts[5]) ? trim($parts[5]) : '';
+            if ($daily !== 1 || !preg_match(DAILY_DATE_PATTERN, $seedDate)) {
+                $daily = 0;
+                $seedDate = '';
+            }
             if ($name === '' || $score < 0) {
                 continue;
             }
-            $insert->execute([$name, $score, $savedAt, $modifier]);
+            $insert->execute([$name, $score, $savedAt, $modifier, $daily, $seedDate]);
             $imported++;
         }
         $pdo->commit();
@@ -132,29 +142,40 @@ function get_db(): ?PDO {
         $pdo->exec('PRAGMA synchronous = NORMAL');
         $pdo->exec(
             'CREATE TABLE IF NOT EXISTS scores (
-                id       INTEGER PRIMARY KEY AUTOINCREMENT,
-                name     TEXT    NOT NULL,
-                score    INTEGER NOT NULL,
-                saved_at TEXT    NOT NULL,
-                modifier TEXT    NOT NULL DEFAULT \'og\'
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                name      TEXT    NOT NULL,
+                score     INTEGER NOT NULL,
+                saved_at  TEXT    NOT NULL,
+                modifier  TEXT    NOT NULL DEFAULT \'og\',
+                daily     INTEGER NOT NULL DEFAULT 0,
+                seed_date TEXT    NOT NULL DEFAULT \'\'
             )'
         );
-        // Backfill `modifier` column on databases created before categorization
-        // landed. Pre-existing rows are treated as 'og' (original game).
+        // Backfill columns on databases created before categorization / daily
+        // tracking landed. Pre-existing rows are treated as 'og', non-daily.
         $columns = $pdo->query("PRAGMA table_info('scores')")->fetchAll(PDO::FETCH_ASSOC);
         $hasModifier = false;
+        $hasDaily = false;
+        $hasSeedDate = false;
         foreach ($columns as $col) {
-            if (($col['name'] ?? '') === 'modifier') {
-                $hasModifier = true;
-                break;
-            }
+            $colName = $col['name'] ?? '';
+            if ($colName === 'modifier') $hasModifier = true;
+            if ($colName === 'daily') $hasDaily = true;
+            if ($colName === 'seed_date') $hasSeedDate = true;
         }
         if (!$hasModifier) {
             $pdo->exec("ALTER TABLE scores ADD COLUMN modifier TEXT NOT NULL DEFAULT 'og'");
             $pdo->exec("UPDATE scores SET modifier = 'og' WHERE modifier IS NULL OR modifier = ''");
         }
+        if (!$hasDaily) {
+            $pdo->exec("ALTER TABLE scores ADD COLUMN daily INTEGER NOT NULL DEFAULT 0");
+        }
+        if (!$hasSeedDate) {
+            $pdo->exec("ALTER TABLE scores ADD COLUMN seed_date TEXT NOT NULL DEFAULT ''");
+        }
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_scores_score ON scores (score DESC, saved_at ASC)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_scores_modifier ON scores (modifier, score DESC, saved_at ASC)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_scores_daily ON scores (daily, seed_date, score DESC, saved_at ASC)');
 
         // If the scores table is empty, try to seed it from the legacy flat
         // file. This handles both first-time migrations from a flat-file
@@ -253,21 +274,33 @@ function clean_player_name($rawName): string {
     return substr($name, 0, MAX_NAME_LENGTH);
 }
 
+function normalize_daily_fields($rawDaily, $rawSeedDate): array {
+    $daily = (string)$rawDaily === '1' || $rawDaily === 1 || $rawDaily === true;
+    $seedDate = is_string($rawSeedDate) ? trim($rawSeedDate) : '';
+    if (!$daily || !preg_match(DAILY_DATE_PATTERN, $seedDate)) {
+        return [false, ''];
+    }
+    return [true, $seedDate];
+}
+
 function read_leaderboard(): array {
     $db = get_db();
     if ($db !== null) {
-        $stmt = $db->query('SELECT name, score, saved_at, modifier FROM scores');
+        $stmt = $db->query('SELECT name, score, saved_at, modifier, daily, seed_date FROM scores');
         $entries = [];
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
             $modifier = (string)($row['modifier'] ?? 'og');
             if (!in_array($modifier, VALID_MODIFIERS, true)) {
                 $modifier = 'og';
             }
+            [$daily, $seedDate] = normalize_daily_fields($row['daily'] ?? 0, $row['seed_date'] ?? '');
             $entries[] = [
                 'name'     => $row['name'],
                 'score'    => (int)$row['score'],
                 'savedAt'  => $row['saved_at'],
                 'modifier' => $modifier,
+                'daily'    => $daily,
+                'seedDate' => $seedDate,
             ];
         }
         return $entries;
@@ -300,6 +333,10 @@ function read_leaderboard(): array {
         if (!in_array($modifier, VALID_MODIFIERS, true)) {
             $modifier = 'og';
         }
+        [$daily, $seedDate] = normalize_daily_fields(
+            $parts[4] ?? 0,
+            $parts[5] ?? ''
+        );
 
         if ($name === '' || $score < 0) {
             continue;
@@ -310,10 +347,40 @@ function read_leaderboard(): array {
             'score'    => $score,
             'savedAt'  => $savedAt,
             'modifier' => $modifier,
+            'daily'    => $daily,
+            'seedDate' => $seedDate,
         ];
     }
 
     return $entries;
+}
+
+/**
+ * Top scores for a given daily-seed date, across all modifier categories.
+ * Caller passes the date stamp (UTC, YYYY-MM-DD) of the currently-active
+ * daily seed.
+ */
+function daily_leaderboard(array $entries, string $seedDate): array {
+    if (!preg_match(DAILY_DATE_PATTERN, $seedDate)) {
+        return [];
+    }
+    $filtered = [];
+    foreach ($entries as $entry) {
+        if (!empty($entry['daily']) && ($entry['seedDate'] ?? '') === $seedDate) {
+            $filtered[] = $entry;
+        }
+    }
+    usort($filtered, function ($a, $b) {
+        if ($b['score'] !== $a['score']) {
+            return $b['score'] <=> $a['score'];
+        }
+        return strtotime($a['savedAt']) <=> strtotime($b['savedAt']);
+    });
+    return array_slice($filtered, 0, MAX_DAILY_ENTRIES);
+}
+
+function today_utc_stamp(): string {
+    return gmdate('Y-m-d');
 }
 
 /**
@@ -368,20 +435,31 @@ function encode_leaderboard_rows(array $entries): string {
         if (!in_array($modifier, VALID_MODIFIERS, true)) {
             $modifier = 'og';
         }
-        return sprintf('%s|%d|%s|%s', $entry['name'], (int)$entry['score'], $entry['savedAt'], $modifier);
+        [$daily, $seedDate] = normalize_daily_fields($entry['daily'] ?? false, $entry['seedDate'] ?? '');
+        return sprintf(
+            '%s|%d|%s|%s|%s|%s',
+            $entry['name'],
+            (int)$entry['score'],
+            $entry['savedAt'],
+            $modifier,
+            $daily ? '1' : '0',
+            $daily ? $seedDate : ''
+        );
     }, $entries);
 
     return implode("\n", $rows);
 }
 
-function append_score_with_lock(string $name, int $score, string $savedAt, string $modifier): array {
+function append_score_with_lock(string $name, int $score, string $savedAt, string $modifier, bool $daily, string $seedDate): array {
     $db = get_db();
     if ($db !== null) {
-        $insert = $db->prepare('INSERT INTO scores (name, score, saved_at, modifier) VALUES (?, ?, ?, ?)');
-        $insert->execute([$name, $score, $savedAt, $modifier]);
+        $insert = $db->prepare('INSERT INTO scores (name, score, saved_at, modifier, daily, seed_date) VALUES (?, ?, ?, ?, ?, ?)');
+        $insert->execute([$name, $score, $savedAt, $modifier, $daily ? 1 : 0, $daily ? $seedDate : '']);
 
-        // Trim each category bucket to its top MAX_PER_CATEGORY by (score DESC, saved_at ASC).
-        // Done as a single delete that whitelists the per-category top-N IDs.
+        // Retain per-modifier top MAX_PER_CATEGORY OR per-daily-seed-date top
+        // MAX_DAILY_ENTRIES so a daily-seed entry that doesn't crack its
+        // modifier's top-10 is still visible in the daily section. Ranking
+        // uses (score DESC, saved_at ASC, id ASC) so ties are deterministic.
         $delete = $db->prepare(
             'DELETE FROM scores WHERE id NOT IN (
                 SELECT id FROM scores AS s1
@@ -394,9 +472,24 @@ function append_score_with_lock(string $name, int $score, string $savedAt, strin
                         OR (s2.score = s1.score AND s2.saved_at = s1.saved_at AND s2.id < s1.id)
                       )
                 ) < :cap
+                OR (
+                    s1.daily = 1
+                    AND s1.seed_date != \'\'
+                    AND (
+                        SELECT COUNT(*) FROM scores AS s3
+                        WHERE s3.daily = 1
+                          AND s3.seed_date = s1.seed_date
+                          AND (
+                            s3.score > s1.score
+                            OR (s3.score = s1.score AND s3.saved_at < s1.saved_at)
+                            OR (s3.score = s1.score AND s3.saved_at = s1.saved_at AND s3.id < s1.id)
+                          )
+                    ) < :dailycap
+                )
             )'
         );
         $delete->bindValue(':cap', MAX_PER_CATEGORY, PDO::PARAM_INT);
+        $delete->bindValue(':dailycap', MAX_DAILY_ENTRIES, PDO::PARAM_INT);
         $delete->execute();
 
         return read_leaderboard();
@@ -437,6 +530,10 @@ function append_score_with_lock(string $name, int $score, string $savedAt, strin
             if (!in_array($entryModifier, VALID_MODIFIERS, true)) {
                 $entryModifier = 'og';
             }
+            [$entryDaily, $entrySeedDate] = normalize_daily_fields(
+                $parts[4] ?? 0,
+                $parts[5] ?? ''
+            );
 
             if ($entryName === '' || $entryScore < 0) {
                 continue;
@@ -447,6 +544,8 @@ function append_score_with_lock(string $name, int $score, string $savedAt, strin
                 'score'    => $entryScore,
                 'savedAt'  => $entrySavedAt,
                 'modifier' => $entryModifier,
+                'daily'    => $entryDaily,
+                'seedDate' => $entrySeedDate,
             ];
         }
     }
@@ -456,9 +555,21 @@ function append_score_with_lock(string $name, int $score, string $savedAt, strin
         'score'    => $score,
         'savedAt'  => $savedAt,
         'modifier' => $modifier,
+        'daily'    => $daily,
+        'seedDate' => $daily ? $seedDate : '',
     ];
     $categories = categorize_leaderboard($entries);
-    $entries    = flatten_categories($categories);
+    $flatCategoryEntries = flatten_categories($categories);
+    // Persist union of category top-N and the daily top-N so a daily entry
+    // that doesn't crack its modifier's top-10 is still retained for the
+    // daily section.
+    $dailyEntries = daily_leaderboard($entries, today_utc_stamp());
+    $persistMap = [];
+    foreach (array_merge($flatCategoryEntries, $dailyEntries) as $entry) {
+        $key = sprintf('%s|%d|%s|%s', $entry['name'], (int)$entry['score'], $entry['savedAt'], $entry['modifier']);
+        $persistMap[$key] = $entry;
+    }
+    $entries = array_values($persistMap);
 
     $payload = encode_leaderboard_rows($entries);
 
@@ -614,11 +725,18 @@ if ($method === 'GET') {
     if ($action === 'nonce') {
         send_json(200, ['nonce' => issue_nonce()]);
     }
-    $categories = categorize_leaderboard(read_leaderboard());
+    $allEntries = read_leaderboard();
+    $categories = categorize_leaderboard($allEntries);
+    $todayDate  = today_utc_stamp();
     // `entries` is retained as a flattened convenience for older clients;
-    // `categories` carries the per-modifier top-10 buckets.
+    // `categories` carries the per-modifier top-10 buckets; `daily` carries
+    // the top-10 scores for today's daily seed, across all modifiers.
     send_json(200, [
         'categories' => $categories,
+        'daily'      => [
+            'date'    => $todayDate,
+            'entries' => daily_leaderboard($allEntries, $todayDate),
+        ],
         'entries'    => flatten_categories($categories),
     ]);
 }
@@ -653,6 +771,8 @@ if ($method === 'POST') {
     $score = $payload['points'] ?? $payload['score'] ?? null;
     $nonce = isset($payload['nonce']) ? (string)$payload['nonce'] : '';
     $modifier = isset($payload['modifier']) ? (string)$payload['modifier'] : 'none';
+    $daily = isset($payload['daily']) && $payload['daily'] === true;
+    $seedDate = isset($payload['seedDate']) ? trim((string)$payload['seedDate']) : '';
 
     if ($name === '') {
         send_json(400, ['error' => 'Player name is required.']);
@@ -674,6 +794,20 @@ if ($method === 'POST') {
         send_json(400, ['error' => 'Unknown run modifier.']);
     }
 
+    // Daily-seed runs must be tagged with the seed's date stamp. Reject
+    // mismatched submissions so the daily section can't be polluted with
+    // bogus seeds.
+    if ($daily) {
+        if (!preg_match(DAILY_DATE_PATTERN, $seedDate)) {
+            send_json(400, ['error' => 'Daily-seed submissions require a valid seedDate.']);
+        }
+        if ($seedDate !== today_utc_stamp()) {
+            send_json(400, ['error' => 'Daily seed has rolled over. Reload to play today\'s seed.']);
+        }
+    } elseif ($seedDate !== '') {
+        send_json(400, ['error' => 'seedDate is only allowed on daily runs.']);
+    }
+
     // Nonce is mandatory. Clients must obtain a single-use nonce via
     // GET ?action=nonce and present it on submission.
     if (!consume_nonce($nonce)) {
@@ -682,11 +816,16 @@ if ($method === 'POST') {
 
     $score      = (int)$score;
     $savedAt    = gmdate('c');
-    $entries    = append_score_with_lock($name, $score, $savedAt, $modifier);
+    $entries    = append_score_with_lock($name, $score, $savedAt, $modifier, $daily, $seedDate);
     $categories = categorize_leaderboard($entries);
+    $todayDate  = today_utc_stamp();
 
     send_json(201, [
         'categories' => $categories,
+        'daily'      => [
+            'date'    => $todayDate,
+            'entries' => daily_leaderboard($entries, $todayDate),
+        ],
         'entries'    => flatten_categories($categories),
         'saved'      => [
             'name'     => $name,
@@ -694,6 +833,8 @@ if ($method === 'POST') {
             'points'   => $score,
             'savedAt'  => $savedAt,
             'modifier' => $modifier,
+            'daily'    => $daily,
+            'seedDate' => $daily ? $seedDate : '',
         ],
     ]);
 }
