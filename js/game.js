@@ -20,16 +20,16 @@
     }
   }
 
+  const settings = loadSettings();
+
   function saveSettings(patch) {
+    Object.assign(settings, patch);
     try {
-      const next = { ...loadSettings(), ...patch };
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
     } catch {
       /* storage unavailable; ignore */
     }
   }
-
-  const settings = loadSettings();
 
   const LIFETIME_KEY = 'techFlowRunnerLifetime';
   function loadLifetime() {
