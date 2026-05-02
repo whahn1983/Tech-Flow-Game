@@ -2612,7 +2612,7 @@
       e.preventDefault();
       jump();
     }
-    if (key === 'arrowdown' || key === 's') {
+    if (key === 'arrowdown' || key === 'd') {
       e.preventDefault();
       startDuck();
     }
@@ -2641,7 +2641,7 @@
 
   window.addEventListener('keyup', (e) => {
     const key = e.key.toLowerCase();
-    if (key === 'arrowdown' || key === 's') endDuck();
+    if (key === 'arrowdown' || key === 'd') endDuck();
   });
 
   // Touch: tap = jump, swipe down = duck (held), swipe right = dash.
