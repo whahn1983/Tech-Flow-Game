@@ -398,7 +398,7 @@
   // ---------- Modifiers ----------
   const MODIFIERS = {
     none: {
-      label: 'None',
+      label: 'No Modifier',
       scoreMult: 1.0,
       noDoubleJump: false,
       bitsMult: 1,
@@ -738,7 +738,7 @@
   // pinned last so legacy distance-only scores stay visible as their own
   // bucket beneath the modifier-specific boards.
   const LEADERBOARD_CATEGORIES = [
-    { key: 'none', label: 'None' },
+    { key: 'none', label: 'No Modifier' },
     { key: 'hardcore', label: 'Hardcore' },
     { key: 'bitrush', label: 'Bit Rush' },
     { key: 'featherfall', label: 'Feather Fall' },
@@ -1053,7 +1053,7 @@
     scoreModalLastFocus = document.activeElement;
     scoreModalStatus.textContent = '';
     scoreModalName.value = settings.lastName || '';
-    const modLabel = (MODIFIERS[latestRunModifier] && MODIFIERS[latestRunModifier].label) || 'None';
+    const modLabel = (MODIFIERS[latestRunModifier] && MODIFIERS[latestRunModifier].label) || 'No Modifier';
     const dailySuffix = latestRunDaily ? ` · Daily Seed (${latestRunSeedDate})` : '';
     scoreModalDist.textContent = `Points: ${latestRunScore} · Modifier: ${modLabel}${dailySuffix}`;
     scoreModalSubmit.disabled = false;
@@ -2832,7 +2832,7 @@
         label.removeAttribute('title');
         label.classList.remove('run-option-disabled');
       } else {
-        label.title = 'Daily Seed is only available with the None modifier';
+        label.title = 'Daily Seed is only available with the No Modifier option';
         label.classList.add('run-option-disabled');
       }
     }
