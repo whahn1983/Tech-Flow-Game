@@ -637,6 +637,13 @@ button:focus-visible {
   opacity: 0.75;
   text-align: center;
 }
+.run-option-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.run-option-disabled input[type='checkbox'] {
+  cursor: not-allowed;
+}
 
 /* Level palette tints — applied via body[data-palette] on level-up */
 body[data-palette='2'] {
