@@ -762,10 +762,13 @@
     // stays consistent if the server ever returns extras.
     const flatEntries = Array.isArray(payload)
       ? payload
-      : (payload && Array.isArray(payload.entries) ? payload.entries : []);
-    const fromServer = payload && payload.categories && typeof payload.categories === 'object'
-      ? payload.categories
-      : null;
+      : payload && Array.isArray(payload.entries)
+        ? payload.entries
+        : [];
+    const fromServer =
+      payload && payload.categories && typeof payload.categories === 'object'
+        ? payload.categories
+        : null;
     const buckets = fromServer
       ? LEADERBOARD_CATEGORIES.reduce((acc, { key }) => {
           const arr = Array.isArray(fromServer[key]) ? fromServer[key].slice(0, 10) : [];
@@ -776,7 +779,7 @@
 
     const totalEntries = LEADERBOARD_CATEGORIES.reduce(
       (sum, { key }) => sum + (buckets[key] ? buckets[key].length : 0),
-      0,
+      0
     );
     if (totalEntries === 0) {
       const item = document.createElement('li');

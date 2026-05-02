@@ -53,7 +53,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   `/app/data` volume keeps matching ownership across image rebuilds. Previously
   the auto-assigned UID could drift, leaving the volume owned by a UID the
   rebuilt container no longer mapped to and surfacing as `EACCES: permission
-  denied` on leaderboard writes.
+denied` on leaderboard writes.
 - **docker-compose.yml** runs the container with `read_only: true`,
   `cap_drop: [ALL]`, `no-new-privileges`, and a `tmpfs` for `/tmp`.
 - **Leaderboard polling** in the client is now visibility-aware: the 60-second
