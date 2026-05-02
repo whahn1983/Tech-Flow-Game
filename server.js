@@ -324,6 +324,14 @@ function flattenCategories(categories) {
   return flat;
 }
 
+// Drop daily-seed entries whose seedDate is not the supplied (today's) date so
+// the daily section resets at UTC midnight when the seed itself rolls over.
+// Non-daily entries are left untouched.
+function purgeStaleDailyEntries(entries, todayDate) {
+  if (!DAILY_DATE_PATTERN.test(String(todayDate || ''))) return entries.slice();
+  return entries.filter((entry) => !entry.daily || entry.seedDate === todayDate);
+}
+
 // Top scores for a given daily-seed date, across all modifier categories.
 // Used to render the dedicated "Daily Seed" section above the modifier
 // leaderboards. Caller passes the date stamp (UTC, YYYY-MM-DD) of the
@@ -401,9 +409,19 @@ function handleLeaderboardGet(req, res, parsedUrl) {
     sendJson(res, 200, { nonce: issueNonce() }, req);
     return;
   }
-  const allEntries = readLeaderboard();
-  const categories = categorizeLeaderboard(allEntries);
   const todayDate = todayUtcStamp();
+  const rawEntries = readLeaderboard();
+  const allEntries = purgeStaleDailyEntries(rawEntries, todayDate);
+  // Persist the purge so stale daily entries don't keep getting filtered on
+  // every request after the seed rolls over.
+  if (allEntries.length !== rawEntries.length) {
+    try {
+      writeLeaderboard(allEntries);
+    } catch (error) {
+      console.error('Failed to persist daily-leaderboard purge:', error.message);
+    }
+  }
+  const categories = categorizeLeaderboard(allEntries);
   const daily = {
     date: todayDate,
     entries: dailyLeaderboard(allEntries, todayDate),
@@ -480,7 +498,7 @@ function handleLeaderboardPost(req, res) {
 
       const savedAt = new Date().toISOString();
       const newEntry = { name, score, savedAt, modifier, daily, seedDate: daily ? seedDate : '' };
-      const allEntries = [...readLeaderboard(), newEntry];
+      const allEntries = [...purgeStaleDailyEntries(readLeaderboard(), todayUtcStamp()), newEntry];
       const categories = categorizeLeaderboard(allEntries);
       const flatCategoryEntries = flattenCategories(categories);
       // Persist the union of category top-N and the daily top-N so a daily
@@ -656,6 +674,7 @@ module.exports = {
   categorizeLeaderboard,
   flattenCategories,
   dailyLeaderboard,
+  purgeStaleDailyEntries,
   VALID_MODIFIERS,
   isLeaderboardPath,
   isDailySeedPath,
