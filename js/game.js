@@ -195,7 +195,7 @@
   // progresses at the same rate. A boss spawns once per level.
   const LEVEL_INTERVAL = 30000;
   let nextLevelAt = LEVEL_INTERVAL;
-  let lastBossLevel = 0;
+  let lastBossLevel = 1;
   let activeModifier = 'none';
   let activeSkin = 'default';
   let dailySeedActive = false;
@@ -1972,7 +1972,7 @@
     comboTimer = 0;
     level = 1;
     nextLevelAt = LEVEL_INTERVAL;
-    lastBossLevel = 0;
+    lastBossLevel = 1;
     bits.length = 0;
     powerupItems.length = 0;
     particles.length = 0;
