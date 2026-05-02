@@ -191,10 +191,11 @@
   let combo = 1;
   let comboTimer = 0;
   let level = 1;
-  let nextLevelAt = 1500;
-  const LEVEL_INTERVAL = 1500;
-  const BOSS_INTERVAL = 4500;
-  let nextBossAt = BOSS_INTERVAL;
+  // Levels advance based on distance traveled (worldOffset) so every modifier
+  // progresses at the same rate. A boss spawns once per level.
+  const LEVEL_INTERVAL = 30000;
+  let nextLevelAt = LEVEL_INTERVAL;
+  let lastBossLevel = 0;
   let activeModifier = 'none';
   let activeSkin = 'default';
   let dailySeedActive = false;
@@ -1971,7 +1972,7 @@
     comboTimer = 0;
     level = 1;
     nextLevelAt = LEVEL_INTERVAL;
-    nextBossAt = BOSS_INTERVAL;
+    lastBossLevel = 0;
     bits.length = 0;
     powerupItems.length = 0;
     particles.length = 0;
@@ -2079,7 +2080,7 @@
   }
 
   function maybeLevelUp() {
-    if (score < nextLevelAt) return;
+    if (worldOffset < nextLevelAt) return;
     level += 1;
     nextLevelAt += LEVEL_INTERVAL;
     baseSpeed = Math.min(7.0, baseSpeed + 0.1);
@@ -2248,10 +2249,10 @@
       }
     }
 
-    // Boss spawning: every 1500m, suppressed during current encounter
-    if (boss == null && score >= nextBossAt && bossSpawnsSuppressed === 0) {
+    // Boss spawning: one per level, suppressed during the current encounter.
+    if (boss == null && level > lastBossLevel && bossSpawnsSuppressed === 0) {
       spawnBoss();
-      nextBossAt += BOSS_INTERVAL;
+      lastBossLevel = level;
     }
     bossUpdate();
 
@@ -2815,6 +2816,28 @@
 
   render();
 
+  // Daily Seed is locked to the "none" modifier so harder modifiers (which
+  // award more points) can't dominate the daily leaderboard.
+  function syncDailyAvailability() {
+    if (!dailyToggle) return;
+    const allowed = !modifierSelect || modifierSelect.value === 'none';
+    if (!allowed && dailyToggle.checked) {
+      dailyToggle.checked = false;
+      dailySeedActive = false;
+    }
+    dailyToggle.disabled = !allowed;
+    const label = dailyToggle.closest('.run-option');
+    if (label) {
+      if (allowed) {
+        label.removeAttribute('title');
+        label.classList.remove('run-option-disabled');
+      } else {
+        label.title = 'Daily Seed is only available with the None modifier';
+        label.classList.add('run-option-disabled');
+      }
+    }
+  }
+
   // Wire run-option controls to settings before first start.
   if (modifierSelect) {
     activeModifier = settings.modifier && MODIFIERS[settings.modifier] ? settings.modifier : 'none';
@@ -2822,6 +2845,7 @@
     modifierSelect.addEventListener('change', () => {
       activeModifier = modifierSelect.value;
       saveSettings({ modifier: activeModifier });
+      syncDailyAvailability();
     });
   }
   if (skinSelect) {
@@ -2843,12 +2867,14 @@
       if (dailySeedActive) ensureDailySeed().catch(() => {});
     });
   }
+  syncDailyAvailability();
 
   async function startGame() {
     // Apply chosen options for this run.
-    dailySeedActive = !!(dailyToggle && dailyToggle.checked);
     activeModifier = modifierSelect ? modifierSelect.value : 'none';
     activeSkin = skinSelect && isSkinUnlocked(skinSelect.value) ? skinSelect.value : 'default';
+    dailySeedActive = !!(dailyToggle && dailyToggle.checked) && activeModifier === 'none';
+    if (dailyToggle) dailyToggle.checked = dailySeedActive;
     if (dailySeedActive) {
       try {
         await ensureDailySeed();
