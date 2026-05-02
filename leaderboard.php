@@ -283,9 +283,42 @@ function normalize_daily_fields($rawDaily, $rawSeedDate): array {
     return [true, $seedDate];
 }
 
+/**
+ * Drop daily-seed entries whose seed_date is not today's UTC date so the daily
+ * section resets at midnight when the seed itself rolls over. Non-daily rows
+ * are untouched. Safe to call repeatedly.
+ */
+function purge_stale_daily_rows(PDO $pdo): void {
+    $stmt = $pdo->prepare(
+        "DELETE FROM scores WHERE daily = 1 AND seed_date != :today"
+    );
+    $stmt->bindValue(':today', today_utc_stamp(), PDO::PARAM_STR);
+    $stmt->execute();
+}
+
+/**
+ * Filter out daily-seed entries whose seedDate is not today. Used for the
+ * flat-file fallback path; the SQLite path purges directly via DELETE.
+ */
+function purge_stale_daily_entries(array $entries, string $todayDate): array {
+    if (!preg_match(DAILY_DATE_PATTERN, $todayDate)) {
+        return $entries;
+    }
+    $kept = [];
+    foreach ($entries as $entry) {
+        $isDaily = !empty($entry['daily']);
+        if ($isDaily && ($entry['seedDate'] ?? '') !== $todayDate) {
+            continue;
+        }
+        $kept[] = $entry;
+    }
+    return $kept;
+}
+
 function read_leaderboard(): array {
     $db = get_db();
     if ($db !== null) {
+        purge_stale_daily_rows($db);
         $stmt = $db->query('SELECT name, score, saved_at, modifier, daily, seed_date FROM scores');
         $entries = [];
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
@@ -350,6 +383,15 @@ function read_leaderboard(): array {
             'daily'    => $daily,
             'seedDate' => $seedDate,
         ];
+    }
+
+    $purged = purge_stale_daily_entries($entries, today_utc_stamp());
+    if (count($purged) !== count($entries)) {
+        // Persist the purge so stale daily entries don't keep getting filtered
+        // on every request after the seed rolls over.
+        $payload = encode_leaderboard_rows($purged);
+        @file_put_contents(LEADERBOARD_FILE, $payload, LOCK_EX);
+        $entries = $purged;
     }
 
     return $entries;
@@ -549,6 +591,10 @@ function append_score_with_lock(string $name, int $score, string $savedAt, strin
             ];
         }
     }
+
+    // Drop stale daily entries before appending the new submission so the
+    // daily section resets at midnight when the seed rolls over.
+    $entries = purge_stale_daily_entries($entries, today_utc_stamp());
 
     $entries[] = [
         'name'     => $name,
