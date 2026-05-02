@@ -733,15 +733,16 @@
     document.getElementById('gameOverSubmitBtn').disabled = !isEnabled;
   }
 
-  // Display order + labels for the leaderboard category sections. Keep 'og'
-  // first so legacy distance-only scores stay visible as their own bucket.
+  // Display order + labels for the leaderboard category sections. 'og' is
+  // pinned last so legacy distance-only scores stay visible as their own
+  // bucket beneath the modifier-specific boards.
   const LEADERBOARD_CATEGORIES = [
-    { key: 'og', label: 'OG (Original)' },
     { key: 'none', label: 'None' },
     { key: 'hardcore', label: 'Hardcore' },
     { key: 'bitrush', label: 'Bit Rush' },
     { key: 'featherfall', label: 'Feather Fall' },
     { key: 'glasscannon', label: 'Glass Cannon' },
+    { key: 'og', label: 'OG (Original)' },
   ];
 
   function bucketEntriesByModifier(entries) {
