@@ -2742,14 +2742,17 @@
   });
 
   // Touch: tap = jump, swipe down = duck (held), swipe right = dash.
+  // Jump fires on pointerup so a drag that triggers duck/dash doesn't also
+  // jump from the initial press; a fresh touch is required to jump after.
   let touchStartX = 0;
   let touchStartY = 0;
   let touchActive = false;
+  let touchGestureConsumed = false;
   canvas.addEventListener('pointerdown', (e) => {
     touchActive = true;
     touchStartX = e.clientX;
     touchStartY = e.clientY;
-    jump();
+    touchGestureConsumed = false;
   });
   canvas.addEventListener('pointermove', (e) => {
     if (!touchActive) return;
@@ -2757,18 +2760,23 @@
     const dy = e.clientY - touchStartY;
     if (dy > 30 && Math.abs(dy) > Math.abs(dx)) {
       startDuck();
+      touchGestureConsumed = true;
     }
     if (dx > 50 && Math.abs(dx) > Math.abs(dy)) {
       startDash();
+      touchGestureConsumed = true;
       touchActive = false;
     }
   });
   canvas.addEventListener('pointerup', () => {
+    if (touchActive && !touchGestureConsumed) jump();
     touchActive = false;
+    touchGestureConsumed = false;
     endDuck();
   });
   canvas.addEventListener('pointercancel', () => {
     touchActive = false;
+    touchGestureConsumed = false;
     endDuck();
   });
 
