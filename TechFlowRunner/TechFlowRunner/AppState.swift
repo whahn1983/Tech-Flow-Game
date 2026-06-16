@@ -19,6 +19,16 @@ final class AppState: ObservableObject {
     @Published var hud = HUDSnapshot()
     @Published var runResult = RunResult()
 
+    /// True while a run is active but the gameplay view is not laid out in
+    /// landscape (e.g. iPad held portrait, Split View, Stage Manager). Drives
+    /// the "Rotate Device to Continue" fallback overlay and disables input.
+    @Published var awaitingLandscape = false
+
+    /// Tracks a pause that was triggered solely by the device leaving landscape,
+    /// so we can auto-resume when landscape is restored without clobbering a
+    /// pause the player requested themselves.
+    private var pausedForOrientation = false
+
     // MARK: Menu selections (persisted)
     @Published var selectedModifier: Modifier {
         didSet { persistence.lastModifier = selectedModifier }
@@ -132,6 +142,13 @@ final class AppState: ObservableObject {
     // MARK: Run control
 
     func startRun() {
+        // Lock the interface to landscape before the gameplay view appears so
+        // iOS rotates into landscape as the transition happens. The SpriteKit
+        // scene additionally waits for a landscape layout before building the
+        // run (see TechFlowGameScene.update), so play never begins in portrait.
+        OrientationManager.shared.lockLandscape()
+        pausedForOrientation = false
+
         let seedValue: UInt32? = dailyEnabled ? RandomSource.dailySeed() : nil
         let config = RunConfig(
             modifier: selectedModifier,
@@ -167,7 +184,37 @@ final class AppState: ObservableObject {
 
     func returnToMenu() {
         runState = .menu
+        awaitingLandscape = false
+        pausedForOrientation = false
         AudioManager.shared.pauseMusic()
+        // Restore the menu orientation behaviour (portrait allowed again).
+        OrientationManager.shared.unlock()
+    }
+
+    // MARK: Orientation gating
+
+    /// Called by the gameplay view whenever its layout size changes. While a run
+    /// is active, a non-landscape layout pauses the run and shows the rotate
+    /// overlay; restoring landscape resumes a run that was paused for this reason.
+    func gameViewGeometryChanged(isLandscape: Bool) {
+        guard runState == .running || runState == .paused else {
+            awaitingLandscape = false
+            return
+        }
+
+        if isLandscape {
+            awaitingLandscape = false
+            if pausedForOrientation {
+                pausedForOrientation = false
+                resume()
+            }
+        } else {
+            awaitingLandscape = true
+            if runState == .running {
+                pausedForOrientation = true
+                pause()
+            }
+        }
     }
 }
 
