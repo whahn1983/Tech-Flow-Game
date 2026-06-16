@@ -5,6 +5,8 @@ rate_limit.txt
 nonces.txt
 server.log
 node_modules
+# Stray root lockfile from running npm at the repo root; the real one lives in web-app/
+/package-lock.json
 data/
 .eslintcache
 .DS_Store

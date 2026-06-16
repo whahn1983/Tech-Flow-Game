@@ -34,7 +34,11 @@ final class PersistenceManager {
         static let best = "tfr.bestScore"
         static let lifetime = "tfr.lifetime"
         static let skin = "tfr.skin"
-        static let muted = "tfr.muted"
+        static let muted = "tfr.muted"           // legacy combined mute (pre volume controls)
+        static let musicEnabled = "tfr.musicEnabled"
+        static let sfxEnabled = "tfr.sfxEnabled"
+        static let musicVolume = "tfr.musicVolume"
+        static let sfxVolume = "tfr.sfxVolume"
         static let modifier = "tfr.lastModifier"
         static let reducedMotion = "tfr.reducedMotionOverride"
         static let dailyEnabled = "tfr.dailyEnabled"
@@ -69,10 +73,36 @@ final class PersistenceManager {
         set { defaults.set(newValue.rawValue, forKey: Key.skin) }
     }
 
-    // MARK: Mute
+    // MARK: Mute (legacy combined flag, retained only to migrate old installs)
     var muted: Bool {
         get { defaults.bool(forKey: Key.muted) }
         set { defaults.set(newValue, forKey: Key.muted) }
+    }
+
+    // MARK: Independent audio channels
+    //
+    // Music and sound effects each have an enable toggle and a 0...1 volume.
+    // When the new keys are absent we fall back to the legacy `muted` flag so a
+    // previously-muted player stays muted after upgrading.
+
+    var musicEnabled: Bool {
+        get { defaults.object(forKey: Key.musicEnabled) as? Bool ?? !defaults.bool(forKey: Key.muted) }
+        set { defaults.set(newValue, forKey: Key.musicEnabled) }
+    }
+
+    var sfxEnabled: Bool {
+        get { defaults.object(forKey: Key.sfxEnabled) as? Bool ?? !defaults.bool(forKey: Key.muted) }
+        set { defaults.set(newValue, forKey: Key.sfxEnabled) }
+    }
+
+    var musicVolume: Double {
+        get { defaults.object(forKey: Key.musicVolume) as? Double ?? 0.55 }
+        set { defaults.set(min(1, max(0, newValue)), forKey: Key.musicVolume) }
+    }
+
+    var sfxVolume: Double {
+        get { defaults.object(forKey: Key.sfxVolume) as? Double ?? 1.0 }
+        set { defaults.set(min(1, max(0, newValue)), forKey: Key.sfxVolume) }
     }
 
     // MARK: Last modifier
