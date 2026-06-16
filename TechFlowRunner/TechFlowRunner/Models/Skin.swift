@@ -18,11 +18,15 @@ enum SkinUnlock {
 }
 
 enum Skin: String, CaseIterable, Identifiable, Codable {
+    // Cases are listed in their rough unlock order so the picker grid reads as a
+    // progression. The thresholds below are tuned (see `unlock`) so the set
+    // unlocks gradually over several weeks of regular play rather than in a
+    // single session.
     case pulse
     case sunset
     case matrix
-    case plasma
     case bitlord
+    case plasma
     case bossbane
 
     var id: String { rawValue }
@@ -38,25 +42,53 @@ enum Skin: String, CaseIterable, Identifiable, Codable {
         }
     }
 
+    /// Unlock thresholds read from *lifetime* (cumulative) stats.
+    ///
+    /// Calibration (see the SkinPickerView header and the PR notes): an average
+    /// ~60-second run yields roughly 2,000 lifetime distance and ~20 bits, and a
+    /// regular player completes ~24 runs/week (~48,000 distance, ~480 bits and a
+    /// handful of boss kills per week). The thresholds below therefore stagger
+    /// the unlocks across roughly six weeks of play:
+    ///
+    ///   Sunset   ≈ end of week 1   (25,000 distance)
+    ///   Matrix   ≈ week 2          (75,000 distance)
+    ///   Bit Lord ≈ week 3          (1,500 lifetime bits)
+    ///   Plasma   ≈ week 4-5        (175,000 distance)
+    ///   Bossbane ≈ week 5-6        (20 bosses defeated)
     var unlock: SkinUnlock {
         switch self {
         case .pulse: return .always
-        case .sunset: return .distance(1000)
-        case .matrix: return .distance(2500)
-        case .plasma: return .distance(5000)
-        case .bitlord: return .bits(500)
-        case .bossbane: return .bossKills(3)
+        case .sunset: return .distance(25_000)
+        case .matrix: return .distance(75_000)
+        case .bitlord: return .bits(1_500)
+        case .plasma: return .distance(175_000)
+        case .bossbane: return .bossKills(20)
         }
     }
 
     var unlockHint: String {
         switch self {
         case .pulse: return "Default"
-        case .sunset: return "Lifetime distance 1,000"
-        case .matrix: return "Lifetime distance 2,500"
-        case .plasma: return "Lifetime distance 5,000"
-        case .bitlord: return "Lifetime bits 500"
-        case .bossbane: return "Defeat 3 bosses"
+        case .sunset: return "Lifetime distance 25,000m"
+        case .matrix: return "Lifetime distance 75,000m"
+        case .bitlord: return "Collect 1,500 lifetime bits"
+        case .plasma: return "Lifetime distance 175,000m"
+        case .bossbane: return "Defeat 20 bosses"
+        }
+    }
+
+    /// Game Center achievement identifier awarded the first time this skin
+    /// unlocks. Must match the Achievement IDs configured in App Store Connect
+    /// (see GameCenterManager's setup notes). Pulse is the default skin and has
+    /// a "welcome" achievement granted on first authenticated play.
+    var achievementID: String {
+        switch self {
+        case .pulse: return "techflow.skin.pulse"
+        case .sunset: return "techflow.skin.sunset"
+        case .matrix: return "techflow.skin.matrix"
+        case .bitlord: return "techflow.skin.bitlord"
+        case .plasma: return "techflow.skin.plasma"
+        case .bossbane: return "techflow.skin.bossbane"
         }
     }
 

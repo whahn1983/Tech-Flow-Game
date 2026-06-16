@@ -22,8 +22,22 @@
 //    techflow.highscore.glasscannon Glass Cannon
 //    techflow.daily                 Daily Seed
 //
-//  Until these exist, submissions will fail silently (logged in DEBUG) but the
-//  game continues to work and saves local bests.
+//  ───────────────────────────────────────────────────────────────────────────
+//  ACHIEVEMENTS
+//  ───────────────────────────────────────────────────────────────────────────
+//  Create one achievement per skin (My Apps → your app → Features → Game Center
+//  → Achievements) with these EXACT IDs. Each is reported as 100% complete the
+//  first time the matching skin unlocks. IDs are defined on `Skin.achievementID`.
+//
+//    techflow.skin.pulse     Pulse    (welcome — granted on first play)
+//    techflow.skin.sunset    Sunset   (lifetime distance 25,000m)
+//    techflow.skin.matrix    Matrix   (lifetime distance 75,000m)
+//    techflow.skin.bitlord   Bit Lord (1,500 lifetime bits)
+//    techflow.skin.plasma    Plasma   (lifetime distance 175,000m)
+//    techflow.skin.bossbane  Bossbane (defeat 20 bosses)
+//
+//  Until these exist, submissions/achievement reports fail silently (logged in
+//  DEBUG) but the game continues to work and saves local bests.
 //
 
 import GameKit
@@ -82,6 +96,11 @@ final class GameCenterManager: NSObject, ObservableObject {
     @Published var authState: GameCenterAuthState = .authenticating
     @Published var statusText = "Game Center: signing in…"
 
+    /// Invoked on the main actor each time the local player becomes
+    /// authenticated. AppState uses this to (re)sync skin-unlock achievements,
+    /// so progress earned before this update — or before sign-in — is credited.
+    var onAuthenticated: (() -> Void)?
+
     private override init() { super.init() }
 
     /// Emits Game Center diagnostics to the Xcode console. DEBUG builds only, so
@@ -111,6 +130,7 @@ final class GameCenterManager: NSObject, ObservableObject {
                     self.authState = .signedIn
                     self.statusText = "Game Center: \(localPlayer.alias)"
                     self.log("authenticated: true — player: \(localPlayer.alias) (display name: \(localPlayer.displayName))")
+                    self.onAuthenticated?()
                 } else {
                     self.isAuthenticated = false
                     if let error {
@@ -161,6 +181,55 @@ final class GameCenterManager: NSObject, ObservableObject {
             log("submit error: \(error.localizedDescription)")
             return .failed
         }
+    }
+
+    // MARK: - Achievements
+
+    /// Reports the given skins' unlock achievements as 100% complete. Game
+    /// Center is idempotent: re-reporting an already-earned achievement is a
+    /// no-op and shows no banner, so this is safe to call for the full set of
+    /// unlocked skins on every authentication and for the delta on each unlock.
+    ///
+    /// `showBanner` drives whether iOS overlays the "Achievement Unlocked"
+    /// toast for any achievement newly crossing 100% in this report.
+    func reportSkinAchievements(_ skins: [Skin], showBanner: Bool) async {
+        guard !skins.isEmpty else { return }
+        guard GKLocalPlayer.local.isAuthenticated else {
+            log("achievement report skipped — player not authenticated")
+            return
+        }
+        let achievements = skins.map { skin -> GKAchievement in
+            let achievement = GKAchievement(identifier: skin.achievementID)
+            achievement.percentComplete = 100
+            achievement.showsCompletionBanner = showBanner
+            return achievement
+        }
+        log("reporting achievements: \(skins.map(\.achievementID).joined(separator: ", "))")
+        do {
+            try await GKAchievement.report(achievements)
+        } catch {
+            log("achievement report error: \(error.localizedDescription)")
+        }
+    }
+
+    /// Presents the native Game Center dashboard on the achievements tab.
+    func showAchievements() {
+        guard GKLocalPlayer.local.isAuthenticated else {
+            statusText = "Game Center: sign in to view achievements"
+            log("showAchievements requested but player not authenticated — re-triggering sign-in")
+            authenticate()
+            return
+        }
+        guard let presenter = Self.topViewController() else {
+            log("showAchievements: no view controller to present from")
+            return
+        }
+        guard presenter.presentedViewController == nil else { return }
+
+        log("presenting Game Center achievements")
+        let vc = GKGameCenterViewController(state: .achievements)
+        vc.gameCenterDelegate = self
+        presenter.present(vc, animated: true)
     }
 
     /// Presents the native Game Center leaderboards UI, which lands on the list
