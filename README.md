@@ -334,6 +334,8 @@ See [**LICENSE**](LICENSE) for the full proprietary license terms.
 
 ---
 
+[**Terms of Service (EULA)**](https://www.apple.com/legal/internet-services/itunes/dev/stdeula/) · [**Privacy Policy**](https://whahn1983.github.io/tech-flow-game/privacy.html)
+
 © H3 Consulting Partners LLC · [h3consultingpartners.com](https://h3consultingpartners.com) · [bill@h3consultingpartners.com](mailto:bill@h3consultingpartners.com)
 
 </div>
