@@ -39,17 +39,20 @@ Tech Flow Runner is an engaging game that challenges players to navigate through
 
 ```
 .
-├── index.html            # Entry point — markup only
-├── css/styles.css        # Styling (extracted from index.html)
-├── js/game.js            # Game logic (extracted from index.html)
-├── sw.js                 # Service worker (cache-first static, network-first HTML)
-├── manifest.json         # PWA manifest
-├── leaderboard.php       # PHP leaderboard backend (Apache deployment)
-├── server.js             # Node leaderboard + static file server (Docker deployment)
-├── Dockerfile            # Node-based container image
-├── docker-compose.yml    # Compose config for the Node deployment
-├── tests/                # Unit tests (Node native test runner)
-├── scripts/              # Asset generators (PWA icons, screenshots)
+├── web-app/              # Browser game, web assets, Node/PHP backends, and web tooling
+│   ├── index.html        # Entry point — markup only
+│   ├── css/styles.css    # Styling (extracted from index.html)
+│   ├── js/game.js        # Game logic (extracted from index.html)
+│   ├── sw.js             # Service worker (cache-first static, network-first HTML)
+│   ├── manifest.json     # PWA manifest
+│   ├── leaderboard.php   # PHP leaderboard backend (Apache deployment)
+│   ├── server.js         # Node leaderboard + static file server (Docker deployment)
+│   ├── Dockerfile        # Node-based container image
+│   ├── docker-compose.yml # Compose config for the Node deployment
+│   ├── tests/            # Unit tests (Node native test runner)
+│   └── scripts/          # Asset generators (PWA icons, screenshots)
+├── docs/                 # Static documentation pages
+├── TechFlowRunner/       # Native iOS project
 ├── CHANGELOG.md          # Release notes
 └── CONTRIBUTING.md       # Contributor guide
 ```
@@ -64,7 +67,7 @@ You can run Tech Flow Runner via Apache + PHP **or** the bundled Node server (us
    ```bash
    git clone https://github.com/whahn1983/Tech-Flow-Game.git
    ```
-2. **Deploy the repo directory** to Apache (DocumentRoot or subfolder).
+2. **Deploy the `web-app/` directory** to Apache (DocumentRoot or subfolder).
 3. **Enable PHP** (`>= 8.0`) in Apache, with the `pdo_sqlite` and `mbstring`
    extensions if you want SQLite-backed leaderboard storage (recommended for
    any deployment expecting concurrent submissions).
@@ -84,6 +87,7 @@ You can run Tech Flow Runner via Apache + PHP **or** the bundled Node server (us
 ### Node (Docker)
 
 ```bash
+cd web-app
 docker compose up --build
 # or:
 docker build -t tech-flow-runner .
@@ -98,6 +102,7 @@ The shipped `docker-compose.yml` runs the container with hardened defaults:
 ### Local development
 
 ```bash
+cd web-app
 npm install                 # devDependencies only
 node server.js              # http://localhost:8080
 PORT=5001 node server.js
@@ -194,6 +199,7 @@ To keep this repository code-only, generated PNG icon files are not committed.
 Run the icon generator before creating a release/build so PWA and iOS home-screen icons exist:
 
 ```bash
+cd web-app
 python scripts/generate_pwa_icons.py
 ```
 
@@ -205,10 +211,11 @@ This creates:
 
 ## Development
 
-Lightweight tooling is configured via `package.json`, `eslint.config.js`,
-`.prettierrc.json`, and `.editorconfig`.
+Lightweight web-app tooling is configured via `web-app/package.json`,
+`web-app/eslint.config.js`, `.prettierrc.json`, and `.editorconfig`.
 
 ```bash
+cd web-app
 npm run lint           # ESLint
 npm run format         # Prettier (check)
 npm run format:fix     # Prettier (write)

@@ -7,8 +7,8 @@
   "scripts": {
     "start": "node server.js",
     "lint": "eslint 'js/**/*.js' sw.js server.js 'tests/**/*.js'",
-    "format": "prettier --check 'js/**/*.js' 'css/**/*.css' '*.json' '*.md' 'sw.js' 'server.js' 'tests/**/*.js'",
-    "format:fix": "prettier --write 'js/**/*.js' 'css/**/*.css' '*.json' '*.md' 'sw.js' 'server.js' 'tests/**/*.js'",
+    "format": "prettier --check '../*.md' 'js/**/*.js' 'css/**/*.css' '*.json' 'sw.js' 'server.js' 'tests/**/*.js'",
+    "format:fix": "prettier --write '../*.md' 'js/**/*.js' 'css/**/*.css' '*.json' 'sw.js' 'server.js' 'tests/**/*.js'",
     "test": "node --test",
     "syntax": "node --check server.js && node --check js/game.js && node --check sw.js",
     "prepare": "husky || true"

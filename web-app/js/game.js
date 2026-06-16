@@ -1053,7 +1053,8 @@
     scoreModalLastFocus = document.activeElement;
     scoreModalStatus.textContent = '';
     scoreModalName.value = settings.lastName || '';
-    const modLabel = (MODIFIERS[latestRunModifier] && MODIFIERS[latestRunModifier].label) || 'No Modifier';
+    const modLabel =
+      (MODIFIERS[latestRunModifier] && MODIFIERS[latestRunModifier].label) || 'No Modifier';
     const dailySuffix = latestRunDaily ? ` · Daily Seed (${latestRunSeedDate})` : '';
     scoreModalDist.textContent = `Points: ${latestRunScore} · Modifier: ${modLabel}${dailySuffix}`;
     scoreModalSubmit.disabled = false;
