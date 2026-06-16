@@ -50,7 +50,8 @@ TechFlowRunner/
       TechFlowGameScene.swift    Fixed-step sim, spawning, collisions, boss, render
       Player.swift, Boss.swift, Obstacle.swift, CollectibleBit.swift,
       PowerUp.swift, Projectile.swift, ParticleEffect.swift,
-      TerrainGenerator.swift, SkinRenderer.swift, GameState.swift,
+      TerrainGenerator.swift, SkinRenderer.swift, SkinIconRenderer.swift,
+      GameState.swift,
       GameConstants.swift, PhysicsCategories.swift, SeededRandom.swift,
       GameSceneView.swift        SpriteKit ⇄ SwiftUI bridge + gestures
     Models/                      Modifier.swift, Skin.swift
@@ -99,6 +100,44 @@ techflow.daily                   Daily Seed
 
 Until they exist, submissions fail silently (logged in DEBUG) and the game still
 saves local bests.
+
+## Skins & Game Center achievements
+
+Skins are cosmetic, render inside the identical player hitbox, and unlock from
+*lifetime* stats. Thresholds are tuned so the set unlocks gradually over roughly
+six weeks of regular play (an average ~60-second run ≈ 2,000 distance + ~20 bits;
+a regular player ≈ 24 runs/week) rather than in a single session:
+
+```
+Pulse      Default (starter)
+Sunset     Lifetime distance 25,000m     (~week 1)
+Matrix     Lifetime distance 75,000m     (~week 2)
+Bit Lord   1,500 lifetime bits           (~week 3)
+Plasma     Lifetime distance 175,000m    (~week 4-5)
+Bossbane   Defeat 20 bosses              (~week 5-6)
+```
+
+The skin picker shows the actual in-game art for each skin (rendered from the
+SpriteKit `SkinRenderer` by `SkinIconRenderer`), dimmed behind a lock badge
+while still locked.
+
+Each skin unlock awards a Game Center achievement. Create one achievement per
+skin in **App Store Connect → your app → Features → Achievements** with these
+exact IDs (defined on `Skin.achievementID`):
+
+```
+techflow.skin.pulse      Pulse     (welcome — granted on first authenticated play)
+techflow.skin.sunset     Sunset    (lifetime distance 25,000m)
+techflow.skin.matrix     Matrix    (lifetime distance 75,000m)
+techflow.skin.bitlord    Bit Lord  (1,500 lifetime bits)
+techflow.skin.plasma     Plasma    (lifetime distance 175,000m)
+techflow.skin.bossbane   Bossbane  (defeat 20 bosses)
+```
+
+Achievements are reported as 100% complete the first time a skin unlocks (with a
+completion banner), and re-synced silently on each sign-in so progress earned
+before achievements existed — or while signed out — is credited. Game Center
+ignores already-earned reports, so this is idempotent.
 
 ## Daily Seed mode
 

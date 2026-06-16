@@ -93,6 +93,12 @@ final class AppState: ObservableObject {
         }
 
         scene.gameDelegate = self
+        // Once Game Center signs in, credit achievements for every skin already
+        // unlocked (covers installs that earned skins before achievements
+        // existed, and players who sign in after playing offline).
+        gameCenter.onAuthenticated = { [weak self] in
+            self?.syncSkinAchievements()
+        }
         // Property observers don't fire during init, so push the persisted
         // audio settings into the AudioManager explicitly.
         AudioManager.shared.setMusicEnabled(musicEnabled)
@@ -115,6 +121,15 @@ final class AppState: ObservableObject {
 
     func isUnlocked(_ skin: Skin) -> Bool {
         skin.isUnlocked(distance: lifetime.distance, bits: lifetime.bits, bossKills: lifetime.bossKills)
+    }
+
+    /// Reports a Game Center achievement for every currently-unlocked skin. Safe
+    /// to call repeatedly — Game Center ignores already-earned achievements — so
+    /// it both backfills past progress and is the entry point for the run-end
+    /// delta. Banners are suppressed here so a sync never re-toasts old unlocks.
+    func syncSkinAchievements() {
+        let unlocked = unlockedSkins
+        Task { await gameCenter.reportSkinAchievements(unlocked, showBanner: false) }
     }
 
     var dailySeedDateString: String { RandomSource.dailySeedDateString() }
@@ -252,6 +267,11 @@ extension AppState: TechFlowGameSceneDelegate {
             persistence.bestScore = points
         }
 
+        // Snapshot which skins were unlocked before this run's stats land, so we
+        // can detect (and award Game Center achievements for) any that cross
+        // their threshold as a result of this run.
+        let previouslyUnlocked = Set(unlockedSkins)
+
         // Lifetime stats
         var stats = lifetime
         stats.distance += Double(points)
@@ -260,6 +280,12 @@ extension AppState: TechFlowGameSceneDelegate {
         stats.bossKills += bossKills
         lifetime = stats
         persistence.lifetime = stats
+
+        // Award achievements for any skins this run just unlocked (with banner).
+        let newlyUnlocked = unlockedSkins.filter { !previouslyUnlocked.contains($0) }
+        if !newlyUnlocked.isEmpty {
+            Task { await gameCenter.reportSkinAchievements(newlyUnlocked, showBanner: true) }
+        }
 
         // History
         persistence.appendHistory(RunRecord(score: points, bits: bits,
