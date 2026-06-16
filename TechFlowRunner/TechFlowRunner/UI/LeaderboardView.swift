@@ -28,10 +28,20 @@ struct LeaderboardView: View {
                         Text(gameCenter.statusText)
                             .font(.subheadline).foregroundStyle(Theme.dim)
                             .multilineTextAlignment(.center)
-                        Button { app.showLeaderboard() } label: {
-                            Label("Show Game Center Leaderboard", systemImage: "list.number")
+                        if gameCenter.isAuthenticated {
+                            Button { app.showLeaderboard() } label: {
+                                Label("Show Game Center Leaderboard", systemImage: "list.number")
+                            }
+                            .buttonStyle(NeonButtonStyle(tint: Theme.gold))
+                        } else {
+                            Button { gameCenter.authenticate() } label: {
+                                Label("Sign in to Game Center", systemImage: "person.crop.circle.badge.plus")
+                            }
+                            .buttonStyle(NeonButtonStyle(tint: Theme.gold))
+                            Text("Sign in to Game Center to see the global leaderboard. Your runs are saved locally either way.")
+                                .font(.caption).foregroundStyle(Theme.dim)
+                                .multilineTextAlignment(.center)
                         }
-                        .buttonStyle(NeonButtonStyle(tint: Theme.gold))
                     }
                     .panel()
 
