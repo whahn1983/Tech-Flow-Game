@@ -37,7 +37,12 @@ final class AppState: ObservableObject {
         didSet { persistence.selectedSkin = selectedSkin }
     }
     @Published var dailyEnabled: Bool {
-        didSet { persistence.dailyEnabled = dailyEnabled }
+        didSet {
+            persistence.dailyEnabled = dailyEnabled
+            // The daily seed is a shared, fixed course, so it always runs with
+            // no modifier. Pin the selection to .none while daily is enabled.
+            if dailyEnabled { selectedModifier = .none }
+        }
     }
     @Published var musicEnabled: Bool {
         didSet { AudioManager.shared.setMusicEnabled(musicEnabled) }
@@ -67,8 +72,9 @@ final class AppState: ObservableObject {
     private let persistence = PersistenceManager.shared
 
     init() {
-        selectedModifier = persistence.lastModifier
         dailyEnabled = persistence.dailyEnabled
+        // Daily seed always runs with no modifier (see dailyEnabled.didSet).
+        selectedModifier = dailyEnabled ? .none : persistence.lastModifier
         reducedMotionOverride = persistence.reducedMotionOverride
         best = persistence.bestScore
         lifetime = persistence.lifetime

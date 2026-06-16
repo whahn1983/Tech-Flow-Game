@@ -30,10 +30,10 @@ enum Modifier: String, CaseIterable, Identifiable, Codable {
 
     var blurb: String {
         switch self {
-        case .none: return "Standard mode. Double jump and shields enabled."
+        case .none: return "Standard mode. Double jump and shields enabled. Start with 1 shield."
         case .hardcore: return "No double jump. 1.5× score."
         case .bitrush: return "2× bits, no shields. 1.2× score."
-        case .featherfall: return "Lower gravity, floatier jumps. 1.25× score."
+        case .featherfall: return "Lower gravity, floatier jumps. Start with 1 shield. 1.25× score."
         case .glasscannon: return "No shields, one hit ends it. 1.75× score."
         }
     }
@@ -58,6 +58,14 @@ enum Modifier: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .bitrush, .glasscannon: return false
         default: return true
+        }
+    }
+
+    /// Whether the player begins the run already holding a single-hit shield.
+    var startsWithShield: Bool {
+        switch self {
+        case .none, .featherfall: return true
+        default: return false
         }
     }
 }

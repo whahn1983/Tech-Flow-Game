@@ -194,7 +194,8 @@ final class TechFlowGameScene: SKScene {
         bitsCollected = 0; combo = 1; comboTimer = 0; level = 1
         nextLevelAt = GameConstants.levelInterval; lastBossLevel = 1; bossKillsThisRun = 0
         lastSpawnAction = nil; queuedSpawnAction = nil
-        pwrShield = 0; pwrOverclock = 0; pwrMagnet = 0; pwrSlowmo = 0
+        pwrShield = modifier.startsWithShield ? 1 : 0
+        pwrOverclock = 0; pwrMagnet = 0; pwrSlowmo = 0
         coyoteFrames = 0; jumpBufferFrames = 0; isDucking = false; duckHeldFrames = 0
         duckLockedOut = false; dashFrames = 0; dashCooldown = 0; wallRunFrames = 0
         wallRunCooldown = 0; speedMultiplier = 1
