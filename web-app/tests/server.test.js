@@ -235,24 +235,56 @@ test('purgeStaleDailyEntries drops daily entries from prior dates and keeps the 
   const today = '2026-05-02';
   const entries = [
     // Today's daily entry — keep.
-    { name: 'Today', score: 50, savedAt: `${today}T01:00:00Z`, modifier: 'none', daily: true, seedDate: today },
+    {
+      name: 'Today',
+      score: 50,
+      savedAt: `${today}T01:00:00Z`,
+      modifier: 'none',
+      daily: true,
+      seedDate: today,
+    },
     // Yesterday's daily entry — drop.
-    { name: 'Yesterday', score: 80, savedAt: '2026-05-01T01:00:00Z', modifier: 'hardcore', daily: true, seedDate: '2026-05-01' },
+    {
+      name: 'Yesterday',
+      score: 80,
+      savedAt: '2026-05-01T01:00:00Z',
+      modifier: 'hardcore',
+      daily: true,
+      seedDate: '2026-05-01',
+    },
     // Non-daily entry — keep regardless of seedDate value.
-    { name: 'Regular', score: 30, savedAt: '2026-04-20T00:00:00Z', modifier: 'none', daily: false, seedDate: '' },
+    {
+      name: 'Regular',
+      score: 30,
+      savedAt: '2026-04-20T00:00:00Z',
+      modifier: 'none',
+      daily: false,
+      seedDate: '',
+    },
     // Older daily entry from a different category — drop.
-    { name: 'WayBack', score: 999, savedAt: '2025-12-31T00:00:00Z', modifier: 'bitrush', daily: true, seedDate: '2025-12-31' },
+    {
+      name: 'WayBack',
+      score: 999,
+      savedAt: '2025-12-31T00:00:00Z',
+      modifier: 'bitrush',
+      daily: true,
+      seedDate: '2025-12-31',
+    },
   ];
   const purged = server.purgeStaleDailyEntries(entries, today);
-  assert.deepEqual(
-    purged.map((e) => e.name).sort(),
-    ['Regular', 'Today']
-  );
+  assert.deepEqual(purged.map((e) => e.name).sort(), ['Regular', 'Today']);
 });
 
 test('purgeStaleDailyEntries returns a copy when given a malformed today date', () => {
   const entries = [
-    { name: 'A', score: 1, savedAt: '2026-05-02T00:00:00Z', modifier: 'none', daily: true, seedDate: '2026-05-02' },
+    {
+      name: 'A',
+      score: 1,
+      savedAt: '2026-05-02T00:00:00Z',
+      modifier: 'none',
+      daily: true,
+      seedDate: '2026-05-02',
+    },
   ];
   const purged = server.purgeStaleDailyEntries(entries, 'bogus');
   assert.deepEqual(purged, entries);
