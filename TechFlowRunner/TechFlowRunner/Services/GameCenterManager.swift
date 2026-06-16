@@ -119,11 +119,32 @@ final class GameCenterManager: NSObject, ObservableObject {
     }
 
     /// Presents the native Game Center leaderboard UI focused on the overall
-    /// board. Safe to call even if unauthenticated (it will prompt sign-in).
+    /// board.
+    ///
+    /// When the local player is NOT authenticated this intentionally does not
+    /// present `GKGameCenterViewController`: presenting it unauthenticated shows
+    /// a modal stuck on a spinner that never resolves (and logs the
+    /// `GameOverlayUI` proxy errors), which reads to the player as a freeze.
+    /// Instead we re-trigger the sign-in flow and update the status text.
     func showLeaderboard(_ id: String = LeaderboardID.overall) {
+        guard GKLocalPlayer.local.isAuthenticated else {
+            statusText = "Game Center: sign in to view the leaderboard"
+            // Re-trigger sign-in so the player can authenticate, then retry.
+            authenticate()
+            return
+        }
+        guard let presenter = Self.topViewController() else {
+            #if DEBUG
+            print("GameCenter showLeaderboard: no view controller to present from")
+            #endif
+            return
+        }
+        // Don't stack another modal if one is already presented.
+        guard presenter.presentedViewController == nil else { return }
+
         let vc = GKGameCenterViewController(leaderboardID: id, playerScope: .global, timeScope: .allTime)
         vc.gameCenterDelegate = self
-        present(vc)
+        presenter.present(vc, animated: true)
     }
 
     // MARK: - Presentation helper

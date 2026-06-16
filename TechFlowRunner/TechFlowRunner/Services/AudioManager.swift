@@ -4,7 +4,8 @@
 //
 //  Owns looping background music (the bundled "Tech Flow.mp3") and a small set
 //  of procedurally synthesized sound effects, mirroring the original game's
-//  WebAudio tones. All audio respects a single `muted` flag persisted locally.
+//  WebAudio tones. Music and sound effects are independent channels: each has
+//  its own enable flag and 0...1 volume, all persisted locally.
 //
 //  Music does not start until the player interacts (tapping Start or the music
 //  toggle), satisfying iOS autoplay expectations.
@@ -15,7 +16,12 @@ import AVFoundation
 final class AudioManager {
     static let shared = AudioManager()
 
-    private(set) var muted: Bool = PersistenceManager.shared.muted
+    private(set) var musicEnabled: Bool = PersistenceManager.shared.musicEnabled
+    private(set) var sfxEnabled: Bool = PersistenceManager.shared.sfxEnabled
+    /// Background-music level, 0...1, applied directly to the music player.
+    private(set) var musicVolume: Double = PersistenceManager.shared.musicVolume
+    /// Sound-effect level, 0...1, scaling every synthesized tone's gain.
+    private(set) var sfxVolume: Double = PersistenceManager.shared.sfxVolume
 
     private var musicPlayer: AVAudioPlayer?
     private let engine = AVAudioEngine()
@@ -46,7 +52,7 @@ final class AudioManager {
         do {
             let player = try AVAudioPlayer(contentsOf: url)
             player.numberOfLoops = -1   // loop forever
-            player.volume = 0.55
+            player.volume = Float(musicVolume)
             player.prepareToPlay()
             musicPlayer = player
         } catch {
@@ -68,7 +74,7 @@ final class AudioManager {
     // MARK: Music control
 
     func startMusic() {
-        guard !muted else { return }
+        guard musicEnabled else { return }
         prepareMusic()
         configureSession()
         if let player = musicPlayer, !player.isPlaying {
@@ -85,20 +91,46 @@ final class AudioManager {
         musicPlayer?.currentTime = 0
     }
 
+    // MARK: Channel settings
+
     @discardableResult
-    func toggleMute() -> Bool {
-        setMuted(!muted)
-        return muted
+    func toggleMusicEnabled() -> Bool {
+        setMusicEnabled(!musicEnabled)
+        return musicEnabled
     }
 
-    func setMuted(_ value: Bool) {
-        muted = value
-        PersistenceManager.shared.muted = value
-        if muted {
-            pauseMusic()
-        } else {
+    func setMusicEnabled(_ value: Bool) {
+        musicEnabled = value
+        PersistenceManager.shared.musicEnabled = value
+        if value {
             startMusic()
+        } else {
+            pauseMusic()
         }
+    }
+
+    func setSfxEnabled(_ value: Bool) {
+        sfxEnabled = value
+        PersistenceManager.shared.sfxEnabled = value
+    }
+
+    func setMusicVolume(_ value: Double) {
+        let clamped = min(1, max(0, value))
+        musicVolume = clamped
+        PersistenceManager.shared.musicVolume = clamped
+        musicPlayer?.volume = Float(clamped)
+    }
+
+    func setSfxVolume(_ value: Double) {
+        let clamped = min(1, max(0, value))
+        sfxVolume = clamped
+        PersistenceManager.shared.sfxVolume = clamped
+    }
+
+    /// Plays a short tone so the player can hear the current SFX volume while
+    /// adjusting the slider.
+    func previewSfx() {
+        bit()
     }
 
     // MARK: SFX synthesis
@@ -125,7 +157,8 @@ final class AudioManager {
     // arpeggio rather than stacking. Buffers queue on the player node in call
     // order, which is sufficient for these brief UI tones.
     private func tone(_ frequency: Double, _ duration: Double, _ wave: Wave, gain: Double, delay: Double = 0) {
-        guard !muted else { return }
+        guard sfxEnabled, sfxVolume > 0 else { return }
+        let effectiveGain = gain * sfxVolume
         ensureEngine()
         guard engineConfigured else { return }
 
@@ -159,7 +192,7 @@ final class AudioManager {
             }
             // Exponential decay envelope, matching the WebAudio reference feel.
             let env = exp(-3.0 * t / max(duration, 0.0001))
-            channel[frame] = Float(sample * gain * env)
+            channel[frame] = Float(sample * effectiveGain * env)
         }
 
         toneNode.scheduleBuffer(buffer, completionHandler: nil)

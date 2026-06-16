@@ -2,8 +2,9 @@
 //  SettingsView.swift
 //  Tech Flow Runner
 //
-//  Local settings: music mute, reduced-motion override, and haptics. All values
-//  persist via PersistenceManager. Also surfaces lifetime stats.
+//  Local settings: independent music and sound-effect controls (each with an
+//  enable toggle and a volume slider), reduced-motion override, and haptics.
+//  All values persist via PersistenceManager. Also surfaces lifetime stats.
 //
 
 import SwiftUI
@@ -16,11 +17,22 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Audio") {
-                    Toggle("Music & Sound", isOn: Binding(
-                        get: { !app.muted },
-                        set: { _ in app.toggleMute() }
-                    ))
+                Section("Music") {
+                    Toggle("Music", isOn: $app.musicEnabled)
+                    if app.musicEnabled {
+                        volumeSlider(value: $app.musicVolume)
+                    }
+                }
+
+                Section("Sound Effects") {
+                    Toggle("Sound Effects", isOn: $app.sfxEnabled)
+                    if app.sfxEnabled {
+                        volumeSlider(value: $app.sfxVolume) { editing in
+                            // Play a sample tone once the player lets go so they
+                            // can gauge the chosen level.
+                            if !editing { AudioManager.shared.previewSfx() }
+                        }
+                    }
                 }
 
                 Section("Accessibility") {
@@ -60,6 +72,22 @@ struct SettingsView: View {
                     Button("Done") { dismiss() }
                 }
             }
+        }
+    }
+
+    /// A labelled 0...1 volume slider flanked by speaker glyphs.
+    private func volumeSlider(value: Binding<Double>,
+                              onEditingChanged: @escaping (Bool) -> Void = { _ in }) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "speaker.fill")
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            Slider(value: value, in: 0...1, onEditingChanged: onEditingChanged)
+                .accessibilityLabel("Volume")
+                .accessibilityValue("\(Int((value.wrappedValue * 100).rounded())) percent")
+            Image(systemName: "speaker.wave.3.fill")
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
         }
     }
 }

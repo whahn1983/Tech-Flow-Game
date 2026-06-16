@@ -29,7 +29,18 @@ final class AppState: ObservableObject {
     @Published var dailyEnabled: Bool {
         didSet { persistence.dailyEnabled = dailyEnabled }
     }
-    @Published var muted: Bool
+    @Published var musicEnabled: Bool {
+        didSet { AudioManager.shared.setMusicEnabled(musicEnabled) }
+    }
+    @Published var sfxEnabled: Bool {
+        didSet { AudioManager.shared.setSfxEnabled(sfxEnabled) }
+    }
+    @Published var musicVolume: Double {
+        didSet { AudioManager.shared.setMusicVolume(musicVolume) }
+    }
+    @Published var sfxVolume: Double {
+        didSet { AudioManager.shared.setSfxVolume(sfxVolume) }
+    }
     @Published var reducedMotionOverride: Bool {
         didSet { persistence.reducedMotionOverride = reducedMotionOverride }
     }
@@ -51,7 +62,10 @@ final class AppState: ObservableObject {
         reducedMotionOverride = persistence.reducedMotionOverride
         best = persistence.bestScore
         lifetime = persistence.lifetime
-        muted = persistence.muted
+        musicEnabled = persistence.musicEnabled
+        sfxEnabled = persistence.sfxEnabled
+        musicVolume = persistence.musicVolume
+        sfxVolume = persistence.sfxVolume
 
         // Validate the persisted skin against current unlock progress.
         let stats = persistence.lifetime
@@ -63,7 +77,12 @@ final class AppState: ObservableObject {
         }
 
         scene.gameDelegate = self
-        AudioManager.shared.setMuted(muted)
+        // Property observers don't fire during init, so push the persisted
+        // audio settings into the AudioManager explicitly.
+        AudioManager.shared.setMusicEnabled(musicEnabled)
+        AudioManager.shared.setSfxEnabled(sfxEnabled)
+        AudioManager.shared.setMusicVolume(musicVolume)
+        AudioManager.shared.setSfxVolume(sfxVolume)
     }
 
     // MARK: Derived
@@ -102,8 +121,8 @@ final class AppState: ObservableObject {
         selectedSkin = skin
     }
 
-    func toggleMute() {
-        muted = AudioManager.shared.toggleMute()
+    func toggleMusic() {
+        musicEnabled.toggle()
     }
 
     func showLeaderboard() {
@@ -125,7 +144,7 @@ final class AppState: ObservableObject {
         scene.configureRun(config: config, best: best)
         scene.startRun()
         runState = .running
-        if !muted { AudioManager.shared.startMusic() }
+        if musicEnabled { AudioManager.shared.startMusic() }
     }
 
     func restartRun() {
@@ -143,7 +162,7 @@ final class AppState: ObservableObject {
         guard runState == .paused else { return }
         scene.resumeRun()
         runState = .running
-        if !muted { AudioManager.shared.startMusic() }
+        if musicEnabled { AudioManager.shared.startMusic() }
     }
 
     func returnToMenu() {
