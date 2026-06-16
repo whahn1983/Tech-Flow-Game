@@ -8,226 +8,79 @@ This program is proprietary software and is not open source. It may not be copie
 
 ## Overview
 
-Tech Flow Runner is an engaging game that challenges players to navigate through a circuit board filled with various obstacles. The objective is to guide the Tech Flow Runner through levels while enjoying incredible original music.
+Tech Flow Runner is a fast-paced, neon circuit-board endless runner. You guide
+the Tech Flow Runner across a glowing motherboard, leaping past hazards and
+enemies while an original soundtrack drives the action. The objective is simple
+to learn and hard to master: survive, build your combo, collect bits, and climb
+the leaderboard.
+
+The game is available on multiple platforms that share the same gameplay
+identity. Platform-specific setup, deployment, and technical details live in
+their own READMEs:
+
+- **Web / PWA** — see [`web-app/README.md`](web-app/README.md)
+- **Native iOS** — see [`TechFlowRunner/README.md`](TechFlowRunner/README.md)
 
 ## Gameplay
 
-- Players control the Tech Flow Runner using keyboard commands or screen taps.
-- The Runner auto-scrolls through the level; players must jump (including double jump) to evade obstacles and enemies.
-- There are multiple levels, each with unique challenges and a boss fight at the end.
+- The Runner auto-scrolls through the level at an ever-increasing pace.
+- Time your **jumps** (including a **double jump**), **duck**, and **dash** to
+  evade obstacles and enemies.
+- Collect **bits** and chain actions to build a **combo multiplier** that boosts
+  your score.
+- Grab **power-ups** for temporary advantages.
+- Push through **progressively harder** terrain and face a **Mainframe boss
+  fight**.
+- Compare your best runs on a **leaderboard**.
 
 ## Features
 
-- **Dynamic Obstacles:** Different types of obstacles that may move or change.
-- **Global Leaderboard:** Save your best runs to a server-backed leaderboard shared by all players.
-- **Power-Ups:** Obtain various power-ups to enhance abilities temporarily.
-- **Progressive Difficulty:** Each level gets progressively harder with more obstacles and faster enemies.
-- **Scoring System:** Players earn points based on performance, speed, and level completion.
-- **Original Soundtrack:** Experience original music owned by H3 Consulting Partners LLC.
-- **Pause & Accessibility:** `P`/`Esc` to pause, auto-pause when the tab is hidden, `prefers-reduced-motion` honored, skip-link, focus-trapped modal, `aria-live` announcements.
-- **PWA / Offline:** Installable on desktop and mobile, plays offline after first load.
+- **Dynamic Obstacles:** A variety of hazards and enemies, some of which move or
+  change as you progress.
+- **Collectible Bits & Combos:** Pick up bits and chain actions to multiply your
+  score.
+- **Power-Ups:** Temporary abilities that change how a run plays out.
+- **Progressive Difficulty:** Each stretch ramps up speed and obstacle density,
+  culminating in a boss encounter.
+- **Scoring & Leaderboards:** Earn points for distance, speed, bits, and
+  survival, then save your best runs to a leaderboard.
+- **Original Soundtrack:** An original score owned by H3 Consulting Partners LLC.
+- **Accessibility:** Pause support, reduced-motion handling, on-screen control
+  fallbacks, and clear status messaging.
 
 ## Controls
 
-- **Space / W / Up Arrow:** Jump (supports double jump).
-- **P / Esc:** Pause / resume.
-- **M:** Toggle mute (persists across sessions).
-- **R:** Restart after game over.
-- **Tap / Click:** Jump (touch and mouse support).
+Controls map naturally to each platform, but the core actions are the same
+everywhere:
+
+| Action          | How to perform it                          |
+| --------------- | ------------------------------------------ |
+| Jump / double jump | Keyboard jump key, tap, or on-screen button |
+| Duck            | Hold down / swipe down / on-screen button   |
+| Dash            | Dash key / swipe / on-screen button         |
+| Pause / resume  | Pause key or on-screen button               |
+| Restart         | Restart key after a run ends                |
+
+See the platform READMEs for the exact key bindings and gestures.
 
 ## Project Structure
 
 ```
 .
-├── web-app/              # Browser game, web assets, Node/PHP backends, and web tooling
-│   ├── index.html        # Entry point — markup only
-│   ├── css/styles.css    # Styling (extracted from index.html)
-│   ├── js/game.js        # Game logic (extracted from index.html)
-│   ├── sw.js             # Service worker (cache-first static, network-first HTML)
-│   ├── manifest.json     # PWA manifest
-│   ├── leaderboard.php   # PHP leaderboard backend (Apache deployment)
-│   ├── server.js         # Node leaderboard + static file server (Docker deployment)
-│   ├── Dockerfile        # Node-based container image
-│   ├── docker-compose.yml # Compose config for the Node deployment
-│   ├── tests/            # Unit tests (Node native test runner)
-│   └── scripts/          # Asset generators (PWA icons, screenshots)
-├── docs/                 # Static documentation pages
-├── TechFlowRunner/       # Native iOS project
-├── CHANGELOG.md          # Release notes
-└── CONTRIBUTING.md       # Contributor guide
+├── web-app/          # Browser game + PWA, leaderboard backends, web tooling
+│                     #   → see web-app/README.md
+├── TechFlowRunner/   # Native iOS app (Swift/SwiftUI/SpriteKit/GameKit)
+│                     #   → see TechFlowRunner/README.md
+├── docs/             # Static documentation pages
+├── CHANGELOG.md      # Release notes
+├── CONTRIBUTING.md   # Contributor guide
+└── LICENSE           # Proprietary license terms
 ```
-
-## Installation
-
-You can run Tech Flow Runner via Apache + PHP **or** the bundled Node server (used by the Docker image). Both speak the same leaderboard JSON API.
-
-### Apache + PHP
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/whahn1983/Tech-Flow-Game.git
-   ```
-2. **Deploy the `web-app/` directory** to Apache (DocumentRoot or subfolder).
-3. **Enable PHP** (`>= 8.0`) in Apache, with the `pdo_sqlite` and `mbstring`
-   extensions if you want SQLite-backed leaderboard storage (recommended for
-   any deployment expecting concurrent submissions).
-4. **Make the directory writable** by the Apache user so the backend can
-   create:
-   - `leaderboard.sqlite` (or `leaderboard.txt` if SQLite is unavailable),
-   - `rate_limit.txt`,
-   - `nonces.txt`.
-5. **(Recommended)** Add a `.htaccess` to deny direct access to the data files:
-   ```apache
-   <FilesMatch "^(leaderboard\.(txt|sqlite|sqlite-journal)|rate_limit\.txt|nonces\.txt)$">
-     Require all denied
-   </FilesMatch>
-   ```
-6. **Open the game URL** in a browser.
-
-### Node (Docker)
-
-```bash
-cd web-app
-docker compose up --build
-# or:
-docker build -t tech-flow-runner .
-docker run -p 5001:5001 -v $(pwd)/data:/app/data tech-flow-runner
-```
-
-The bundled `server.js` serves both the static assets and the leaderboard API; the in-game client uses `./leaderboard.php`, which the Node server also accepts as an alias for `/api/leaderboard`.
-
-The shipped `docker-compose.yml` runs the container with hardened defaults:
-`read_only: true`, `cap_drop: [ALL]`, `no-new-privileges`, and a `tmpfs` for `/tmp`.
-
-### Local development
-
-```bash
-cd web-app
-npm install                 # devDependencies only
-node server.js              # http://localhost:8080
-PORT=5001 node server.js
-npm test                    # run unit tests
-npm run lint                # ESLint
-npm run format              # Prettier (check); use format:fix to write
-```
-
-## Environment variables
-
-| Variable          | Default | Description                                                                                                                                                |
-| ----------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PORT`            | `8080`  | TCP port the Node server listens on (1024–65535).                                                                                                          |
-| `ALLOWED_ORIGINS` | _empty_ | Comma-separated list of origins permitted to call the leaderboard API.<br>Empty means same-origin only. Honored by both `server.js` and `leaderboard.php`. |
-| `NODE_ENV`        | _unset_ | Standard Node convention; the Dockerfile sets it to `production`.                                                                                          |
-
-## Leaderboard API
-
-|  Method | Path                            | Purpose                             |
-| ------: | ------------------------------- | ----------------------------------- |
-|     GET | `/leaderboard.php`              | Top 100 entries                     |
-|     GET | `/leaderboard.php?action=nonce` | Issue a single-use submission nonce |
-|    POST | `/leaderboard.php`              | Submit `{ name, score, nonce }`     |
-| OPTIONS | `/leaderboard.php`              | CORS preflight                      |
-
-The Node server additionally responds at `/api/leaderboard` with the same semantics.
-
-### Nonce flow
-
-```
-Client                                   Server
-  │                                        │
-  │── GET  /leaderboard.php?action=nonce ─▶│   issue_nonce(): random 16-byte hex
-  │                                        │   stored with timestamp; capped at 4096
-  │◀── { "nonce": "abc...123" } ──────────│
-  │                                        │
-  │  (wait at least 4 s — anti-script gate) │
-  │                                        │
-  │── POST /leaderboard.php ──────────────▶│   consume_nonce()
-  │   { name, score, nonce }               │   - rejects if missing/malformed
-  │                                        │   - rejects if expired (>10 min)
-  │                                        │   - rejects if too fresh (<4 s)
-  │                                        │   - rejects if already consumed
-  │◀── 201 { entries, saved }  ────────────│
-  │   or 400 if nonce check fails          │
-```
-
-This raises the bar against trivial scripted spam but is **not** cryptographic
-anti-cheat — a JS client cannot keep secrets from a determined attacker.
-
-### Rate limiting
-
-Each client IP may submit at most **5 POSTs per 60 seconds**. Excess requests
-receive `429 Too Many Requests`. Rate-limit state is in-memory in the Node
-server and file-backed (`rate_limit.txt`) in PHP.
-
-## Security & CSP
-
-The page ships a strict Content-Security-Policy:
-
-```
-default-src 'self';
-script-src 'self';
-style-src 'self' 'unsafe-inline';
-img-src 'self' data: blob:;
-media-src 'self';
-connect-src 'self';
-worker-src 'self';
-base-uri 'self';
-form-action 'self';
-frame-ancestors 'none';
-```
-
-`'unsafe-inline'` for `style-src` is retained because the game manipulates
-`element.style` at runtime (fullscreen / scroll-lock handling). Scripts are
-served from external files only.
-
-Additional defences:
-
-- `X-Content-Type-Options: nosniff` and `X-Frame-Options: DENY` on every
-  response.
-- `Referrer-Policy: strict-origin-when-cross-origin` (Node) /
-  `no-referrer` (PHP).
-- `Content-Security-Policy: default-src 'none'` on JSON API responses.
-- Mandatory single-use nonces on score submissions.
-- Same-origin CORS by default; explicit allowlist via `ALLOWED_ORIGINS`.
-- 10 KB request body cap on submissions.
-- Hardened Docker runtime (`read_only`, `cap_drop`, `no-new-privileges`).
-
-## PWA Icon Assets
-
-To keep this repository code-only, generated PNG icon files are not committed.
-
-Run the icon generator before creating a release/build so PWA and iOS home-screen icons exist:
-
-```bash
-cd web-app
-python scripts/generate_pwa_icons.py
-```
-
-This creates:
-
-- `apple-touch-icon.png`
-- `icons/icon-192.png`
-- `icons/icon-512.png`
 
 ## Development
 
-Lightweight web-app tooling is configured via `web-app/package.json`,
-`web-app/eslint.config.js`, `.prettierrc.json`, and `.editorconfig`.
-
-```bash
-cd web-app
-npm run lint           # ESLint
-npm run format         # Prettier (check)
-npm run format:fix     # Prettier (write)
-npm test               # node --test
-```
-
-CI (`.github/workflows/ci.yml`) runs Node and PHP syntax checks, ESLint, a
-Prettier check, manifest validation, and the unit-test suite on every PR. Lint
-failures fail the build (no longer best-effort).
-
-A pre-commit hook is wired via Husky + lint-staged. Run `npm run prepare`
-once after `npm install` to enable it locally.
+Each platform manages its own toolchain and build process; refer to the
+platform READMEs above to get started.
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full contributor guide and
 [`CHANGELOG.md`](CHANGELOG.md) for release notes.
@@ -242,3 +95,5 @@ For more information, licensing inquiries, bug reports, or feature requests, ope
 
 For security issues, please open a private security advisory rather than a
 public issue.
+</content>
+</invoke>
