@@ -1,28 +1,107 @@
-# Proprietary License
+# H3 Consulting Partners LLC Proprietary Software License
 
-Copyright (c) 2026, whahn1983. All rights reserved.
+Copyright (c) 2026 H3 Consulting Partners LLC, a Texas limited liability company. All rights reserved.
 
-## 1. Grant of License
-Subject to the terms of this License, the Licensor grants the Licensee a non-transferable, non-exclusive license to use the Software for personal, educational, or governmental purposes only.
+This H3 Consulting Partners LLC Proprietary Software License (the "License") governs access to and use of the Tech Flow Game / Tech Flow Runner software, source code, object code, documentation, media, audio, artwork, game designs, build scripts, configuration files, and related materials (collectively, the "Software"). By downloading, copying, installing, running, accessing, viewing, or otherwise using any part of the Software, you ("Licensee") agree to be bound by this License. If you do not agree, do not use the Software and promptly delete all copies in your possession or control.
 
-## 2. Ownership
-The Software is licensed, not sold. The Licensor retains all rights, title, and interest in and to the Software, including any modifications, enhancements, or derivative works.
+## 1. Ownership and Reservation of Rights
+
+The Software is proprietary and confidential to H3 Consulting Partners LLC ("Owner" or "Licensor"). The Software is licensed, not sold. Except for the limited rights expressly granted in this License, Licensor and its licensors retain all right, title, and interest in and to the Software, including all copyrights, trade secrets, trademarks, service marks, trade dress, domain names, moral rights, database rights, patent rights, know-how, goodwill, and all other intellectual property and proprietary rights recognized under the laws of the State of Texas, the United States, and applicable international laws and treaties.
+
+No ownership interest is transferred to Licensee. All rights not expressly granted are reserved by H3 Consulting Partners LLC.
+
+## 2. Limited Internal Evaluation License
+
+Subject to Licensee's full compliance with this License, Licensor grants Licensee a limited, revocable, non-exclusive, non-transferable, non-sublicensable license to use one copy of the Software solely for personal, internal evaluation, demonstration, or review purposes.
+
+This License does not permit commercial exploitation, public hosting, production deployment, distribution, resale, publishing, app-store submission, software-as-a-service use, managed-service use, or any use for the benefit of a third party unless H3 Consulting Partners LLC provides separate prior written authorization signed by an authorized representative of the company.
 
 ## 3. Restrictions
-The Licensee shall not, without prior written consent from the Licensor:
-- Use the Software for commercial purposes.
-- Copy, modify, or distribute the Software.
-- Decompile, reverse engineer, or disassemble the Software.
 
-## 4. Limitation of Liability
-In no event shall the Licensor be liable for any indirect, incidental, special, consequential, or punitive damages, including without limitation loss of profits, data, or use, arising out of or in connection with this License or the use of the Software.
+Licensee shall not, directly or indirectly, without Licensor's prior written permission:
 
-## 5. Termination
-This License is effective until terminated. The Licensor may terminate this License immediately and without notice if the Licensee breaches any of its terms. Upon termination, the Licensee must cease all use of the Software and destroy all copies in their possession.
+1. copy, reproduce, publish, distribute, transmit, sell, rent, lease, lend, sublicense, assign, transfer, or otherwise make the Software available to any third party;
+2. modify, translate, adapt, enhance, port, merge, create derivative works from, or prepare improvements based on the Software;
+3. decompile, disassemble, reverse engineer, derive source code from object code, bypass technical restrictions, or otherwise attempt to discover underlying ideas, algorithms, file formats, protocols, or trade secrets except to the limited extent a restriction is expressly prohibited by applicable law;
+4. remove, alter, obscure, or falsify any copyright, trademark, proprietary, confidentiality, attribution, or other legal notices in the Software;
+5. use the Software to develop, train, benchmark, or improve a competing product or service;
+6. use the Software in any manner that violates applicable law, infringes third-party rights, or could damage the reputation, systems, or business of H3 Consulting Partners LLC;
+7. upload, mirror, host, or make the Software available in any public or private package registry, repository, marketplace, app store, website, or network location except as expressly authorized in writing;
+8. use the Software for timesharing, outsourcing, service bureau, hosting, or managed-service purposes; or
+9. allow any person or entity to do any of the foregoing.
 
-## 6. Governing Law
-This License shall be governed by and construed in accordance with applicable law. Any disputes arising under this License shall be resolved in a court of competent jurisdiction.
+## 4. Source Code and Confidentiality
 
-## 7. Contact Information
-For any inquiries regarding this license, please open an issue at:
-https://github.com/whahn1983/Tech-Flow-Game/issues
+To the extent the Software includes source code, scripts, assets, configuration, credentials placeholders, deployment files, architectural patterns, gameplay logic, or other non-public materials, those materials are provided solely for the limited purpose described in Section 2 and must be treated as confidential information of H3 Consulting Partners LLC.
+
+Licensee shall use reasonable care to prevent unauthorized access, disclosure, copying, or use of the Software, and in no event less than the care Licensee uses to protect its own confidential information of similar importance. Licensee shall promptly notify H3 Consulting Partners LLC of any unauthorized access, disclosure, copying, distribution, or suspected breach involving the Software.
+
+## 5. Feedback
+
+If Licensee provides ideas, suggestions, bug reports, enhancement requests, comments, or other feedback relating to the Software ("Feedback"), Licensee grants H3 Consulting Partners LLC a perpetual, irrevocable, worldwide, royalty-free, fully paid, transferable, sublicensable license to use, reproduce, modify, distribute, commercialize, and otherwise exploit the Feedback without restriction, attribution, or compensation.
+
+## 6. Third-Party Components
+
+The Software may reference or include third-party libraries, tools, platforms, fonts, services, or other components. Third-party components are governed by their respective license terms, if any, and not by this License. Licensee is solely responsible for identifying and complying with any applicable third-party terms. Nothing in this License grants rights to third-party trademarks, services, or content.
+
+## 7. Music, Audio, Artwork, and Other Media
+
+All music, audio, sound effects, artwork, sprites, logos, icons, screenshots, game designs, and other media included with or generated for the Software are owned by H3 Consulting Partners LLC or its licensors unless expressly stated otherwise in writing. These materials may not be copied, extracted, synchronized, sampled, remixed, redistributed, incorporated into other works, or used separately from the Software without prior written permission from H3 Consulting Partners LLC.
+
+## 8. No Support, Maintenance, or Updates
+
+H3 Consulting Partners LLC has no obligation to provide support, maintenance, hosting, training, updates, upgrades, patches, bug fixes, security fixes, new versions, documentation, or continued availability of the Software. Any support or updates that Licensor may provide are discretionary and may be discontinued at any time.
+
+## 9. Compliance With Laws and Export Controls
+
+Licensee is responsible for complying with all applicable federal, state, local, and international laws and regulations, including export control, sanctions, privacy, cybersecurity, consumer protection, and intellectual property laws. Licensee shall not export, re-export, transfer, or use the Software in violation of United States export control or sanctions laws.
+
+## 10. Term and Termination
+
+This License begins when Licensee first accesses, downloads, copies, installs, runs, or uses the Software and continues until terminated.
+
+H3 Consulting Partners LLC may terminate this License immediately upon written notice, public notice, repository notice, or other reasonable communication if Licensee breaches this License or if continued access could expose Licensor to legal, security, business, or reputational risk. Licensee may terminate this License at any time by permanently deleting all copies of the Software.
+
+Upon termination, Licensee shall immediately cease all use of the Software and destroy all copies, extracts, backups, and derivative materials in Licensee's possession or control. Sections concerning ownership, restrictions, confidentiality, feedback, disclaimers, limitations of liability, indemnification, governing law, remedies, and miscellaneous provisions survive termination.
+
+## 11. Disclaimer of Warranties
+
+THE SOFTWARE IS PROVIDED "AS IS," "AS AVAILABLE," AND WITH ALL FAULTS. TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, H3 CONSULTING PARTNERS LLC DISCLAIMS ALL WARRANTIES, WHETHER EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE, INCLUDING ANY WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, NON-INFRINGEMENT, QUIET ENJOYMENT, ACCURACY, AVAILABILITY, SECURITY, RELIABILITY, PERFORMANCE, AND ERROR-FREE OR UNINTERRUPTED OPERATION.
+
+H3 CONSULTING PARTNERS LLC DOES NOT WARRANT THAT THE SOFTWARE WILL MEET LICENSEE'S REQUIREMENTS, OPERATE WITHOUT INTERRUPTION, BE COMPATIBLE WITH ANY SYSTEM, BE FREE FROM DEFECTS OR VULNERABILITIES, OR THAT ANY DEFECTS OR VULNERABILITIES WILL BE CORRECTED.
+
+## 12. Limitation of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, H3 CONSULTING PARTNERS LLC AND ITS MEMBERS, MANAGERS, OFFICERS, EMPLOYEES, CONTRACTORS, AGENTS, AFFILIATES, SUCCESSORS, AND ASSIGNS SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, PUNITIVE, OR ENHANCED DAMAGES; LOST PROFITS; LOST REVENUE; LOST SAVINGS; LOSS OF GOODWILL; BUSINESS INTERRUPTION; LOSS, CORRUPTION, OR RECOVERY OF DATA; SECURITY INCIDENTS; COST OF SUBSTITUTE GOODS OR SERVICES; OR OTHER COMMERCIAL OR ECONOMIC LOSSES ARISING OUT OF OR RELATED TO THE SOFTWARE OR THIS LICENSE, WHETHER BASED ON CONTRACT, TORT, NEGLIGENCE, STRICT LIABILITY, STATUTE, OR ANY OTHER THEORY, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, H3 CONSULTING PARTNERS LLC'S TOTAL AGGREGATE LIABILITY FOR ALL CLAIMS ARISING OUT OF OR RELATED TO THE SOFTWARE OR THIS LICENSE SHALL NOT EXCEED ONE HUNDRED U.S. DOLLARS (US $100.00).
+
+## 13. Indemnification
+
+Licensee shall defend, indemnify, and hold harmless H3 Consulting Partners LLC and its members, managers, officers, employees, contractors, agents, affiliates, successors, and assigns from and against any claims, demands, actions, damages, losses, liabilities, judgments, settlements, costs, and expenses, including reasonable attorneys' fees, arising out of or related to Licensee's use, misuse, copying, modification, distribution, deployment, hosting, or breach of this License.
+
+## 14. Equitable Remedies
+
+Licensee acknowledges that unauthorized use, disclosure, copying, modification, distribution, or commercialization of the Software may cause irreparable harm for which monetary damages may be inadequate. H3 Consulting Partners LLC is entitled to seek temporary, preliminary, and permanent injunctive relief, specific performance, and other equitable remedies without posting bond or proving actual damages, in addition to any other rights or remedies available at law or in equity.
+
+## 15. Governing Law; Venue
+
+This License and any dispute, claim, or controversy arising out of or relating to the Software or this License are governed by the laws of the State of Texas, without regard to conflict-of-law principles that would require application of another jurisdiction's laws.
+
+Subject to any non-waivable jurisdictional requirements, the state and federal courts located in Texas shall have exclusive jurisdiction and venue for any action arising out of or relating to the Software or this License. Licensee consents to personal jurisdiction and venue in those courts and waives any objection based on inconvenient forum.
+
+## 16. No Waiver; Severability
+
+No failure or delay by H3 Consulting Partners LLC in exercising any right, power, or remedy operates as a waiver. If any provision of this License is held invalid, illegal, or unenforceable, the remaining provisions remain in full force and effect, and the invalid provision will be modified to the minimum extent necessary to make it enforceable while preserving its intent.
+
+## 17. Assignment
+
+Licensee may not assign, delegate, transfer, or sublicense this License or any rights or obligations under it without H3 Consulting Partners LLC's prior written consent. Any attempted assignment in violation of this section is void. H3 Consulting Partners LLC may assign this License, in whole or in part, without restriction.
+
+## 18. Entire Agreement; Amendments
+
+This License is the entire agreement between Licensee and H3 Consulting Partners LLC regarding the Software and supersedes all prior or contemporaneous understandings regarding the Software. Any amendment or separate permission must be in writing and signed by an authorized representative of H3 Consulting Partners LLC. Repository notices, README files, purchase orders, emails, or other documents do not modify this License unless they expressly state that they amend this License and are signed by an authorized representative of H3 Consulting Partners LLC.
+
+## 19. Contact
+
+For licensing, commercial use, distribution, support, or other inquiries, contact H3 Consulting Partners LLC through the repository issue tracker or another official company communication channel designated by H3 Consulting Partners LLC.
