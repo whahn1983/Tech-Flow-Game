@@ -9,3 +9,10 @@ data/
 .eslintcache
 .DS_Store
 npm-debug.log*
+
+# Xcode / iOS (TechFlowRunner native app)
+TechFlowRunner/build/
+TechFlowRunner/DerivedData/
+**/xcuserdata/
+*.xcuserstate
+TechFlowRunner/__pycache__/
