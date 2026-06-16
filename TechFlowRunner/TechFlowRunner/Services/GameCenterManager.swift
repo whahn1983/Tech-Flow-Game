@@ -29,6 +29,13 @@
 import GameKit
 import SwiftUI
 
+/// Single source of truth for every Game Center leaderboard ID.
+///
+/// IMPORTANT: each value below MUST exactly match the Leaderboard ID configured
+/// in App Store Connect (My Apps → your app → Features → Game Center →
+/// Leaderboards). A mismatch (typo, wrong case, stray whitespace) makes both
+/// submission and presentation fail at runtime. Keep this list and App Store
+/// Connect in lockstep.
 enum LeaderboardID {
     static let overall = "techflow.highscore"
     static let none = "techflow.highscore.none"
@@ -48,6 +55,34 @@ enum LeaderboardID {
         case .glasscannon: return glassCannon
         }
     }
+
+    /// Boards the player can browse from the in-app leaderboard picker, paired
+    /// with display names. The first entry (Overall) is the default board.
+    static let browsable: [(id: String, name: String)] = [
+        (overall, "Overall"),
+        (daily, "Daily"),
+        (hardcore, "Hardcore"),
+        (bitRush, "Bit Rush"),
+        (featherFall, "Feather Fall"),
+        (glassCannon, "Glass Cannon")
+    ]
+}
+
+/// Coarse authentication state, surfaced to the UI and the debug panel.
+enum GameCenterAuthState: CustomStringConvertible {
+    case authenticating
+    case signedIn
+    case notSignedIn
+    case failed
+
+    var description: String {
+        switch self {
+        case .authenticating: return "Authenticating"
+        case .signedIn: return "Signed in"
+        case .notSignedIn: return "Not signed in"
+        case .failed: return "Authentication failed"
+        }
+    }
 }
 
 @MainActor
@@ -55,32 +90,48 @@ final class GameCenterManager: NSObject, ObservableObject {
     static let shared = GameCenterManager()
 
     @Published var isAuthenticated = false
+    @Published var authState: GameCenterAuthState = .authenticating
     @Published var statusText = "Game Center: signing in…"
 
     private override init() { super.init() }
 
+    /// Emits Game Center diagnostics to the Xcode console. DEBUG builds only, so
+    /// none of this leaks into release logs.
+    private func log(_ message: String) {
+        #if DEBUG
+        print("[GameCenter] \(message)")
+        #endif
+    }
+
     func authenticate() {
         let localPlayer = GKLocalPlayer.local
+        authState = .authenticating
+        statusText = "Game Center: signing in…"
         localPlayer.authenticateHandler = { [weak self] viewController, error in
             guard let self else { return }
             Task { @MainActor in
                 if let viewController {
                     // Present the Game Center sign-in flow over the app's UI.
                     self.present(viewController)
-                    self.statusText = "Game Center: sign-in required"
                     self.isAuthenticated = false
+                    self.authState = .notSignedIn
+                    self.statusText = "Game Center: sign-in required"
+                    self.log("authenticated: false — presenting sign-in UI")
                 } else if localPlayer.isAuthenticated {
                     self.isAuthenticated = true
+                    self.authState = .signedIn
                     self.statusText = "Game Center: \(localPlayer.alias)"
+                    self.log("authenticated: true — player: \(localPlayer.alias) (display name: \(localPlayer.displayName))")
                 } else {
                     self.isAuthenticated = false
                     if let error {
-                        self.statusText = "Game Center unavailable"
-                        #if DEBUG
-                        print("GameCenter auth error: \(error.localizedDescription)")
-                        #endif
+                        self.authState = .failed
+                        self.statusText = "Game Center: authentication failed"
+                        self.log("authenticated: false — error: \(error.localizedDescription)")
                     } else {
+                        self.authState = .notSignedIn
                         self.statusText = "Game Center: not signed in"
+                        self.log("authenticated: false — not signed in")
                     }
                 }
             }
@@ -97,11 +148,17 @@ final class GameCenterManager: NSObject, ObservableObject {
     /// board, and (when applicable) the daily board. Returns a coarse result
     /// the game-over overlay can surface to the player.
     func submit(score: Int, modifier: Modifier, daily: Bool) async -> SubmissionResult {
-        guard GKLocalPlayer.local.isAuthenticated else { return .notAuthenticated }
+        guard GKLocalPlayer.local.isAuthenticated else {
+            log("submit skipped — player not authenticated (score: \(score))")
+            return .notAuthenticated
+        }
 
+        // Overall board + the active modifier's board, plus the daily board when
+        // Daily Seed mode was active.
         var boards = [LeaderboardID.overall, LeaderboardID.forModifier(modifier)]
         if daily { boards.append(LeaderboardID.daily) }
 
+        log("submitting score \(score) to leaderboard IDs: \(boards.joined(separator: ", "))")
         do {
             try await GKLeaderboard.submitScore(
                 score,
@@ -109,11 +166,10 @@ final class GameCenterManager: NSObject, ObservableObject {
                 player: GKLocalPlayer.local,
                 leaderboardIDs: boards
             )
+            log("score submitted: \(score) → \(boards.joined(separator: ", "))")
             return .submitted
         } catch {
-            #if DEBUG
-            print("GameCenter submit error: \(error.localizedDescription)")
-            #endif
+            log("submit error: \(error.localizedDescription)")
             return .failed
         }
     }
@@ -129,23 +185,36 @@ final class GameCenterManager: NSObject, ObservableObject {
     func showLeaderboard(_ id: String = LeaderboardID.overall) {
         guard GKLocalPlayer.local.isAuthenticated else {
             statusText = "Game Center: sign in to view the leaderboard"
+            log("showLeaderboard requested for \(id) but player not authenticated — re-triggering sign-in")
             // Re-trigger sign-in so the player can authenticate, then retry.
             authenticate()
             return
         }
         guard let presenter = Self.topViewController() else {
-            #if DEBUG
-            print("GameCenter showLeaderboard: no view controller to present from")
-            #endif
+            log("showLeaderboard: no view controller to present from")
             return
         }
         // Don't stack another modal if one is already presented.
         guard presenter.presentedViewController == nil else { return }
 
+        log("presenting leaderboard ID: \(id)")
         let vc = GKGameCenterViewController(leaderboardID: id, playerScope: .global, timeScope: .allTime)
         vc.gameCenterDelegate = self
         presenter.present(vc, animated: true)
     }
+
+    #if DEBUG
+    /// Human-readable diagnostics for the in-app DEBUG panel in LeaderboardView.
+    var debugSummary: String {
+        let player = GKLocalPlayer.local
+        return """
+        Authenticated: \(player.isAuthenticated)
+        Player: \(player.isAuthenticated ? player.displayName : "—")
+        State: \(authState)
+        Overall board: \(LeaderboardID.overall)
+        """
+    }
+    #endif
 
     // MARK: - Presentation helper
 

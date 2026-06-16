@@ -72,8 +72,16 @@ TechFlowRunner/
 ## Game Center leaderboards
 
 Authentication runs automatically at launch and gracefully degrades when
-unavailable. On a run end the score is submitted to the overall board, the
-modifier-specific board, and (in Daily Seed mode) the daily board.
+unavailable; the menu and Leaderboard screens show a status line (Signed in /
+Not signed in / Authentication failed). On a run end the score is submitted to
+the overall board, the modifier-specific board, and (in Daily Seed mode) the
+daily board.
+
+The Leaderboard screen presents the specific Tech Flow Runner board (never the
+generic Game Center home) and offers a button per board: Overall, Daily,
+Hardcore, Bit Rush, Feather Fall, Glass Cannon. DEBUG builds log Game Center
+diagnostics to the Xcode console (`[GameCenter] …`) and show an on-screen debug
+panel with the authenticated flag, player name, and presented board IDs.
 
 Create these leaderboards in **App Store Connect → your app → Features →
 Leaderboards** (Classic, Integer, High-to-Low) with these exact IDs, or edit
