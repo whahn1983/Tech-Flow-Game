@@ -12,30 +12,75 @@ struct GameContainerView: View {
     @EnvironmentObject var app: AppState
 
     var body: some View {
-        ZStack {
-            GameSceneView(scene: app.scene)
-                .ignoresSafeArea()
+        GeometryReader { geo in
+            // The gameplay area is only considered playable when it is laid out
+            // in landscape. On iPhone the orientation lock makes this immediate;
+            // on iPad (Split View / Stage Manager, where rotation can't always
+            // be forced) a portrait layout triggers the rotate overlay below.
+            let isLandscape = geo.size.width >= geo.size.height
 
-            VStack(spacing: 0) {
-                HUDView(hud: app.hud, onPause: { app.pause() })
-                Spacer()
-                if app.runState == .running {
-                    OnScreenControls(scene: app.scene)
+            ZStack {
+                GameSceneView(scene: app.scene)
+                    .ignoresSafeArea()
+
+                VStack(spacing: 0) {
+                    HUDView(hud: app.hud, onPause: { app.pause() })
+                    Spacer()
+                    if app.runState == .running && !app.awaitingLandscape {
+                        OnScreenControls(scene: app.scene)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+
+                // The rotate overlay takes precedence over the normal overlays:
+                // it both pauses play and disables input while not landscape.
+                if app.awaitingLandscape {
+                    RotateToContinueOverlay()
+                        .transition(.opacity)
+                } else if app.runState == .paused {
+                    PauseOverlayView()
+                        .transition(.opacity)
+                } else if app.runState == .gameOver {
+                    GameOverOverlayView(result: app.runResult)
+                        .transition(.opacity)
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-
-            if app.runState == .paused {
-                PauseOverlayView()
-                    .transition(.opacity)
-            }
-            if app.runState == .gameOver {
-                GameOverOverlayView(result: app.runResult)
-                    .transition(.opacity)
+            .animation(.easeInOut(duration: 0.2), value: app.runState)
+            .animation(.easeInOut(duration: 0.2), value: app.awaitingLandscape)
+            .onAppear { app.gameViewGeometryChanged(isLandscape: isLandscape) }
+            .onChange(of: geo.size) { _, newSize in
+                app.gameViewGeometryChanged(isLandscape: newSize.width >= newSize.height)
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: app.runState)
+    }
+}
+
+/// Fallback shown when an active run isn't laid out in landscape (primarily
+/// iPad multitasking, where the system may decline a forced rotation). It fills
+/// the screen and swallows touches so gameplay input is disabled while visible.
+private struct RotateToContinueOverlay: View {
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.92).ignoresSafeArea()
+            VStack(spacing: 18) {
+                Image(systemName: "rotate.right.fill")
+                    .font(.system(size: 56, weight: .bold))
+                    .foregroundStyle(Theme.cyan)
+                Text("Rotate Device to Continue")
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(.white)
+                Text("Tech Flow Runner plays in landscape.")
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+            .multilineTextAlignment(.center)
+            .padding(40)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { }   // swallow taps so the run can't be played in portrait
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Rotate device to continue. Tech Flow Runner plays in landscape.")
     }
 }
 

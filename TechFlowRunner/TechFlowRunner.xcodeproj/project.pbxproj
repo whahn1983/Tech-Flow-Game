@@ -26,6 +26,7 @@
 		AABBCCDD0000000000000022 /* Modifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0000000000000021 /* Modifier.swift */; };
 		AABBCCDD0000000000000024 /* Skin.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0000000000000023 /* Skin.swift */; };
 		AABBCCDD0000000000000026 /* AudioManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0000000000000025 /* AudioManager.swift */; };
+		AABBCCDD0000000000000061 /* OrientationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0000000000000060 /* OrientationManager.swift */; };
 		AABBCCDD0000000000000028 /* GameCenterManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0000000000000027 /* GameCenterManager.swift */; };
 		AABBCCDD000000000000002A /* HapticsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0000000000000029 /* HapticsManager.swift */; };
 		AABBCCDD000000000000002C /* PersistenceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD000000000000002B /* PersistenceManager.swift */; };
@@ -64,6 +65,7 @@
 		AABBCCDD0000000000000021 /* Modifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Modifier.swift; sourceTree = "<group>"; };
 		AABBCCDD0000000000000023 /* Skin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Skin.swift; sourceTree = "<group>"; };
 		AABBCCDD0000000000000025 /* AudioManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioManager.swift; sourceTree = "<group>"; };
+		AABBCCDD0000000000000060 /* OrientationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrientationManager.swift; sourceTree = "<group>"; };
 		AABBCCDD0000000000000027 /* GameCenterManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterManager.swift; sourceTree = "<group>"; };
 		AABBCCDD0000000000000029 /* HapticsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticsManager.swift; sourceTree = "<group>"; };
 		AABBCCDD000000000000002B /* PersistenceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceManager.swift; sourceTree = "<group>"; };
@@ -131,6 +133,7 @@
 				AABBCCDD0000000000000025 /* AudioManager.swift */,
 				AABBCCDD0000000000000027 /* GameCenterManager.swift */,
 				AABBCCDD0000000000000029 /* HapticsManager.swift */,
+				AABBCCDD0000000000000060 /* OrientationManager.swift */,
 				AABBCCDD000000000000002B /* PersistenceManager.swift */,
 			);
 			path = Services;
@@ -282,6 +285,7 @@
 				AABBCCDD0000000000000022 /* Modifier.swift in Sources */,
 				AABBCCDD0000000000000024 /* Skin.swift in Sources */,
 				AABBCCDD0000000000000026 /* AudioManager.swift in Sources */,
+				AABBCCDD0000000000000061 /* OrientationManager.swift in Sources */,
 				AABBCCDD0000000000000028 /* GameCenterManager.swift in Sources */,
 				AABBCCDD000000000000002A /* HapticsManager.swift in Sources */,
 				AABBCCDD000000000000002C /* PersistenceManager.swift in Sources */,
@@ -415,7 +419,7 @@
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIStatusBarHidden = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				"INFOPLIST_KEY_UISupportedInterfaceOrientations~ipad" = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -449,7 +453,7 @@
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIStatusBarHidden = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				"INFOPLIST_KEY_UISupportedInterfaceOrientations~ipad" = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (

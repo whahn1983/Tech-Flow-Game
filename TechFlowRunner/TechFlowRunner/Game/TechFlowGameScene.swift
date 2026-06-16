@@ -235,7 +235,12 @@ final class TechFlowGameScene: SKScene {
 
     override func update(_ currentTime: TimeInterval) {
         if pendingSetup {
-            guard size.width > 1, size.height > 1 else { lastUpdateTime = currentTime; return }
+            // Wait for a real, landscape layout before building the run. This
+            // guarantees gameplay never starts with a portrait (taller) play
+            // area, preserving leaderboard fairness even mid-rotation.
+            guard size.width > 1, size.height > 1, size.width > size.height else {
+                lastUpdateTime = currentTime; return
+            }
             resetRun()
             pendingSetup = false
             lastUpdateTime = currentTime

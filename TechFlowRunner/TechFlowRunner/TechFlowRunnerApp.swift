@@ -12,6 +12,9 @@ import UIKit
 
 @main
 struct TechFlowRunnerApp: App {
+    // The app delegate reports the orientations currently allowed by
+    // OrientationManager (menus: all-but-upside-down; gameplay: landscape).
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var app = AppState()
     @Environment(\.scenePhase) private var scenePhase
 

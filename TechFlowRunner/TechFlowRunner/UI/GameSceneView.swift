@@ -25,7 +25,10 @@ struct GameSceneView: UIViewRepresentable {
         view.showsNodeCount = false
         #endif
         if scene.size == .zero {
-            scene.size = UIScreen.main.bounds.size
+            // Landscape placeholder; .resizeFill adopts the real SKView bounds
+            // once laid out. Avoids the deprecated UIScreen.main and never seeds
+            // a portrait size.
+            scene.size = CGSize(width: 1024, height: 768)
         }
         scene.scaleMode = .resizeFill
         view.presentScene(scene)
