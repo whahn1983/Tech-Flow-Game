@@ -84,6 +84,9 @@ struct MainMenuView: View {
                 pickerRow(title: "Modifier", value: app.selectedModifier.label, system: "slider.horizontal.3")
             }
             .buttonStyle(.plain)
+            .disabled(app.dailyEnabled)
+            .opacity(app.dailyEnabled ? 0.4 : 1)
+            .accessibilityHint(app.dailyEnabled ? "Locked to No Modifier while Daily Seed is on" : "")
 
             Button { showSkins = true } label: {
                 pickerRow(title: "Skin", value: app.selectedSkin.label, system: "paintpalette.fill")
