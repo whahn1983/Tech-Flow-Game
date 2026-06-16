@@ -135,8 +135,8 @@ final class AppState: ObservableObject {
         musicEnabled.toggle()
     }
 
-    func showLeaderboard(_ id: String = LeaderboardID.overall) {
-        gameCenter.showLeaderboard(id)
+    func showLeaderboard() {
+        gameCenter.showLeaderboard()
     }
 
     // MARK: Run control

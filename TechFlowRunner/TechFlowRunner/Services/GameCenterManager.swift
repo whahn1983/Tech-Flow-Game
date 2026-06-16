@@ -55,17 +55,6 @@ enum LeaderboardID {
         case .glasscannon: return glassCannon
         }
     }
-
-    /// Boards the player can browse from the in-app leaderboard picker, paired
-    /// with display names. The first entry (Overall) is the default board.
-    static let browsable: [(id: String, name: String)] = [
-        (overall, "Overall"),
-        (daily, "Daily"),
-        (hardcore, "Hardcore"),
-        (bitRush, "Bit Rush"),
-        (featherFall, "Feather Fall"),
-        (glassCannon, "Glass Cannon")
-    ]
 }
 
 /// Coarse authentication state, surfaced to the UI and the debug panel.
@@ -174,18 +163,18 @@ final class GameCenterManager: NSObject, ObservableObject {
         }
     }
 
-    /// Presents the native Game Center leaderboard UI focused on the overall
-    /// board.
+    /// Presents the native Game Center leaderboards UI, which lands on the list
+    /// of all the game's boards so the player can browse and switch between them.
     ///
     /// When the local player is NOT authenticated this intentionally does not
     /// present `GKGameCenterViewController`: presenting it unauthenticated shows
     /// a modal stuck on a spinner that never resolves (and logs the
     /// `GameOverlayUI` proxy errors), which reads to the player as a freeze.
     /// Instead we re-trigger the sign-in flow and update the status text.
-    func showLeaderboard(_ id: String = LeaderboardID.overall) {
+    func showLeaderboard() {
         guard GKLocalPlayer.local.isAuthenticated else {
             statusText = "Game Center: sign in to view the leaderboard"
-            log("showLeaderboard requested for \(id) but player not authenticated — re-triggering sign-in")
+            log("showLeaderboard requested but player not authenticated — re-triggering sign-in")
             // Re-trigger sign-in so the player can authenticate, then retry.
             authenticate()
             return
@@ -197,8 +186,8 @@ final class GameCenterManager: NSObject, ObservableObject {
         // Don't stack another modal if one is already presented.
         guard presenter.presentedViewController == nil else { return }
 
-        log("presenting leaderboard ID: \(id)")
-        let vc = GKGameCenterViewController(leaderboardID: id, playerScope: .global, timeScope: .allTime)
+        log("presenting Game Center leaderboards list")
+        let vc = GKGameCenterViewController(state: .leaderboards)
         vc.gameCenterDelegate = self
         presenter.present(vc, animated: true)
     }
