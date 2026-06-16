@@ -29,10 +29,17 @@ struct LeaderboardView: View {
                             .font(.subheadline).foregroundStyle(Theme.dim)
                             .multilineTextAlignment(.center)
                         if gameCenter.isAuthenticated {
-                            Button { app.showLeaderboard() } label: {
-                                Label("Show Game Center Leaderboard", systemImage: "list.number")
+                            Text("Open a Game Center leaderboard")
+                                .font(.caption).foregroundStyle(Theme.dim)
+                            // One button per board. Each presents that specific
+                            // leaderboard ID, never the generic Game Center UI.
+                            ForEach(LeaderboardID.browsable, id: \.id) { board in
+                                Button { app.showLeaderboard(board.id) } label: {
+                                    Label(board.name, systemImage: "list.number")
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(NeonButtonStyle(tint: Theme.gold))
                             }
-                            .buttonStyle(NeonButtonStyle(tint: Theme.gold))
                         } else {
                             Button { gameCenter.authenticate() } label: {
                                 Label("Sign in to Game Center", systemImage: "person.crop.circle.badge.plus")
@@ -72,6 +79,19 @@ struct LeaderboardView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .panel()
+
+                    #if DEBUG
+                    // Debug-only visibility into Game Center state so issues are
+                    // diagnosable on-device, not just in the Xcode console.
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("DEBUG · Game Center")
+                            .font(.caption2.weight(.bold)).foregroundStyle(Theme.danger)
+                        Text(gameCenter.debugSummary)
+                            .font(.caption2.monospaced()).foregroundStyle(Theme.dim)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .panel()
+                    #endif
                 }
                 .padding()
             }
