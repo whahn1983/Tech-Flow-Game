@@ -2,9 +2,9 @@
 
 ## Proprietary Ownership
 
-This software is owned by whahn1983. All rights reserved.
+This software is owned by H3 Consulting Partners LLC, a Texas limited liability company. All rights reserved.
 
-This program is not open-source and cannot be modified or distributed without the owner's explicit permission. All music and audio contained within is also owned by whahn1983.
+This program is proprietary software and is not open source. It may not be copied, modified, distributed, hosted, published, submitted to any marketplace, or used commercially without prior written permission from H3 Consulting Partners LLC. All music, audio, artwork, game design, source code, documentation, and related materials are owned by H3 Consulting Partners LLC or its licensors unless expressly stated otherwise in writing. See [LICENSE](LICENSE) for the full proprietary license terms.
 
 ## Overview
 
@@ -23,7 +23,7 @@ Tech Flow Runner is an engaging game that challenges players to navigate through
 - **Power-Ups:** Obtain various power-ups to enhance abilities temporarily.
 - **Progressive Difficulty:** Each level gets progressively harder with more obstacles and faster enemies.
 - **Scoring System:** Players earn points based on performance, speed, and level completion.
-- **Original Soundtrack:** Experience amazing original music created by whahn1983.
+- **Original Soundtrack:** Experience original music owned by H3 Consulting Partners LLC.
 - **Pause & Accessibility:** `P`/`Esc` to pause, auto-pause when the tab is hidden, `prefers-reduced-motion` honored, skip-link, focus-trapped modal, `aria-live` announcements.
 - **PWA / Offline:** Installable on desktop and mobile, plays offline after first load.
 
@@ -227,11 +227,11 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full contributor guide and
 
 ## License
 
-This project is proprietary and owned exclusively by whahn1983. See LICENSE file for details.
+This project is proprietary and owned exclusively by H3 Consulting Partners LLC, a Texas limited liability company. See [LICENSE](LICENSE) for the full license terms.
 
 ## Contact
 
-For more information, bug reports, or feature requests, open an issue on [GitHub](https://github.com/whahn1983/Tech-Flow-Game/issues) or contact whahn1983 directly.
+For more information, licensing inquiries, bug reports, or feature requests, open an issue on [GitHub](https://github.com/whahn1983/Tech-Flow-Game/issues) or contact H3 Consulting Partners LLC through an official company communication channel.
 
 For security issues, please open a private security advisory rather than a
 public issue.

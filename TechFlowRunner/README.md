@@ -52,7 +52,7 @@ TechFlowRunner/
     Services/                    GameCenterManager, AudioManager,
                                  PersistenceManager, HapticsManager
     UI/                          SwiftUI menus / HUD / overlays / pickers
-    Resources/Tech Flow.mp3      Bundled looping soundtrack (© whahn1983)
+    Resources/Tech Flow.mp3      Bundled looping soundtrack (© H3 Consulting Partners LLC)
     Assets.xcassets              App icon slot + accent color
     TechFlowRunner.entitlements  Game Center capability
 ```
@@ -95,5 +95,5 @@ the same app version traverses the same course for that day.
 
 ## Audio ownership
 
-`Tech Flow.mp3` and all audio are © whahn1983 and are bundled as an app
+`Tech Flow.mp3` and all audio are © H3 Consulting Partners LLC and are bundled as an app
 resource (never downloaded remotely).
