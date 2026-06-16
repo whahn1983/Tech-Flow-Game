@@ -34,9 +34,9 @@ struct PauseOverlayView: View {
                 }
                 .buttonStyle(NeonButtonStyle(tint: Theme.purple))
 
-                Button { app.toggleMute() } label: {
-                    Label(app.muted ? "Music Off" : "Music On",
-                          systemImage: app.muted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                Button { app.toggleMusic() } label: {
+                    Label(app.musicEnabled ? "Music On" : "Music Off",
+                          systemImage: app.musicEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
                 }
                 .buttonStyle(NeonButtonStyle(tint: Theme.purple))
             }
