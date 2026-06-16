@@ -26,7 +26,6 @@
 		AABBCCDD0000000000000022 /* Modifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0000000000000021 /* Modifier.swift */; };
 		AABBCCDD0000000000000024 /* Skin.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0000000000000023 /* Skin.swift */; };
 		AABBCCDD0000000000000026 /* AudioManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0000000000000025 /* AudioManager.swift */; };
-		AABBCCDD0000000000000061 /* OrientationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0000000000000060 /* OrientationManager.swift */; };
 		AABBCCDD0000000000000028 /* GameCenterManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0000000000000027 /* GameCenterManager.swift */; };
 		AABBCCDD000000000000002A /* HapticsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0000000000000029 /* HapticsManager.swift */; };
 		AABBCCDD000000000000002C /* PersistenceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD000000000000002B /* PersistenceManager.swift */; };
@@ -43,6 +42,7 @@
 		AABBCCDD0000000000000042 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0000000000000041 /* Theme.swift */; };
 		AABBCCDD0000000000000044 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0000000000000043 /* Assets.xcassets */; };
 		AABBCCDD0000000000000047 /* Tech Flow.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0000000000000046 /* Tech Flow.mp3 */; };
+		AABBCCDD0000000000000061 /* OrientationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0000000000000060 /* OrientationManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -65,7 +65,6 @@
 		AABBCCDD0000000000000021 /* Modifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Modifier.swift; sourceTree = "<group>"; };
 		AABBCCDD0000000000000023 /* Skin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Skin.swift; sourceTree = "<group>"; };
 		AABBCCDD0000000000000025 /* AudioManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioManager.swift; sourceTree = "<group>"; };
-		AABBCCDD0000000000000060 /* OrientationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrientationManager.swift; sourceTree = "<group>"; };
 		AABBCCDD0000000000000027 /* GameCenterManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterManager.swift; sourceTree = "<group>"; };
 		AABBCCDD0000000000000029 /* HapticsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticsManager.swift; sourceTree = "<group>"; };
 		AABBCCDD000000000000002B /* PersistenceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceManager.swift; sourceTree = "<group>"; };
@@ -84,6 +83,7 @@
 		AABBCCDD0000000000000045 /* TechFlowRunner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TechFlowRunner.entitlements; sourceTree = "<group>"; };
 		AABBCCDD0000000000000046 /* Tech Flow.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = "Tech Flow.mp3"; sourceTree = "<group>"; };
 		AABBCCDD0000000000000048 /* TechFlowRunner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TechFlowRunner.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AABBCCDD0000000000000060 /* OrientationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrientationManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -419,7 +419,7 @@
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIStatusBarHidden = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				"INFOPLIST_KEY_UISupportedInterfaceOrientations~ipad" = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -453,7 +453,7 @@
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIStatusBarHidden = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				"INFOPLIST_KEY_UISupportedInterfaceOrientations~ipad" = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
