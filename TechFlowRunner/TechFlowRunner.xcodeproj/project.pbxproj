@@ -21,7 +21,6 @@
 		AABBCCDD0000000000000018 /* Projectile.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0000000000000017 /* Projectile.swift */; };
 		AABBCCDD000000000000001A /* SeededRandom.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0000000000000019 /* SeededRandom.swift */; };
 		AABBCCDD000000000000001C /* SkinRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD000000000000001B /* SkinRenderer.swift */; };
-		AABBCCDD0000000000000F02 /* SkinIconRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0000000000000F01 /* SkinIconRenderer.swift */; };
 		AABBCCDD000000000000001E /* TechFlowGameScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD000000000000001D /* TechFlowGameScene.swift */; };
 		AABBCCDD0000000000000020 /* TerrainGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD000000000000001F /* TerrainGenerator.swift */; };
 		AABBCCDD0000000000000022 /* Modifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0000000000000021 /* Modifier.swift */; };
@@ -44,6 +43,7 @@
 		AABBCCDD0000000000000044 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0000000000000043 /* Assets.xcassets */; };
 		AABBCCDD0000000000000047 /* Tech Flow.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0000000000000046 /* Tech Flow.mp3 */; };
 		AABBCCDD0000000000000061 /* OrientationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0000000000000060 /* OrientationManager.swift */; };
+		AABBCCDD0000000000000F02 /* SkinIconRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0000000000000F01 /* SkinIconRenderer.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -61,7 +61,6 @@
 		AABBCCDD0000000000000017 /* Projectile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Projectile.swift; sourceTree = "<group>"; };
 		AABBCCDD0000000000000019 /* SeededRandom.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeededRandom.swift; sourceTree = "<group>"; };
 		AABBCCDD000000000000001B /* SkinRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkinRenderer.swift; sourceTree = "<group>"; };
-		AABBCCDD0000000000000F01 /* SkinIconRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkinIconRenderer.swift; sourceTree = "<group>"; };
 		AABBCCDD000000000000001D /* TechFlowGameScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TechFlowGameScene.swift; sourceTree = "<group>"; };
 		AABBCCDD000000000000001F /* TerrainGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerrainGenerator.swift; sourceTree = "<group>"; };
 		AABBCCDD0000000000000021 /* Modifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Modifier.swift; sourceTree = "<group>"; };
@@ -86,6 +85,7 @@
 		AABBCCDD0000000000000046 /* Tech Flow.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = "Tech Flow.mp3"; sourceTree = "<group>"; };
 		AABBCCDD0000000000000048 /* TechFlowRunner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TechFlowRunner.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AABBCCDD0000000000000060 /* OrientationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrientationManager.swift; sourceTree = "<group>"; };
+		AABBCCDD0000000000000F01 /* SkinIconRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkinIconRenderer.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -435,10 +435,11 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -469,10 +470,11 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
