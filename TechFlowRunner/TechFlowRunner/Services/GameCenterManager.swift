@@ -93,6 +93,12 @@ final class GameCenterManager: NSObject, ObservableObject {
     @Published var authState: GameCenterAuthState = .authenticating
     @Published var statusText = "Game Center: signing in…"
 
+    /// Per-board diagnostics: which browsable leaderboard IDs Game Center could
+    /// actually resolve. Populated after sign-in. Surfaced in the DEBUG panel so
+    /// "Now Playing dashboard, no leaderboard" failures are diagnosable
+    /// on-device instead of only in the Xcode console.
+    @Published var boardDiagnostics = "Not checked yet"
+
     private override init() { super.init() }
 
     /// Emits Game Center diagnostics to the Xcode console. DEBUG builds only, so
@@ -122,6 +128,8 @@ final class GameCenterManager: NSObject, ObservableObject {
                     self.authState = .signedIn
                     self.statusText = "Game Center: \(localPlayer.alias)"
                     self.log("authenticated: true — player: \(localPlayer.alias) (display name: \(localPlayer.displayName))")
+                    // Probe which leaderboards actually exist now that we can.
+                    self.refreshBoardDiagnostics()
                 } else {
                     self.isAuthenticated = false
                     if let error {
@@ -182,6 +190,14 @@ final class GameCenterManager: NSObject, ObservableObject {
     /// a modal stuck on a spinner that never resolves (and logs the
     /// `GameOverlayUI` proxy errors), which reads to the player as a freeze.
     /// Instead we re-trigger the sign-in flow and update the status text.
+    ///
+    /// We also verify the leaderboard ID actually resolves before presenting.
+    /// If you hand `GKGameCenterViewController(leaderboardID:)` an ID that Game
+    /// Center can't resolve — because the leaderboard hasn't been created in
+    /// App Store Connect, the ID doesn't match, or it isn't attached to this
+    /// app/bundle — GameKit silently falls back to the generic "Now Playing"
+    /// dashboard with no leaderboard shown. Pre-loading the board lets us
+    /// surface an actionable message instead of that confusing empty screen.
     func showLeaderboard(_ id: String = LeaderboardID.overall) {
         guard GKLocalPlayer.local.isAuthenticated else {
             statusText = "Game Center: sign in to view the leaderboard"
@@ -197,10 +213,66 @@ final class GameCenterManager: NSObject, ObservableObject {
         // Don't stack another modal if one is already presented.
         guard presenter.presentedViewController == nil else { return }
 
+        log("verifying leaderboard ID before presenting: \(id)")
+        Task { @MainActor in
+            do {
+                let boards = try await GKLeaderboard.loadLeaderboards(IDs: [id])
+                guard boards.contains(where: { $0.baseLeaderboardID == id }) else {
+                    // The board doesn't exist for this app. Presenting now would
+                    // show the empty "Now Playing" dashboard, so don't.
+                    self.statusText = "Game Center: “\(id)” isn’t set up yet — create it in App Store Connect"
+                    self.log("leaderboard ID \(id) did not resolve — NOT presenting (would show the empty Now Playing dashboard). Check that this leaderboard exists in App Store Connect with this exact ID and is attached to this app.")
+                    return
+                }
+                self.presentLeaderboard(id, from: presenter)
+            } catch {
+                self.statusText = "Game Center: couldn’t load leaderboard"
+                self.log("loadLeaderboards error for \(id): \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Presents the verified leaderboard. Split out so `showLeaderboard` can
+    /// validate asynchronously first.
+    private func presentLeaderboard(_ id: String, from presenter: UIViewController) {
+        // Re-check after the async hop in case something else presented.
+        guard presenter.presentedViewController == nil else {
+            log("presentLeaderboard: a modal appeared during validation — skipping")
+            return
+        }
         log("presenting leaderboard ID: \(id)")
         let vc = GKGameCenterViewController(leaderboardID: id, playerScope: .global, timeScope: .allTime)
         vc.gameCenterDelegate = self
         presenter.present(vc, animated: true)
+    }
+
+    /// Loads every browsable leaderboard ID and records which ones resolved.
+    /// Drives the DEBUG diagnostics panel; safe to call repeatedly.
+    func refreshBoardDiagnostics() {
+        guard GKLocalPlayer.local.isAuthenticated else {
+            boardDiagnostics = "Sign in to check leaderboards"
+            return
+        }
+        let ids = LeaderboardID.browsable.map(\.id)
+        Task { @MainActor in
+            do {
+                let loaded = try await GKLeaderboard.loadLeaderboards(IDs: ids)
+                let resolved = Set(loaded.map(\.baseLeaderboardID))
+                let lines = LeaderboardID.browsable.map { board in
+                    "\(resolved.contains(board.id) ? "✓" : "✗") \(board.id)"
+                }
+                self.boardDiagnostics = lines.joined(separator: "\n")
+                let missing = ids.filter { !resolved.contains($0) }
+                if missing.isEmpty {
+                    self.log("board diagnostics: all \(ids.count) leaderboards resolved")
+                } else {
+                    self.log("board diagnostics: \(missing.count) leaderboard(s) NOT found in App Store Connect: \(missing.joined(separator: ", "))")
+                }
+            } catch {
+                self.boardDiagnostics = "Load failed: \(error.localizedDescription)"
+                self.log("refreshBoardDiagnostics error: \(error.localizedDescription)")
+            }
+        }
     }
 
     #if DEBUG
@@ -212,6 +284,8 @@ final class GameCenterManager: NSObject, ObservableObject {
         Player: \(player.isAuthenticated ? player.displayName : "—")
         State: \(authState)
         Overall board: \(LeaderboardID.overall)
+        Boards resolved by Game Center:
+        \(boardDiagnostics)
         """
     }
     #endif

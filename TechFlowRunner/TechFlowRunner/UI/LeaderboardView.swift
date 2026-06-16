@@ -88,6 +88,12 @@ struct LeaderboardView: View {
                             .font(.caption2.weight(.bold)).foregroundStyle(Theme.danger)
                         Text(gameCenter.debugSummary)
                             .font(.caption2.monospaced()).foregroundStyle(Theme.dim)
+                        Button("Re-check leaderboards") {
+                            gameCenter.refreshBoardDiagnostics()
+                        }
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(Theme.cyan)
+                        .padding(.top, 2)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .panel()
