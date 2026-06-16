@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Privacy Policy for Tech Flow Runner, an iOS arcade runner game by H3 Consulting Partners LLC.">
+  <title>Tech Flow Runner Privacy Policy</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --background: #f5f7fb;
+      --surface: #ffffff;
+      --surface-muted: #eef4ff;
+      --text: #172033;
+      --muted: #5d6b82;
+      --heading: #0b1730;
+      --accent: #1d4ed8;
+      --accent-dark: #173ea7;
+      --border: #dbe4f0;
+      --shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+      --radius: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, #e5efff 0, transparent 36rem), var(--background);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.65;
+    }
+
+    a {
+      color: var(--accent);
+      font-weight: 600;
+      text-decoration-thickness: 0.08em;
+      text-underline-offset: 0.18em;
+    }
+
+    a:hover,
+    a:focus {
+      color: var(--accent-dark);
+    }
+
+    .page {
+      width: min(100%, 1080px);
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #07152f 0%, #153b7a 56%, #2563eb 100%);
+      color: #ffffff;
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      padding: clamp(32px, 6vw, 64px);
+      margin-bottom: 24px;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: #bfdbfe;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3 {
+      color: var(--heading);
+      line-height: 1.2;
+    }
+
+    .hero h1 {
+      margin: 0;
+      color: #ffffff;
+      font-size: clamp(2.1rem, 7vw, 4.4rem);
+      letter-spacing: -0.045em;
+    }
+
+    .hero .subtitle {
+      max-width: 760px;
+      margin: 18px 0 0;
+      color: #e0ecff;
+      font-size: clamp(1.05rem, 2vw, 1.25rem);
+    }
+
+    .effective-date {
+      display: inline-flex;
+      align-items: center;
+      margin-top: 28px;
+      padding: 10px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+      font-weight: 700;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 290px) minmax(0, 1fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    .toc,
+    .card {
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .toc {
+      position: sticky;
+      top: 20px;
+      padding: 22px;
+    }
+
+    .toc h2 {
+      margin: 0 0 14px;
+      font-size: 1rem;
+      letter-spacing: 0.02em;
+    }
+
+    .toc ol {
+      margin: 0;
+      padding-left: 1.25rem;
+    }
+
+    .toc li {
+      margin: 8px 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    main {
+      min-width: 0;
+    }
+
+    .card {
+      padding: clamp(22px, 4vw, 36px);
+      margin-bottom: 18px;
+    }
+
+    .card h2 {
+      margin: 0 0 14px;
+      font-size: clamp(1.35rem, 3vw, 2rem);
+      letter-spacing: -0.025em;
+    }
+
+    .card h3 {
+      margin-top: 24px;
+      margin-bottom: 10px;
+      font-size: 1.1rem;
+    }
+
+    .card p {
+      margin: 0 0 14px;
+    }
+
+    .card p:last-child,
+    .card ul:last-child {
+      margin-bottom: 0;
+    }
+
+    ul {
+      margin: 10px 0 18px;
+      padding-left: 1.35rem;
+    }
+
+    li {
+      margin: 7px 0;
+    }
+
+    .summary-card {
+      background: var(--surface-muted);
+      border-color: #c7d9f7;
+    }
+
+    .notice {
+      padding: 16px 18px;
+      margin: 18px 0 0;
+      background: #f8fbff;
+      border: 1px solid var(--border);
+      border-left: 5px solid var(--accent);
+      border-radius: 14px;
+      color: var(--muted);
+    }
+
+    .contact-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .contact-item {
+      padding: 14px 16px;
+      background: #f8fbff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+    }
+
+    .contact-item strong {
+      display: block;
+      color: var(--heading);
+      margin-bottom: 2px;
+    }
+
+    footer {
+      margin-top: 26px;
+      padding: 24px 8px 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+      text-align: center;
+    }
+
+    @media (max-width: 860px) {
+      .page {
+        padding: 18px 14px 34px;
+      }
+
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .toc {
+        position: static;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <p class="eyebrow">H3 Consulting Partners LLC</p>
+      <h1>Tech Flow Runner Privacy Policy</h1>
+      <p class="subtitle">This Privacy Policy explains how Tech Flow Runner handles information when you play the iOS game on iPhone or iPad.</p>
+      <p class="effective-date">Effective Date: June 16, 2026</p>
+    </header>
+
+    <div class="layout">
+      <nav class="toc" aria-labelledby="toc-heading">
+        <h2 id="toc-heading">Table of Contents</h2>
+        <ol>
+          <li><a href="#overview">Overview</a></li>
+          <li><a href="#information-collection">Information Collection</a></li>
+          <li><a href="#local-storage">Information Stored Locally</a></li>
+          <li><a href="#game-center">Game Center Integration</a></li>
+          <li><a href="#analytics-tracking">Analytics and Tracking</a></li>
+          <li><a href="#purchases">Purchases</a></li>
+          <li><a href="#permissions">Permissions</a></li>
+          <li><a href="#children">Children's Privacy</a></li>
+          <li><a href="#security">Data Security</a></li>
+          <li><a href="#international">International Users</a></li>
+          <li><a href="#rights-choices">User Rights and Choices</a></li>
+          <li><a href="#third-party-services">Third-Party Services</a></li>
+          <li><a href="#changes">Changes to This Policy</a></li>
+          <li><a href="#contact">Contact Information</a></li>
+          <li><a href="#summary">Final Summary</a></li>
+        </ol>
+      </nav>
+
+      <main>
+        <section class="card" id="overview">
+          <h2>1. Overview</h2>
+          <p>Tech Flow Runner is a standalone arcade-style runner game developed by H3 Consulting Partners LLC for iPhone and iPad. The game is played primarily on your device and includes optional integration with Apple's Game Center services for leaderboards and achievements.</p>
+          <p>Our privacy philosophy is simple: Tech Flow Runner is designed to minimize data collection. H3 Consulting Partners LLC does not operate custom backend servers for Tech Flow Runner, does not require user accounts, and does not design the game to transmit gameplay information to developer-controlled systems.</p>
+        </section>
+
+        <section class="card" id="information-collection">
+          <h2>2. Information Collection</h2>
+          <p>H3 Consulting Partners LLC does not collect, store, transmit, sell, rent, license, or share personal information through developer-operated systems in connection with Tech Flow Runner.</p>
+          <p>Tech Flow Runner is designed to operate without collecting personal information from players. The application does not knowingly collect the following categories of information:</p>
+          <ul>
+            <li>Names</li>
+            <li>Email addresses</li>
+            <li>Phone numbers</li>
+            <li>Mailing addresses</li>
+            <li>Payment information</li>
+            <li>Location information</li>
+            <li>Contacts</li>
+            <li>Photos</li>
+            <li>Camera data</li>
+            <li>Microphone recordings</li>
+            <li>Health information</li>
+            <li>Biometric information</li>
+            <li>Government identification information</li>
+          </ul>
+        </section>
+
+        <section class="card" id="local-storage">
+          <h2>3. Information Stored Locally on Your Device</h2>
+          <p>Tech Flow Runner stores certain gameplay information locally on your device for functionality, personalization, and game progression purposes. This information helps the game remember your progress and settings.</p>
+          <p>Examples of locally stored gameplay information may include:</p>
+          <ul>
+            <li>Best scores</li>
+            <li>Lifetime statistics</li>
+            <li>Achievement progress</li>
+            <li>Unlocked skins</li>
+            <li>Audio settings</li>
+            <li>Gameplay preferences</li>
+            <li>Modifier selections</li>
+            <li>Daily challenge progress</li>
+            <li>Other game progression information</li>
+          </ul>
+          <p>This information remains on your device unless it is managed through Apple services, such as Game Center or device backup and synchronization features that you control through Apple.</p>
+        </section>
+
+        <section class="card" id="game-center">
+          <h2>4. Game Center Integration</h2>
+          <p>Tech Flow Runner optionally integrates with Apple Game Center. Participation in Game Center is optional and depends on your Apple account settings and your choice to use Game Center features.</p>
+          <p>If you choose to use Game Center with Tech Flow Runner:</p>
+          <ul>
+            <li>Scores may be submitted to Apple Game Center leaderboards.</li>
+            <li>Achievements may be synchronized through Apple Game Center.</li>
+            <li>Leaderboard rankings may be retrieved from Apple Game Center.</li>
+            <li>Game Center account information is managed entirely by Apple.</li>
+          </ul>
+          <p>H3 Consulting Partners LLC does not receive your Game Center password or Apple account credentials. H3 Consulting Partners LLC does not control Apple's Game Center systems. Apple's collection, storage, and processing of Game Center information are governed by Apple's privacy policies and terms.</p>
+          <p class="notice">You should review Apple's privacy documentation and Game Center settings for additional information about how Apple handles information associated with Game Center.</p>
+        </section>
+
+        <section class="card" id="analytics-tracking">
+          <h2>5. Analytics and Tracking</h2>
+          <p>Tech Flow Runner is not designed for advertising, marketing profiling, or user tracking. The application:</p>
+          <ul>
+            <li>Does not display advertisements.</li>
+            <li>Does not use advertising networks.</li>
+            <li>Does not use third-party analytics services.</li>
+            <li>Does not use Google Analytics.</li>
+            <li>Does not use Firebase Analytics.</li>
+            <li>Does not use Mixpanel, Amplitude, or similar services.</li>
+            <li>Does not use behavioral profiling.</li>
+            <li>Does not track users across apps or websites.</li>
+            <li>Does not use third-party tracking technologies.</li>
+          </ul>
+        </section>
+
+        <section class="card" id="purchases">
+          <h2>6. Purchases</h2>
+          <p>The current version of Tech Flow Runner does not require user accounts and does not process payments through developer-operated systems.</p>
+          <p>If future versions of Tech Flow Runner include in-app purchases, those purchases would be processed through Apple and would be subject to Apple's terms, payment systems, and privacy practices. H3 Consulting Partners LLC would not receive your full payment card details from Apple.</p>
+        </section>
+
+        <section class="card" id="permissions">
+          <h2>7. Permissions</h2>
+          <p>Tech Flow Runner does not request access to the following device data or features:</p>
+          <ul>
+            <li>Contacts</li>
+            <li>Photos</li>
+            <li>Camera</li>
+            <li>Microphone</li>
+            <li>Calendars</li>
+            <li>Reminders</li>
+            <li>Bluetooth</li>
+            <li>Health information</li>
+            <li>Precise location</li>
+            <li>Background location</li>
+          </ul>
+          <p>Future versions may request additional permissions only when required for new features and only with appropriate user consent through the permission controls provided by iOS.</p>
+        </section>
+
+        <section class="card" id="children">
+          <h2>8. Children's Privacy</h2>
+          <p>Tech Flow Runner may be used by children and adults. The application is designed to avoid collecting personal information from players, including children.</p>
+          <p>Tech Flow Runner:</p>
+          <ul>
+            <li>Does not knowingly collect personal information from children.</li>
+            <li>Does not require user accounts.</li>
+            <li>Does not include chat functionality.</li>
+            <li>Does not include social networking features operated by the developer.</li>
+            <li>Does not include advertising networks.</li>
+            <li>Does not include behavioral tracking.</li>
+            <li>Does not use developer-operated systems to collect personal information from children.</li>
+          </ul>
+          <p>Any Game Center functionality is optional and provided by Apple. Parents and guardians are encouraged to review Apple's parental controls, Family Sharing settings, Screen Time settings, and Game Center settings to manage a child's experience.</p>
+        </section>
+
+        <section class="card" id="security">
+          <h2>9. Data Security</h2>
+          <p>Most gameplay information for Tech Flow Runner is stored locally on your device. H3 Consulting Partners LLC does not use developer-operated backend systems for gameplay data.</p>
+          <p>H3 Consulting Partners LLC takes reasonable measures to protect information under its control. However, no method of electronic storage or transmission can be guaranteed to be completely secure, and we cannot guarantee absolute security.</p>
+        </section>
+
+        <section class="card" id="international">
+          <h2>10. International Users</h2>
+          <p>Tech Flow Runner is developed by a U.S.-based independent software developer and may be accessed by users in countries outside the United States. Privacy laws and rights may differ depending on your jurisdiction.</p>
+          <p>Because Tech Flow Runner is designed to operate primarily on your device without developer-operated collection of personal information, many privacy choices are managed through your device settings, iOS settings, Apple account settings, and Game Center settings.</p>
+        </section>
+
+        <section class="card" id="rights-choices">
+          <h2>11. User Rights and Choices</h2>
+          <p>You have several choices regarding Tech Flow Runner and related information:</p>
+          <ul>
+            <li>You may delete the application from your device at any time.</li>
+            <li>You may remove locally stored game data by deleting the application from your device.</li>
+            <li>You may manage Game Center information through Apple's settings, account tools, and support resources.</li>
+            <li>You may contact H3 Consulting Partners LLC with privacy-related questions using the contact information below.</li>
+          </ul>
+        </section>
+
+        <section class="card" id="third-party-services">
+          <h2>12. Third-Party Services</h2>
+          <p>Tech Flow Runner may use Apple-provided services, including Game Center, to support optional leaderboards and achievements. Apple operates these services independently from H3 Consulting Partners LLC.</p>
+          <p>H3 Consulting Partners LLC is not responsible for Apple's privacy practices, systems, policies, or terms. Users should review Apple's privacy policies and terms for details regarding Apple's handling of information.</p>
+        </section>
+
+        <section class="card" id="changes">
+          <h2>13. Changes to This Privacy Policy</h2>
+          <p>H3 Consulting Partners LLC may update this Privacy Policy from time to time. Updates will be posted on the official Privacy Policy webpage for Tech Flow Runner.</p>
+          <p>The Effective Date at the top of this page will be updated whenever changes occur. Continued use of Tech Flow Runner after changes become effective constitutes acceptance of the updated Privacy Policy.</p>
+        </section>
+
+        <section class="card" id="contact">
+          <h2>14. Contact Information</h2>
+          <p>If you have questions, concerns, or requests regarding this Privacy Policy or Tech Flow Runner's privacy practices, please contact H3 Consulting Partners LLC.</p>
+          <div class="contact-list" aria-label="Contact details">
+            <div class="contact-item">
+              <strong>Developer</strong>
+              H3 Consulting Partners LLC
+            </div>
+            <div class="contact-item">
+              <strong>Website</strong>
+              <a href="https://h3consultingpartners.com">https://h3consultingpartners.com</a>
+            </div>
+            <div class="contact-item">
+              <strong>Email</strong>
+              <a href="mailto:bill@h3consultingpartners.com">bill@h3consultingpartners.com</a>
+            </div>
+          </div>
+        </section>
+
+        <section class="card summary-card" id="summary">
+          <h2>15. Final Summary</h2>
+          <ul>
+            <li>Tech Flow Runner is primarily a local-device game for iPhone and iPad.</li>
+            <li>H3 Consulting Partners LLC intentionally minimizes data collection.</li>
+            <li>Participation in Game Center features is optional.</li>
+            <li>H3 Consulting Partners LLC does not operate a custom backend for gameplay data.</li>
+            <li>Tech Flow Runner does not use advertising or analytics platforms.</li>
+          </ul>
+        </section>
+      </main>
+    </div>
+
+    <footer>
+      <p>&copy; 2026 H3 Consulting Partners LLC. All rights reserved.</p>
+      <p><a href="https://h3consultingpartners.com">h3consultingpartners.com</a> &bull; <a href="mailto:bill@h3consultingpartners.com">bill@h3consultingpartners.com</a></p>
+    </footer>
+  </div>
+</body>
+</html>
