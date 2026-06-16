@@ -72,7 +72,8 @@ final class AppState: ObservableObject {
     private let persistence = PersistenceManager.shared
 
     init() {
-        dailyEnabled = persistence.dailyEnabled
+        let dailyEnabled = persistence.dailyEnabled
+        self.dailyEnabled = dailyEnabled
         // Daily seed always runs with no modifier (see dailyEnabled.didSet).
         selectedModifier = dailyEnabled ? .none : persistence.lastModifier
         reducedMotionOverride = persistence.reducedMotionOverride
