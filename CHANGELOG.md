@@ -33,6 +33,12 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Changed
 
+- **Rotate-to-play prompt on iPhone.** Starting a run while holding the device
+  in portrait no longer snaps the iPhone into a sideways landscape layout.
+  Instead the interface follows the device's physical orientation and shows the
+  existing "Rotate Device to Continue" overlay (previously seen mainly on iPad)
+  until the device is turned to landscape, at which point the run locks to
+  landscape and play begins.
 - **Nonces are now mandatory** on score submissions. Previously the server
   accepted submissions without a nonce for legacy clients; that fallback has
   been removed on both the Node and PHP backends. The bundled client always

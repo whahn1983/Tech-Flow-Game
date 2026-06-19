@@ -20,8 +20,9 @@ final class AppState: ObservableObject {
     @Published var runResult = RunResult()
 
     /// True while a run is active but the gameplay view is not laid out in
-    /// landscape (e.g. iPad held portrait, Split View, Stage Manager). Drives
-    /// the "Rotate Device to Continue" fallback overlay and disables input.
+    /// landscape (a run started in portrait, the device turned mid-run, or iPad
+    /// Split View / Stage Manager). Drives the "Rotate Device to Continue"
+    /// overlay and disables input.
     @Published var awaitingLandscape = false
 
     /// Tracks a pause that was triggered solely by the device leaving landscape,
@@ -165,11 +166,12 @@ final class AppState: ObservableObject {
     // MARK: Run control
 
     func startRun() {
-        // Lock the interface to landscape before the gameplay view appears so
-        // iOS rotates into landscape as the transition happens. The SpriteKit
-        // scene additionally waits for a landscape layout before building the
-        // run (see TechFlowGameScene.update), so play never begins in portrait.
-        OrientationManager.shared.lockLandscape()
+        // Don't force a rotation here. The interface is left free to follow the
+        // device's physical orientation so that, if it's already landscape, the
+        // geometry callback locks it in; if it's portrait, the player sees the
+        // "Rotate Device to Continue" overlay until they turn the device. This
+        // gives iPhone the same rotate-to-play prompt as iPad, instead of
+        // snapping into a sideways landscape layout while held in portrait.
         pausedForOrientation = false
 
         let seedValue: UInt32? = dailyEnabled ? RandomSource.dailySeed() : nil
@@ -227,12 +229,22 @@ final class AppState: ObservableObject {
 
         if isLandscape {
             awaitingLandscape = false
+            // The device is physically landscape, so pin the interface there for
+            // the rest of the run. Locking only once we're already landscape
+            // guarantees the forced rotation never lands sideways on iPhone.
+            OrientationManager.shared.lockLandscape()
             if pausedForOrientation {
                 pausedForOrientation = false
                 resume()
             }
         } else {
             awaitingLandscape = true
+            // Release any landscape lock so the interface can follow the device
+            // into portrait and surface the rotate overlay. On iPhone the lock
+            // normally holds landscape during play; this primarily matters when
+            // a run first starts in portrait (and for iPad multitasking, where
+            // the lock is declined and the view can be laid out portrait).
+            OrientationManager.shared.unlock()
             if runState == .running {
                 pausedForOrientation = true
                 pause()

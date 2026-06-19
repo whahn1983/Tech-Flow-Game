@@ -29,9 +29,13 @@ Menus may be used in portrait or landscape, but an active run is locked to
 landscape (both Landscape Left and Landscape Right) so every player gets the
 same play area — this keeps the Game Center leaderboard fair. The lock is
 driven by `OrientationManager` + the app delegate's
-`supportedInterfaceOrientationsFor`, with a fixed-landscape SpriteKit scene and,
-on iPad multitasking where rotation can't be forced, a "Rotate Device to
-Continue" overlay that pauses play. iPhone first; iPad is also supported.
+`supportedInterfaceOrientationsFor`, with a fixed-landscape SpriteKit scene.
+Rather than forcing a rotation when a run begins, the interface follows the
+device: starting (or rotating) into portrait pauses play behind a "Rotate
+Device to Continue" overlay until the device is turned back to landscape, at
+which point the run locks to landscape and resumes. This applies on iPhone and
+iPad (including iPad multitasking, where rotation can't be forced at all).
+iPhone first; iPad is also supported.
 
 > The Xcode project is generated from the on-disk source tree by
 > `generate_project.py`. If you add/remove Swift files, re-run
