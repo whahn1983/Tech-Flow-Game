@@ -32,7 +32,7 @@ struct GameContainerView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.top, 10)
-                .padding(.bottom, 4)
+                .padding(.bottom, 2)
 
                 // The rotate overlay takes precedence over the normal overlays:
                 // it both pauses play and disables input while not landscape.
@@ -101,6 +101,9 @@ private struct OnScreenControls: View {
             ControlButton(symbol: "arrow.up", label: "Jump", tint: Theme.cyan,
                           onDown: { scene.tapJump() }, onUp: {})
         }
+        // Pull the side buttons (Duck / Jump) closer to the screen edges than
+        // the surrounding HUD padding (14pt) allows.
+        .padding(.horizontal, -10)
     }
 }
 
