@@ -19,6 +19,20 @@ struct GameContainerView: View {
             // be forced) a portrait layout triggers the rotate overlay below.
             let isLandscape = geo.size.width >= geo.size.height
 
+            // The scene is rendered with aspect-fit against a fixed reference
+            // aspect ratio. On devices whose screen is less wide than that
+            // (iPads and older iPhones) SpriteKit letterboxes the scene with
+            // black bars top and bottom, so the controls sit in that bar and
+            // can keep the original, more generous padding. On iPhones whose
+            // screen matches the reference aspect ratio the scene fills the
+            // whole display, so the controls are pulled tight to the edges to
+            // stay clear of the play area.
+            let insets = geo.safeAreaInsets
+            let fullWidth = geo.size.width + insets.leading + insets.trailing
+            let fullHeight = geo.size.height + insets.top + insets.bottom
+            let sceneAspect = GameConstants.designWidth / GameConstants.designHeight
+            let fillsScreen = fullHeight > 0 && (fullWidth / fullHeight) >= sceneAspect - 0.05
+
             ZStack {
                 GameSceneView(scene: app.scene)
                     .ignoresSafeArea()
@@ -27,12 +41,12 @@ struct GameContainerView: View {
                     HUDView(hud: app.hud, onPause: { app.pause() })
                     Spacer()
                     if app.runState == .running && !app.awaitingLandscape {
-                        OnScreenControls(scene: app.scene)
+                        OnScreenControls(scene: app.scene, edgeToEdge: fillsScreen)
                     }
                 }
                 .padding(.horizontal, 14)
                 .padding(.top, 10)
-                .padding(.bottom, 2)
+                .padding(.bottom, fillsScreen ? 2 : 10)
 
                 // The rotate overlay takes precedence over the normal overlays:
                 // it both pauses play and disables input while not landscape.
@@ -89,6 +103,11 @@ private struct RotateToContinueOverlay: View {
 /// button in the HUD. These provide a non-gesture fallback for accessibility.
 private struct OnScreenControls: View {
     let scene: TechFlowGameScene
+    /// True on iPhones where the scene fills the entire screen. When set, the
+    /// side buttons are pulled flush to the edges (and the extra bottom inset
+    /// dropped) so they don't intrude on the play area. On letterboxed devices
+    /// (iPad / older iPhones) this is false and the original padding is kept.
+    let edgeToEdge: Bool
 
     var body: some View {
         HStack {
@@ -101,9 +120,11 @@ private struct OnScreenControls: View {
             ControlButton(symbol: "arrow.up", label: "Jump", tint: Theme.cyan,
                           onDown: { scene.tapJump() }, onUp: {})
         }
-        // Pull the side buttons (Duck / Jump) closer to the screen edges than
-        // the surrounding HUD padding (14pt) allows.
-        .padding(.horizontal, -14)
+        // On full-screen iPhones pull the side buttons (Duck / Jump) closer to
+        // the screen edges than the surrounding HUD padding (14pt) allows. On
+        // letterboxed devices keep the original inset and bottom spacing.
+        .padding(.horizontal, edgeToEdge ? -14 : 0)
+        .padding(.bottom, edgeToEdge ? 0 : 8)
     }
 }
 
