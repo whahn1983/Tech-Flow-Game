@@ -111,7 +111,10 @@ final class TechFlowGameScene: SKScene {
 
     override func didMove(to view: SKView) {
         backgroundColor = UIColor(hex: 0x03060F)
-        scaleMode = .resizeFill
+        // Fixed reference size + aspect-fit so the playable area is identical on
+        // every device (see GameConstants.designSize / GameSceneView).
+        size = GameConstants.designSize
+        scaleMode = .aspectFit
         physicsWorld.gravity = .zero   // gameplay gravity is integrated manually
 
         // The scene instance is reused across presentations (it lives on
@@ -236,9 +239,10 @@ final class TechFlowGameScene: SKScene {
 
     override func update(_ currentTime: TimeInterval) {
         if pendingSetup {
-            // Wait for a real, landscape layout before building the run. This
-            // guarantees gameplay never starts with a portrait (taller) play
-            // area, preserving leaderboard fairness even mid-rotation.
+            // The scene size is locked to the fixed landscape reference design
+            // size, so the play area is always the same regardless of device or
+            // physical orientation (a portrait device is paused/overlaid by
+            // AppState). This guard is a defensive check that the size is valid.
             guard size.width > 1, size.height > 1, size.width > size.height else {
                 lastUpdateTime = currentTime; return
             }

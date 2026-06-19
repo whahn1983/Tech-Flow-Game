@@ -65,9 +65,10 @@ final class AppState: ObservableObject {
     @Published var lifetime: LifetimeStats
 
     let gameCenter = GameCenterManager.shared
-    // Initial size is a placeholder; the scene uses .resizeFill and adopts the
-    // hosting SKView's bounds when presented.
-    let scene = TechFlowGameScene(size: CGSize(width: 1024, height: 768))
+    // The scene is locked to the fixed reference design size and uniformly
+    // scaled (aspect-fit) onto every device, so the playable area is identical
+    // regardless of screen size.
+    let scene = TechFlowGameScene(size: GameConstants.designSize)
 
     private let persistence = PersistenceManager.shared
 

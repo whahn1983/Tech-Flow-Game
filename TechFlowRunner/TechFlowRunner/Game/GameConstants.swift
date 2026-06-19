@@ -12,6 +12,17 @@ import CoreGraphics
 import Foundation
 
 enum GameConstants {
+    // MARK: Reference design space.
+    // The simulation is tuned against the iPhone 16 Pro logical (point) size:
+    // 2622 × 1206 px at @3x == 874 × 402 pt. The SpriteKit scene is locked to
+    // this size on every device and uniformly scaled (aspect-fit) so the
+    // playable area — and therefore the difficulty — is identical regardless of
+    // physical screen size. Larger screens simply zoom this same area in;
+    // smaller screens zoom it out. See `GameSceneView`.
+    static let designWidth: CGFloat = 874
+    static let designHeight: CGFloat = 402
+    static let designSize = CGSize(width: designWidth, height: designHeight)
+
     // MARK: Player physics (y-up: gravity is negative, jump impulse positive).
     static let gravity: CGFloat = -0.75
     static let jumpVelocity: CGFloat = 14.0
