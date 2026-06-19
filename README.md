@@ -107,8 +107,10 @@ everywhere.
 | Pause | **On-screen Pause button** |
 
 > During an active run the iPhone/iPad is locked to **landscape** so every
-> player gets the same play area and the leaderboard stays fair. Menus work in
-> any orientation.
+> player gets the same play area and the leaderboard stays fair. If you start a
+> run while holding the device in portrait, a **"Rotate Device to Continue"**
+> prompt pauses play until you turn it to landscape. Menus work in any
+> orientation.
 
 **🌐 Web (keyboard, mouse & touch)**
 

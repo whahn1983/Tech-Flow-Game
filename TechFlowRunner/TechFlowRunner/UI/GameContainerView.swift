@@ -14,9 +14,11 @@ struct GameContainerView: View {
     var body: some View {
         GeometryReader { geo in
             // The gameplay area is only considered playable when it is laid out
-            // in landscape. On iPhone the orientation lock makes this immediate;
-            // on iPad (Split View / Stage Manager, where rotation can't always
-            // be forced) a portrait layout triggers the rotate overlay below.
+            // in landscape. The interface follows the device's physical
+            // orientation, so a portrait layout — whether a run is started in
+            // portrait on iPhone/iPad, the device is turned mid-run, or iPad
+            // multitasking declines a forced rotation — triggers the rotate
+            // overlay below until landscape is restored.
             let isLandscape = geo.size.width >= geo.size.height
 
             // The scene is rendered with aspect-fit against a fixed reference
@@ -71,9 +73,10 @@ struct GameContainerView: View {
     }
 }
 
-/// Fallback shown when an active run isn't laid out in landscape (primarily
-/// iPad multitasking, where the system may decline a forced rotation). It fills
-/// the screen and swallows touches so gameplay input is disabled while visible.
+/// Shown whenever an active run isn't laid out in landscape — a run started in
+/// portrait, the device turned mid-run, or iPad multitasking declining a forced
+/// rotation. It fills the screen and swallows touches so gameplay input is
+/// disabled while visible, prompting the player to rotate to landscape.
 private struct RotateToContinueOverlay: View {
     var body: some View {
         ZStack {
