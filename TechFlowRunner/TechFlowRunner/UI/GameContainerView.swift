@@ -103,7 +103,7 @@ private struct OnScreenControls: View {
         }
         // Pull the side buttons (Duck / Jump) closer to the screen edges than
         // the surrounding HUD padding (14pt) allows.
-        .padding(.horizontal, -10)
+        .padding(.horizontal, -14)
     }
 }
 
