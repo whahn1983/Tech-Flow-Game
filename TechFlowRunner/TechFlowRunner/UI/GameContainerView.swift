@@ -32,7 +32,7 @@ struct GameContainerView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.top, 10)
-                .padding(.bottom, 2)
+                .ignoresSafeArea(.container, edges: .bottom)
 
                 // The rotate overlay takes precedence over the normal overlays:
                 // it both pauses play and disables input while not landscape.
