@@ -60,6 +60,9 @@ final class AppState: ObservableObject {
     @Published var reducedMotionOverride: Bool {
         didSet { persistence.reducedMotionOverride = reducedMotionOverride }
     }
+    @Published var showOnScreenControls: Bool {
+        didSet { persistence.showOnScreenControls = showOnScreenControls }
+    }
 
     // MARK: Stats
     @Published var best: Int
@@ -79,6 +82,7 @@ final class AppState: ObservableObject {
         // Daily seed always runs with no modifier (see dailyEnabled.didSet).
         selectedModifier = dailyEnabled ? .none : persistence.lastModifier
         reducedMotionOverride = persistence.reducedMotionOverride
+        showOnScreenControls = persistence.showOnScreenControls
         best = persistence.bestScore
         lifetime = persistence.lifetime
         musicEnabled = persistence.musicEnabled

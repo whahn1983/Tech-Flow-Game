@@ -41,6 +41,7 @@ final class PersistenceManager {
         static let sfxVolume = "tfr.sfxVolume"
         static let modifier = "tfr.lastModifier"
         static let reducedMotion = "tfr.reducedMotionOverride"
+        static let showOnScreenControls = "tfr.showOnScreenControls"
         static let dailyEnabled = "tfr.dailyEnabled"
         static let history = "tfr.runHistory"
     }
@@ -115,6 +116,16 @@ final class PersistenceManager {
     var reducedMotionOverride: Bool {
         get { defaults.bool(forKey: Key.reducedMotion) }
         set { defaults.set(newValue, forKey: Key.reducedMotion) }
+    }
+
+    // MARK: On-screen controls (Jump / Dash / Duck buttons)
+    //
+    // Defaults to on. Players who prefer the gesture controls can hide the
+    // buttons so they don't overlap the play area. Absent key falls back to
+    // visible so existing installs keep the buttons.
+    var showOnScreenControls: Bool {
+        get { defaults.object(forKey: Key.showOnScreenControls) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: Key.showOnScreenControls) }
     }
 
     // MARK: Daily seed toggle

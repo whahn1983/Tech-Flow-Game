@@ -3,8 +3,9 @@
 //  Tech Flow Runner
 //
 //  Local settings: independent music and sound-effect controls (each with an
-//  enable toggle and a volume slider), reduced-motion override, and haptics.
-//  All values persist via PersistenceManager. Also surfaces lifetime stats.
+//  enable toggle and a volume slider), reduced-motion override, haptics, and a
+//  toggle to hide the on-screen Jump/Dash/Duck buttons. All values persist via
+//  PersistenceManager. Also surfaces lifetime stats.
 //
 
 import SwiftUI
@@ -45,6 +46,12 @@ struct SettingsView: View {
                         .onChange(of: hapticsEnabled) { _, value in
                             HapticsManager.shared.enabled = value
                         }
+                }
+
+                Section("Controls") {
+                    Toggle("On-Screen Controls", isOn: $app.showOnScreenControls)
+                    Text("Show the Jump, Dash, and Duck buttons during play. Turn off to play with taps and swipes only.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
 
                 Section("Lifetime") {
