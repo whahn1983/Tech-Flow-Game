@@ -42,7 +42,7 @@ struct GameContainerView: View {
                 VStack(spacing: 0) {
                     HUDView(hud: app.hud, onPause: { app.pause() })
                     Spacer()
-                    if app.runState == .running && !app.awaitingLandscape {
+                    if app.runState == .running && !app.awaitingLandscape && app.showOnScreenControls {
                         OnScreenControls(scene: app.scene, edgeToEdge: fillsScreen)
                     }
                 }
