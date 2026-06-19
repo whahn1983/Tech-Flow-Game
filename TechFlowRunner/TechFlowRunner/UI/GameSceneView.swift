@@ -20,17 +20,20 @@ struct GameSceneView: UIViewRepresentable {
         let view = SKView(frame: .zero)
         view.ignoresSiblingOrder = true
         view.isMultipleTouchEnabled = true
+        // Match the scene background so the aspect-fit letterbox (on devices
+        // whose aspect ratio differs from the iPhone 16 Pro reference) is
+        // seamless rather than showing through as black bars.
+        view.backgroundColor = UIColor(hex: 0x03060F)
         #if DEBUG
         view.showsFPS = false
         view.showsNodeCount = false
         #endif
-        if scene.size == .zero {
-            // Landscape placeholder; .resizeFill adopts the real SKView bounds
-            // once laid out. Avoids the deprecated UIScreen.main and never seeds
-            // a portrait size.
-            scene.size = CGSize(width: 1024, height: 768)
-        }
-        scene.scaleMode = .resizeFill
+        // Lock the scene to the fixed reference design size and let SpriteKit
+        // uniformly scale (zoom) it to fit any device. This keeps the playable
+        // area — and the difficulty — identical on every screen, instead of
+        // .resizeFill which stretched the play area to the device's point size.
+        scene.size = GameConstants.designSize
+        scene.scaleMode = .aspectFit
         view.presentScene(scene)
 
         let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
@@ -45,9 +48,9 @@ struct GameSceneView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: SKView, context: Context) {
-        if uiView.bounds.size != .zero, scene.size != uiView.bounds.size {
-            scene.size = uiView.bounds.size
-        }
+        // The scene size is intentionally fixed to the reference design size
+        // (set in makeUIView); aspect-fit handles scaling to the live bounds, so
+        // there is nothing to resize here.
     }
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
