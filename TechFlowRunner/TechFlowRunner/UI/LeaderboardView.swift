@@ -75,19 +75,6 @@ struct LeaderboardView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .panel()
-
-                    #if DEBUG
-                    // Debug-only visibility into Game Center state so issues are
-                    // diagnosable on-device, not just in the Xcode console.
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("DEBUG · Game Center")
-                            .font(.caption2.weight(.bold)).foregroundStyle(Theme.danger)
-                        Text(gameCenter.debugSummary)
-                            .font(.caption2.monospaced()).foregroundStyle(Theme.dim)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .panel()
-                    #endif
                 }
                 .padding()
             }
