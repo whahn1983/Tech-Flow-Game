@@ -9,6 +9,19 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+- **Game Center consent flow (App Store Review Guideline 5.1.2).** The iOS app
+  (Tech Flow Runner) no longer authenticates Game Center automatically on first
+  launch. A first-run dialog ("Game Center Leaderboards") lets the player choose
+  **Play Offline** or **Connect to Game Center**, with the privacy policy linked
+  before they opt in. The choice is persisted as a `GameCenterConsentState`
+  (`notAsked` / `offline` / `consented`, default `notAsked`). Score submission
+  and achievement reporting are now gated behind both consent and an
+  authenticated local player; offline play saves local bests with nothing
+  uploaded. A new **Game Center** section in Settings shows the current status
+  and lets offline players connect later (or switch a connected account back to
+  offline). Previously-consented players still authenticate automatically on
+  subsequent launches.
+
 - **SQLite-backed leaderboard** for the PHP backend. Scores are now stored in
   `leaderboard.sqlite` (via PDO + WAL) when the SQLite driver is available.
   Whenever the `scores` table is empty, the backend imports any existing

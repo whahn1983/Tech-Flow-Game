@@ -25,6 +25,25 @@ struct RunRecord: Codable, Identifiable {
     var date: Date
 }
 
+/// Whether the player has been asked about — and opted into — Apple Game
+/// Center. Game Center uploads scores to global leaderboards and syncs
+/// achievements, so (per App Store Review Guideline 5.1.2) the app must obtain
+/// explicit consent before authenticating or uploading anything.
+///
+///   - `.notAsked`   First launch; no consent decision yet. Game Center stays
+///                    dormant until the player chooses.
+///   - `.offline`    The player declined; play stays fully local, nothing is
+///                    uploaded, and Game Center is never authenticated
+///                    automatically.
+///   - `.consented`  The player opted in; Game Center may authenticate
+///                    (including automatically on future launches) and upload
+///                    scores / achievements.
+enum GameCenterConsentState: String, Codable {
+    case notAsked
+    case offline
+    case consented
+}
+
 final class PersistenceManager {
     static let shared = PersistenceManager()
 
@@ -44,6 +63,16 @@ final class PersistenceManager {
         static let showOnScreenControls = "tfr.showOnScreenControls"
         static let dailyEnabled = "tfr.dailyEnabled"
         static let history = "tfr.runHistory"
+        static let gameCenterConsent = "tfr.gameCenterConsent"
+    }
+
+    // MARK: Game Center consent (App Store Review Guideline 5.1.2)
+    //
+    // Defaults to `.notAsked` so a fresh install never authenticates Game
+    // Center — or uploads any score — until the player has explicitly chosen.
+    var gameCenterConsent: GameCenterConsentState {
+        get { GameCenterConsentState(rawValue: defaults.string(forKey: Key.gameCenterConsent) ?? "") ?? .notAsked }
+        set { defaults.set(newValue.rawValue, forKey: Key.gameCenterConsent) }
     }
 
     // MARK: Best score

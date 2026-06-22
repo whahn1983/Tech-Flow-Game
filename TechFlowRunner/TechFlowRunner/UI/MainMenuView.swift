@@ -50,6 +50,9 @@ struct MainMenuView: View {
         .sheet(isPresented: $showSkins) { SkinPickerView() }
         .sheet(isPresented: $showModifiers) { ModifierPickerView() }
         .sheet(isPresented: $showLeaderboard) { LeaderboardView() }
+        // First-run Game Center consent: ask once the menu has appeared, so the
+        // player chooses before any run starts (App Store Review 5.1.2).
+        .onAppear { app.presentConsentDialogIfNeeded() }
     }
 
     private var header: some View {

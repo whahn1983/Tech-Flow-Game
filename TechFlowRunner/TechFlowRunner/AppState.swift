@@ -68,6 +68,11 @@ final class AppState: ObservableObject {
     @Published var best: Int
     @Published var lifetime: LifetimeStats
 
+    /// Drives the first-run Game Center consent dialog (App Store Review
+    /// Guideline 5.1.2). Set true once, after the menu first appears, when the
+    /// player has never been asked. The dialog itself records the decision.
+    @Published var showGameCenterConsent = false
+
     let gameCenter = GameCenterManager.shared
     // The scene is locked to the fixed reference design size and uniformly
     // scaled (aspect-fit) onto every device, so the playable area is identical
@@ -100,6 +105,10 @@ final class AppState: ObservableObject {
         }
 
         scene.gameDelegate = self
+        // Load the persisted Game Center consent decision so the manager knows
+        // whether it's allowed to authenticate. This does NOT authenticate —
+        // that's deferred to onLaunch()/the consent dialog.
+        gameCenter.configure(consentState: persistence.gameCenterConsent)
         // Once Game Center signs in, credit achievements for every skin already
         // unlocked (covers installs that earned skins before achievements
         // existed, and players who sign in after playing offline).
@@ -147,7 +156,29 @@ final class AppState: ObservableObject {
         AudioManager.shared.configureSession()
         AudioManager.shared.prepareMusic()
         HapticsManager.shared.prepare()
-        gameCenter.authenticate()
+        // Only authenticate when the player previously opted in. A fresh install
+        // (.notAsked) or an offline player never triggers Game Center sign-in
+        // here — App Store Review Guideline 5.1.2.
+        gameCenter.authenticateIfConsented()
+    }
+
+    /// Called by the main menu after it first appears. Presents the one-time
+    /// Game Center consent dialog when the player has never been asked, so the
+    /// choice is made before any run starts.
+    func presentConsentDialogIfNeeded() {
+        guard gameCenter.consentState == .notAsked else { return }
+        showGameCenterConsent = true
+    }
+
+    /// Records the player's choice from a consent dialog (first-run or the
+    /// Settings/leaderboard connect flow) and authenticates when they opt in.
+    func resolveGameCenterConsent(connect: Bool) {
+        showGameCenterConsent = false
+        if connect {
+            gameCenter.requestConsentAndAuthenticate()
+        } else {
+            gameCenter.goOffline()
+        }
     }
 
     // MARK: Menu actions
@@ -164,7 +195,16 @@ final class AppState: ObservableObject {
     }
 
     func showLeaderboard() {
-        gameCenter.showLeaderboard()
+        switch gameCenter.consentState {
+        case .consented:
+            // Opted in: present the native Game Center UI (which itself retries
+            // sign-in if the session isn't authenticated).
+            gameCenter.showLeaderboard()
+        case .notAsked, .offline:
+            // Never open Game Center before consent — surface the optional
+            // connect / play-offline choice (with the privacy policy) instead.
+            showGameCenterConsent = true
+        }
     }
 
     // MARK: Run control
@@ -323,6 +363,12 @@ extension AppState: TechFlowGameSceneDelegate {
 
         // Submit to Game Center (best-effort; never blocks play).
         guard points > 0 else {
+            runResult.submission = .localOnly
+            return
+        }
+        // Offline / not-yet-asked players never upload: report local-only
+        // without surfacing a sign-in prompt or error during normal play.
+        guard gameCenter.consentState == .consented else {
             runResult.submission = .localOnly
             return
         }

@@ -52,5 +52,14 @@ struct RootView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: app.runState)
+        // Game Center consent dialog (App Store Review Guideline 5.1.2). Hosted
+        // at the root so it can appear over both the menu (first launch) and the
+        // game-over overlay (offline player tapping Leaderboard).
+        .sheet(isPresented: $app.showGameCenterConsent) {
+            GameCenterConsentView(
+                onConnect: { app.resolveGameCenterConsent(connect: true) },
+                onOffline: { app.resolveGameCenterConsent(connect: false) }
+            )
+        }
     }
 }

@@ -12,8 +12,10 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var app: AppState
+    @ObservedObject private var gameCenter = GameCenterManager.shared
     @Environment(\.dismiss) private var dismiss
     @State private var hapticsEnabled = HapticsManager.shared.enabled
+    @State private var showConnectConsent = false
 
     var body: some View {
         NavigationStack {
@@ -63,9 +65,29 @@ struct SettingsView: View {
                 }
 
                 Section("Game Center") {
-                    Text(GameCenterManager.shared.statusText)
+                    LabeledContent("Status", value: gameCenter.settingsStatusText)
+                    Text(gameCenter.statusText)
                         .font(.caption).foregroundStyle(.secondary)
-                    Button("Show Leaderboard") { app.showLeaderboard() }
+
+                    switch gameCenter.consentState {
+                    case .offline, .notAsked:
+                        // Offline players can opt in later. Re-show the consent
+                        // message (with the privacy policy) before connecting.
+                        Text("Connect to Game Center to submit your scores to global leaderboards and sync achievements. Game Center is optional.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Button("Connect to Game Center") { showConnectConsent = true }
+                        Link("Privacy Policy", destination: PrivacyPolicy.url)
+                            .font(.callout)
+
+                    case .consented:
+                        Button("Show Leaderboard") { app.showLeaderboard() }
+                        // Honest opt-out: the app can't tear down the live Game
+                        // Center session, but this stops all future score and
+                        // achievement uploads. Local play is unaffected.
+                        Button("Switch to Offline Mode", role: .destructive) {
+                            gameCenter.goOffline()
+                        }
+                    }
                 }
 
                 Section {
@@ -78,6 +100,12 @@ struct SettingsView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }
+            }
+            .sheet(isPresented: $showConnectConsent) {
+                GameCenterConsentView(
+                    onConnect: { gameCenter.requestConsentAndAuthenticate() },
+                    onOffline: { gameCenter.goOffline() }
+                )
             }
         }
     }
