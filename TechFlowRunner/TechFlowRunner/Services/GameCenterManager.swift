@@ -7,6 +7,18 @@
 //  offline and unauthenticated, in which case only the local best is saved.
 //
 //  ───────────────────────────────────────────────────────────────────────────
+//  CONSENT (App Store Review Guideline 5.1.2)
+//  ───────────────────────────────────────────────────────────────────────────
+//  The app must NOT authenticate Game Center — and must NOT upload any score or
+//  achievement — before the player has explicitly opted in. Consent is tracked
+//  by `GameCenterConsentState` (persisted via PersistenceManager) and defaults
+//  to `.notAsked`. Authentication only happens through
+//  `requestConsentAndAuthenticate()` (an explicit opt-in) or
+//  `authenticateIfConsented()` (only when the player previously opted in). Every
+//  upload path is gated behind `consentState == .consented` AND
+//  `GKLocalPlayer.local.isAuthenticated`.
+//
+//  ───────────────────────────────────────────────────────────────────────────
 //  APP STORE CONNECT SETUP
 //  ───────────────────────────────────────────────────────────────────────────
 //  Create the following leaderboards in App Store Connect (My Apps → your app →
@@ -88,20 +100,128 @@ enum GameCenterAuthState: CustomStringConvertible {
     }
 }
 
+/// The single canonical privacy-policy URL, surfaced in the Game Center
+/// consent dialog and the Settings connect flow. Must stay in lockstep with the
+/// URL configured in App Store Connect.
+enum PrivacyPolicy {
+    static let url = URL(string: "https://whahn1983.github.io/Tech-Flow-Game/privacy.html")!
+}
+
 @MainActor
 final class GameCenterManager: NSObject, ObservableObject {
     static let shared = GameCenterManager()
 
     @Published var isAuthenticated = false
-    @Published var authState: GameCenterAuthState = .authenticating
-    @Published var statusText = "Game Center: signing in…"
+    @Published var authState: GameCenterAuthState = .notSignedIn
+    @Published var statusText = "Game Center: off"
+
+    /// The player's consent decision (App Store Review Guideline 5.1.2). Until
+    /// this is `.consented`, the manager never authenticates and never uploads.
+    /// Loaded from persistence in `configure(consentState:)` at launch.
+    @Published private(set) var consentState: GameCenterConsentState = .notAsked
 
     /// Invoked on the main actor each time the local player becomes
     /// authenticated. AppState uses this to (re)sync skin-unlock achievements,
     /// so progress earned before this update — or before sign-in — is credited.
     var onAuthenticated: (() -> Void)?
 
-    private override init() { super.init() }
+    private let persistence = PersistenceManager.shared
+
+    private override init() {
+        super.init()
+        // Reflect any previously-stored consent in the published state before
+        // the UI first renders, but do NOT authenticate here — authentication
+        // is driven explicitly from AppState after launch.
+        consentState = persistence.gameCenterConsent
+        updateConsentStatusText()
+    }
+
+    // MARK: - Consent
+
+    /// True only when the player has opted in AND Game Center has authenticated
+    /// the local player. Every upload path checks this.
+    var canUseGameCenter: Bool {
+        consentState == .consented && GKLocalPlayer.local.isAuthenticated
+    }
+
+    /// Loads the persisted consent decision. Call once at launch before any
+    /// authentication. Does not itself authenticate; pair with
+    /// `authenticateIfConsented()`.
+    func configure(consentState: GameCenterConsentState) {
+        self.consentState = consentState
+        persistence.gameCenterConsent = consentState
+        updateConsentStatusText()
+    }
+
+    /// Records explicit opt-in and immediately starts Game Center
+    /// authentication. This is the ONLY consent transition that triggers
+    /// sign-in from a not-yet-consented state, and must be called only in
+    /// response to a direct user action (the consent dialog's "Connect"
+    /// button).
+    func requestConsentAndAuthenticate() {
+        log("user consented to Game Center")
+        consentState = .consented
+        persistence.gameCenterConsent = .consented
+        authenticate()
+    }
+
+    /// Authenticates only when the player previously opted in. Safe to call
+    /// unconditionally at launch: in `.offline` / `.notAsked` it is a no-op, so
+    /// Game Center never appears before consent.
+    func authenticateIfConsented() {
+        guard consentState == .consented else {
+            log("authenticateIfConsented skipped — consent state is \(consentState.rawValue)")
+            updateConsentStatusText()
+            return
+        }
+        authenticate()
+    }
+
+    /// Returns the player to offline mode: future scores and achievements stop
+    /// uploading. The current `GKLocalPlayer` session can't be torn down by the
+    /// app, but `canUseGameCenter` now reports false so nothing is submitted.
+    func goOffline() {
+        log("user switched Game Center to offline")
+        consentState = .offline
+        persistence.gameCenterConsent = .offline
+        updateConsentStatusText()
+    }
+
+    /// Status text for the `.offline` / `.notAsked` states (and a sensible
+    /// default before any sign-in attempt). The authentication callbacks own
+    /// the text once a sign-in is in flight.
+    private func updateConsentStatusText() {
+        switch consentState {
+        case .notAsked:
+            statusText = "Game Center: not set up"
+        case .offline:
+            statusText = "Game Center: off"
+        case .consented:
+            // Leave whatever the auth flow last set (signing in / signed in /
+            // failed). Only seed an initial value if we haven't started yet.
+            if !isAuthenticated && authState == .notSignedIn {
+                statusText = "Game Center: signing in…"
+            }
+        }
+    }
+
+    /// A short, human-readable status for the Settings screen, combining the
+    /// consent decision with the live authentication state.
+    var settingsStatusText: String {
+        switch consentState {
+        case .notAsked:
+            return "Not Asked"
+        case .offline:
+            return "Offline Mode"
+        case .consented:
+            switch authState {
+            case .authenticating: return "Connecting…"
+            case .signedIn: return "Connected"
+            case .notSignedIn: return "Signed Out"
+            case .failed: return "Unavailable"
+            }
+        }
+    }
 
     /// Emits Game Center diagnostics to the Xcode console. DEBUG builds only, so
     /// none of this leaks into release logs.
@@ -111,7 +231,11 @@ final class GameCenterManager: NSObject, ObservableObject {
         #endif
     }
 
-    func authenticate() {
+    /// Starts the Game Center sign-in flow. Private: callers must go through
+    /// `requestConsentAndAuthenticate()` (explicit opt-in) or
+    /// `authenticateIfConsented()` (previously opted in) so authentication can
+    /// never run ahead of consent.
+    private func authenticate() {
         let localPlayer = GKLocalPlayer.local
         authState = .authenticating
         statusText = "Game Center: signing in…"
@@ -157,6 +281,10 @@ final class GameCenterManager: NSObject, ObservableObject {
     /// board, and (when applicable) the daily board. Returns a coarse result
     /// the game-over overlay can surface to the player.
     func submit(score: Int, modifier: Modifier, daily: Bool) async -> SubmissionResult {
+        guard consentState == .consented else {
+            log("submit skipped — no Game Center consent (state: \(consentState.rawValue))")
+            return .notAuthenticated
+        }
         guard GKLocalPlayer.local.isAuthenticated else {
             log("submit skipped — player not authenticated (score: \(score))")
             return .notAuthenticated
@@ -194,6 +322,10 @@ final class GameCenterManager: NSObject, ObservableObject {
     /// toast for any achievement newly crossing 100% in this report.
     func reportSkinAchievements(_ skins: [Skin], showBanner: Bool) async {
         guard !skins.isEmpty else { return }
+        guard consentState == .consented else {
+            log("achievement report skipped — no Game Center consent (state: \(consentState.rawValue))")
+            return
+        }
         guard GKLocalPlayer.local.isAuthenticated else {
             log("achievement report skipped — player not authenticated")
             return
@@ -213,7 +345,15 @@ final class GameCenterManager: NSObject, ObservableObject {
     }
 
     /// Presents the native Game Center dashboard on the achievements tab.
+    ///
+    /// Requires prior consent. When the player hasn't opted in this is a no-op
+    /// (the UI layer surfaces the consent dialog instead). When consent exists
+    /// but the session isn't authenticated, it retries sign-in.
     func showAchievements() {
+        guard consentState == .consented else {
+            log("showAchievements requested but no Game Center consent — ignoring")
+            return
+        }
         guard GKLocalPlayer.local.isAuthenticated else {
             statusText = "Game Center: sign in to view achievements"
             log("showAchievements requested but player not authenticated — re-triggering sign-in")
@@ -241,6 +381,12 @@ final class GameCenterManager: NSObject, ObservableObject {
     /// `GameOverlayUI` proxy errors), which reads to the player as a freeze.
     /// Instead we re-trigger the sign-in flow and update the status text.
     func showLeaderboard() {
+        guard consentState == .consented else {
+            // No opt-in yet: never present Game Center UI or trigger sign-in.
+            // The UI layer shows the consent dialog instead.
+            log("showLeaderboard requested but no Game Center consent — ignoring")
+            return
+        }
         guard GKLocalPlayer.local.isAuthenticated else {
             statusText = "Game Center: sign in to view the leaderboard"
             log("showLeaderboard requested but player not authenticated — re-triggering sign-in")
@@ -266,6 +412,7 @@ final class GameCenterManager: NSObject, ObservableObject {
     var debugSummary: String {
         let player = GKLocalPlayer.local
         return """
+        Consent: \(consentState.rawValue)
         Authenticated: \(player.isAuthenticated)
         Player: \(player.isAuthenticated ? player.displayName : "—")
         State: \(authState)

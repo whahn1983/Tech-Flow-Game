@@ -22,13 +22,15 @@ struct LeaderboardView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     VStack(spacing: 8) {
-                        Image(systemName: gameCenter.isAuthenticated ? "trophy.fill" : "trophy")
+                        Image(systemName: gameCenter.canUseGameCenter ? "trophy.fill" : "trophy")
                             .font(.system(size: 40))
                             .foregroundStyle(Theme.gold)
                         Text(gameCenter.statusText)
                             .font(.subheadline).foregroundStyle(Theme.dim)
                             .multilineTextAlignment(.center)
-                        if gameCenter.isAuthenticated {
+
+                        switch gameCenter.consentState {
+                        case .consented where gameCenter.isAuthenticated:
                             // Opens the native Game Center leaderboards list, where
                             // the player can browse and switch between every board.
                             Button { app.showLeaderboard() } label: {
@@ -36,14 +38,34 @@ struct LeaderboardView: View {
                                     .frame(maxWidth: .infinity)
                             }
                             .buttonStyle(NeonButtonStyle(tint: Theme.gold))
-                        } else {
-                            Button { gameCenter.authenticate() } label: {
-                                Label("Sign in to Game Center", systemImage: "person.crop.circle.badge.plus")
+
+                        case .consented:
+                            // Opted in, but the session isn't authenticated
+                            // (signed out / failed). Offer a retry.
+                            Button { gameCenter.authenticateIfConsented() } label: {
+                                Label("Retry Sign In", systemImage: "arrow.clockwise")
                             }
                             .buttonStyle(NeonButtonStyle(tint: Theme.gold))
                             Text("Sign in to Game Center to see the global leaderboard. Your runs are saved locally either way.")
                                 .font(.caption).foregroundStyle(Theme.dim)
                                 .multilineTextAlignment(.center)
+
+                        case .offline, .notAsked:
+                            // Never open Game Center before consent. Explain it's
+                            // optional and let the player opt in here, with the
+                            // privacy policy available before they do.
+                            Text("Game Center is off. You can play offline, or connect to Game Center to use leaderboards and achievements.")
+                                .font(.caption).foregroundStyle(Theme.dim)
+                                .multilineTextAlignment(.center)
+                            Button { app.resolveGameCenterConsent(connect: true) } label: {
+                                Label("Connect to Game Center", systemImage: "person.crop.circle.badge.checkmark")
+                            }
+                            .buttonStyle(NeonButtonStyle(tint: Theme.gold))
+                            Link(destination: PrivacyPolicy.url) {
+                                Label("Privacy Policy", systemImage: "hand.raised.fill")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(Theme.cyan)
+                            }
                         }
                     }
                     .panel()

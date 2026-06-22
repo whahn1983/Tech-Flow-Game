@@ -37,10 +37,13 @@ which point the run locks to landscape and resumes. This applies on iPhone and
 iPad (including iPad multitasking, where rotation can't be forced at all).
 iPhone first; iPad is also supported.
 
-> The Xcode project is generated from the on-disk source tree by
-> `generate_project.py`. If you add/remove Swift files, re-run
-> `python3 generate_project.py` from the `TechFlowRunner/` directory to refresh
-> `TechFlowRunner.xcodeproj/project.pbxproj`.
+> The Xcode project uses a **file-system-synchronized root group** (Xcode 16+):
+> the whole `TechFlowRunner/` folder is referenced as one synchronized group, so
+> Xcode automatically picks up any file you add to it on disk — no
+> `project.pbxproj` edits needed when adding or removing source files.
+> `generate_project.py` is kept only to recreate `project.pbxproj` from scratch
+> if it is ever lost; it is not part of the normal add-a-file workflow.
+> **Requires Xcode 16 or later** to open (`objectVersion = 77`).
 
 ## Project structure
 
