@@ -11,6 +11,7 @@ import UIKit
 
 struct GameOverOverlayView: View {
     @EnvironmentObject var app: AppState
+    @ObservedObject private var lives = LivesManager.shared
     let result: RunResult
 
     var body: some View {
@@ -39,13 +40,30 @@ struct GameOverOverlayView: View {
                             .font(.caption).foregroundStyle(Theme.gold)
                     }
                     submissionLabel
+                    Divider().overlay(Theme.dim.opacity(0.3))
+                    HStack {
+                        Text("Lives").font(.caption2).foregroundStyle(Theme.dim)
+                        Spacer()
+                        LivesBadge()
+                    }
                 }
                 .panel()
 
-                Button { app.restartRun() } label: {
-                    Label("Reboot Run", systemImage: "arrow.counterclockwise")
+                if lives.canStartRun {
+                    Button { app.restartRun() } label: {
+                        Label("Reboot Run", systemImage: "arrow.counterclockwise")
+                    }
+                    .buttonStyle(NeonButtonStyle(tint: Theme.cyan, prominent: true))
+                    .accessibilityHint(lives.unlimited
+                        ? "Starts another run"
+                        : "Starts another run and spends one life")
+                } else {
+                    Button { app.showLivesStore = true } label: {
+                        Label("Out of Lives — Get Unlimited", systemImage: "heart.slash.fill")
+                    }
+                    .buttonStyle(NeonButtonStyle(tint: Theme.gold, prominent: true))
+                    .accessibilityHint("Opens the Unlimited Lives store; or wait for a life to regenerate")
                 }
-                .buttonStyle(NeonButtonStyle(tint: Theme.cyan, prominent: true))
 
                 HStack(spacing: 10) {
                     Button { app.returnToMenu() } label: {

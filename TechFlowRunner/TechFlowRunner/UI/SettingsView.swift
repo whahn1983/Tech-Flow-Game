@@ -13,9 +13,11 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var app: AppState
     @ObservedObject private var gameCenter = GameCenterManager.shared
+    @ObservedObject private var store = StoreManager.shared
     @Environment(\.dismiss) private var dismiss
     @State private var hapticsEnabled = HapticsManager.shared.enabled
     @State private var showConnectConsent = false
+    @State private var showLivesStore = false
 
     var body: some View {
         NavigationStack {
@@ -54,6 +56,24 @@ struct SettingsView: View {
                     Toggle("On-Screen Controls", isOn: $app.showOnScreenControls)
                     Text("Show the Jump, Dash, and Duck buttons during play. Turn off to play with taps and swipes only.")
                         .font(.caption).foregroundStyle(.secondary)
+                }
+
+                Section("Lives") {
+                    if store.isUnlimitedUnlocked {
+                        LabeledContent("Unlimited Lives", value: "Unlocked")
+                        Text("You own Unlimited Lives Forever — runs never cost a life. Thanks for your support!")
+                            .font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Text("Play free with up to \(LivesManager.maxLives) lives — one refills every 15 minutes. Unlock Unlimited Lives Forever to play without waiting.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Button("Unlimited Lives — \(store.displayPrice)") { showLivesStore = true }
+                    }
+                    Button("Restore Purchases") { Task { await store.restore() } }
+                        .disabled(store.isBusy)
+                    Link("Terms of Use (EULA)", destination: TermsOfUse.url)
+                        .font(.callout)
+                    Link("Privacy Policy", destination: PrivacyPolicy.url)
+                        .font(.callout)
                 }
 
                 Section("Lifetime") {
@@ -106,6 +126,9 @@ struct SettingsView: View {
                     onConnect: { gameCenter.requestConsentAndAuthenticate() },
                     onOffline: { gameCenter.goOffline() }
                 )
+            }
+            .sheet(isPresented: $showLivesStore) {
+                LivesStoreView()
             }
         }
     }
