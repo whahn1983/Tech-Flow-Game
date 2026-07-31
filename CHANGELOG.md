@@ -104,6 +104,18 @@ denied` on leaderboard writes.
 - **CI** no longer ignores ESLint failures (`|| true` removed); a Prettier
   check and the unit test job are now part of the pipeline.
 
+### Fixed
+
+- **Rapid-tap jump float (iOS).** Hammering the jump button no longer lets the
+  player hover/climb instead of falling after the double jump. Each rapid press
+  used to re-arm the jump-input buffer, so every brief ground contact auto-fired
+  a buffered jump (and refilled the double jump), chaining into an endless
+  auto-bounce. The jump buffer is now latched so it can be armed at most once per
+  landing — it only re-enables after the player settles back on the ground — so
+  no matter how fast the button is pressed the game recognizes only a single
+  jump or double jump. Legitimate input buffering (a single press just before
+  landing) and coyote-time jumps are unaffected.
+
 ### Security
 
 - Mandatory nonce on score submissions (see above).
