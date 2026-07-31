@@ -96,7 +96,10 @@ final class StoreManager: ObservableObject {
             // Ask-to-Buy approvals, purchases/restores made on another device,
             // and refunds/revocations.
             updatesTask = Task.detached { [weak self] in
-                for await update in Transaction.updates {
+                // Fully qualified as `StoreKit.Transaction` because SwiftUI also
+                // declares a `Transaction` type; importing both makes the bare
+                // name ambiguous.
+                for await update in StoreKit.Transaction.updates {
                     await self?.handle(update)
                 }
             }
@@ -123,7 +126,7 @@ final class StoreManager: ObservableObject {
     /// is the authoritative check and corrects the cached flag either way.
     func refreshEntitlements() async {
         var owned = false
-        for await result in Transaction.currentEntitlements {
+        for await result in StoreKit.Transaction.currentEntitlements {
             if case .verified(let transaction) = result,
                transaction.productID == StoreProductID.unlimitedLives,
                transaction.revocationDate == nil {
@@ -185,7 +188,7 @@ final class StoreManager: ObservableObject {
 
     // MARK: - Transaction handling
 
-    private func handle(_ verification: VerificationResult<Transaction>) async {
+    private func handle(_ verification: VerificationResult<StoreKit.Transaction>) async {
         switch verification {
         case .verified(let transaction):
             if transaction.productID == StoreProductID.unlimitedLives {
