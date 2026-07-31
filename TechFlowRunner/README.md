@@ -119,6 +119,13 @@ runs never cost a life. It is implemented with **StoreKit 2** in `StoreManager`:
   and in Settings, satisfying App Store Review Guideline 3.1.1.
 - The paywall (`LivesStoreView`) is reachable from the menu lives panel, the
   Out-of-Lives prompts (menu and game-over), and Settings.
+- The paywall shows the full purchase disclosure — product name, price, that it
+  is a one-time non-consumable that does not auto-renew, and that payment is
+  charged to the Apple Account at confirmation — plus links to the **Terms of
+  Use (Apple's standard EULA, `TermsOfUse.url`)** and the **Privacy Policy
+  (`PrivacyPolicy.url`, hosted on GitHub Pages)**. The same two links also
+  appear in Settings. If you configure a custom EULA in App Store Connect,
+  update `TermsOfUse.url` in `Services/StoreManager.swift` to match.
 
 Create a single **Non-Consumable** IAP in **App Store Connect → your app →
 Features → In-App Purchases** with this exact Product ID (suggested price Tier 3,

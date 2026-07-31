@@ -43,11 +43,7 @@ struct LivesStoreView: View {
 
                         restoreButton
 
-                        Text("One-time purchase — Unlimited Lives never expires and can be restored on any device signed in to the same Apple Account.")
-                            .font(.caption2)
-                            .foregroundStyle(Theme.dim)
-                            .multilineTextAlignment(.center)
-                            .padding(.top, 4)
+                        legalFooter
                     }
                     .frame(maxWidth: 460)
                     .padding(20)
@@ -165,6 +161,27 @@ struct LivesStoreView: View {
         }
         .buttonStyle(NeonButtonStyle(tint: Theme.purple))
         .disabled(store.isBusy)
+    }
+
+    /// Purchase disclosure plus the required Terms of Use (Apple's standard
+    /// EULA) and Privacy Policy links.
+    private var legalFooter: some View {
+        VStack(spacing: 10) {
+            Text("Unlimited Lives Forever is a one-time \(store.displayPrice) purchase (a non-consumable — it does not auto-renew). Payment is charged to your Apple Account at confirmation of purchase. It never expires and can be restored on any device signed in to the same Apple Account.")
+                .font(.caption2)
+                .foregroundStyle(Theme.dim)
+                .multilineTextAlignment(.center)
+
+            HStack(spacing: 18) {
+                Link("Terms of Use (EULA)", destination: TermsOfUse.url)
+                Text("·").foregroundStyle(Theme.dim)
+                Link("Privacy Policy", destination: PrivacyPolicy.url)
+            }
+            .font(.caption)
+            .tint(Theme.cyan)
+        }
+        .padding(.top, 4)
+        .accessibilityElement(children: .contain)
     }
 
     private func benefitRow(icon: String, text: String) -> some View {

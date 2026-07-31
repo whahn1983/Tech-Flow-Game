@@ -42,6 +42,15 @@ enum StoreProductID {
     static let unlimitedLives = "com.whahn1983.techflowrunner.unlimitedlives"
 }
 
+/// Apple's standard Licensed Application End User License Agreement (the
+/// "Terms of Use" for the in-app purchase). The App Store applies this EULA to
+/// every app that does not supply a custom one, so the paywall links to it. If
+/// you configure a custom EULA in App Store Connect, point this at that URL
+/// instead so the two stay in lockstep.
+enum TermsOfUse {
+    static let url = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
+}
+
 @MainActor
 final class StoreManager: ObservableObject {
     static let shared = StoreManager()

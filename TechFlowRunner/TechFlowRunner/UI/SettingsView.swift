@@ -70,6 +70,10 @@ struct SettingsView: View {
                     }
                     Button("Restore Purchases") { Task { await store.restore() } }
                         .disabled(store.isBusy)
+                    Link("Terms of Use (EULA)", destination: TermsOfUse.url)
+                        .font(.callout)
+                    Link("Privacy Policy", destination: PrivacyPolicy.url)
+                        .font(.callout)
                 }
 
                 Section("Lifetime") {
