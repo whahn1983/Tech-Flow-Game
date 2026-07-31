@@ -74,6 +74,13 @@ final class TechFlowGameScene: SKScene {
     // Input-feel state
     private var coyoteFrames = 0
     private var jumpBufferFrames = 0
+    // Guards the jump buffer so it can be armed at most once per landing.
+    // Without this, hammering the jump button re-arms `jumpBufferFrames`
+    // every press; each brief ground contact then auto-fires a buffered jump
+    // (and refills the double jump), letting a rapid tapper climb/float
+    // forever instead of falling back down. The latch clears only when the
+    // player has genuinely settled back on the ground (see stepSimulation).
+    private var jumpBufferLatched = false
     private var isDucking = false
     private var duckHeldFrames = 0
     private var duckLockedOut = false
@@ -199,7 +206,8 @@ final class TechFlowGameScene: SKScene {
         lastSpawnAction = nil; queuedSpawnAction = nil
         pwrShield = modifier.startsWithShield ? 1 : 0
         pwrOverclock = 0; pwrMagnet = 0; pwrSlowmo = 0
-        coyoteFrames = 0; jumpBufferFrames = 0; isDucking = false; duckHeldFrames = 0
+        coyoteFrames = 0; jumpBufferFrames = 0; jumpBufferLatched = false
+        isDucking = false; duckHeldFrames = 0
         duckLockedOut = false; dashFrames = 0; dashCooldown = 0; wallRunFrames = 0
         wallRunCooldown = 0; speedMultiplier = 1
         bossSpawnsSuppressed = 0; nearMissCooldown = 0; shakeFrames = 0
@@ -324,7 +332,15 @@ final class TechFlowGameScene: SKScene {
             doJump()
             return
         }
-        jumpBufferFrames = GameConstants.jumpBufferFrames
+        // Out of jumps: buffer this press so a jump fires the instant we land.
+        // Arm it at most once per landing — the latch (cleared only after the
+        // player settles back on the ground) stops rapid re-presses from
+        // continuously re-arming the buffer, which is what let a masher
+        // auto-bounce and float instead of falling.
+        if !jumpBufferLatched {
+            jumpBufferFrames = GameConstants.jumpBufferFrames
+            jumpBufferLatched = true
+        }
     }
 
     // MARK: - Simulation step (ported reference update loop)
@@ -440,8 +456,15 @@ final class TechFlowGameScene: SKScene {
         if jumpBufferFrames > 0 && (nowOnGround || coyoteFrames > 0) {
             doJump()
             jumpBufferFrames = 0
+            // Keep the latch set: the player must settle on the ground again
+            // (branch below) before another press can arm the buffer, so a
+            // continuous mash can't chain buffered jumps into an endless float.
         } else if jumpBufferFrames > 0 {
             jumpBufferFrames -= 1
+        } else if nowOnGround {
+            // Settled on the ground with no buffered jump pending — re-enable
+            // buffering for the next airborne sequence.
+            jumpBufferLatched = false
         }
 
         if player.y > size.height + 80 {
