@@ -12,6 +12,7 @@ import SwiftUI
 struct MainMenuView: View {
     @EnvironmentObject var app: AppState
     @ObservedObject private var gameCenter = GameCenterManager.shared
+    @ObservedObject private var lives = LivesManager.shared
 
     @State private var showSettings = false
     @State private var showSkins = false
@@ -26,13 +27,27 @@ struct MainMenuView: View {
                     header
 
                     VStack(spacing: 12) {
-                        Button {
-                            app.startRun()
-                        } label: {
-                            Label("Start Run", systemImage: "play.fill")
+                        if lives.canStartRun {
+                            Button {
+                                app.startRun()
+                            } label: {
+                                Label("Start Run", systemImage: "play.fill")
+                            }
+                            .buttonStyle(NeonButtonStyle(tint: Theme.cyan, prominent: true))
+                            .accessibilityHint(lives.unlimited
+                                ? "Begins a new run"
+                                : "Begins a new run and spends one life")
+                        } else {
+                            Button {
+                                app.showLivesStore = true
+                            } label: {
+                                Label("Out of Lives", systemImage: "heart.slash.fill")
+                            }
+                            .buttonStyle(NeonButtonStyle(tint: Theme.danger, prominent: true))
+                            .accessibilityHint("Opens the Unlimited Lives store; or wait for a life to regenerate")
                         }
-                        .buttonStyle(NeonButtonStyle(tint: Theme.cyan, prominent: true))
-                        .accessibilityHint("Begins a new run")
+
+                        LivesView(onGetUnlimited: { app.showLivesStore = true })
 
                         runOptions
 

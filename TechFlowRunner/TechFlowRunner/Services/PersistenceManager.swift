@@ -64,6 +64,9 @@ final class PersistenceManager {
         static let dailyEnabled = "tfr.dailyEnabled"
         static let history = "tfr.runHistory"
         static let gameCenterConsent = "tfr.gameCenterConsent"
+        static let lives = "tfr.lives"
+        static let livesAnchor = "tfr.livesAnchor"
+        static let unlimitedLives = "tfr.unlimitedLives"
     }
 
     // MARK: Game Center consent (App Store Review Guideline 5.1.2)
@@ -184,5 +187,46 @@ final class PersistenceManager {
         var current = history
         current.append(record)
         history = current
+    }
+
+    // MARK: Lives (free-to-play energy pool)
+    //
+    // The game is free with a pool of lives; each run spends one, and one
+    // regenerates every 15 minutes up to a maximum. `LivesManager` owns the
+    // regeneration math — here we only store the raw values.
+    //
+    //   - `lives`        Current count. `nil` (absent key) on a fresh or
+    //                    upgraded install so `LivesManager` can seed the pool
+    //                    to full the first time.
+    //   - `livesAnchor`  Wall-clock reference the current regen interval counts
+    //                    from. Stored as a Unix timestamp; 0 (absent) means the
+    //                    pool is full and no regeneration is in progress.
+    //   - `unlimitedLives` Cached mirror of the "Unlimited Lives" IAP so the UI
+    //                    reflects ownership instantly at launch. StoreKit's
+    //                    entitlements are the source of truth (see StoreManager);
+    //                    this is only a fast local cache.
+
+    var lives: Int? {
+        get { defaults.object(forKey: Key.lives) as? Int }
+        set {
+            if let newValue {
+                defaults.set(newValue, forKey: Key.lives)
+            } else {
+                defaults.removeObject(forKey: Key.lives)
+            }
+        }
+    }
+
+    var livesAnchor: Date? {
+        get {
+            let t = defaults.double(forKey: Key.livesAnchor)
+            return t > 0 ? Date(timeIntervalSince1970: t) : nil
+        }
+        set { defaults.set(newValue?.timeIntervalSince1970 ?? 0, forKey: Key.livesAnchor) }
+    }
+
+    var unlimitedLives: Bool {
+        get { defaults.bool(forKey: Key.unlimitedLives) }
+        set { defaults.set(newValue, forKey: Key.unlimitedLives) }
     }
 }

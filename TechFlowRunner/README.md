@@ -1,11 +1,15 @@
 # Tech Flow Runner — Native iOS App
 
 A standalone native iOS game built with **Swift, SwiftUI, SpriteKit, GameKit,
-and AVFoundation**. It recreates the gameplay identity of the Tech Flow Runner
-web game natively — a neon/circuit-board endless runner with jumping, double
-jumping, ducking, dashing, collectible bits, combos, power-ups, progressive
-levels, and a Mainframe boss fight — with **no backend**: leaderboards use Game
-Center and all settings/progress persist locally.
+StoreKit, and AVFoundation**. It recreates the gameplay identity of the Tech
+Flow Runner web game natively — a neon/circuit-board endless runner with
+jumping, double jumping, ducking, dashing, collectible bits, combos, power-ups,
+progressive levels, and a Mainframe boss fight — with **no backend**:
+leaderboards use Game Center and all settings/progress persist locally.
+
+The game is **free to play** with a regenerating pool of lives; a single
+one-time in-app purchase (**Unlimited Lives Forever**) removes the wait. See
+[Monetization](#monetization--lives--in-app-purchase) below.
 
 This project does **not** use the web/PWA/JS/PHP/Node code in the parent repo;
 that codebase was used only as a gameplay reference.
@@ -63,11 +67,15 @@ TechFlowRunner/
       GameSceneView.swift        SpriteKit ⇄ SwiftUI bridge + gestures
     Models/                      Modifier.swift, Skin.swift
     Services/                    GameCenterManager, AudioManager,
-                                 PersistenceManager, HapticsManager
+                                 PersistenceManager, HapticsManager,
+                                 LivesManager (free-to-play lives),
+                                 StoreManager (StoreKit 2 IAP)
     UI/                          SwiftUI menus / HUD / overlays / pickers
+                                 (LivesView, LivesStoreView paywall)
     Resources/Tech Flow.mp3      Bundled looping soundtrack (© H3 Consulting Partners LLC)
     Assets.xcassets              App icon slot + accent color
     TechFlowRunner.entitlements  Game Center capability
+  Products.storekit              StoreKit config for local IAP testing (scheme-referenced)
 ```
 
 ## Controls
@@ -76,6 +84,59 @@ TechFlowRunner/
 - **Swipe down (hold)** — duck
 - **Swipe right** — dash
 - **On-screen buttons** — Jump / Duck / Dash (accessibility fallback) + Pause
+
+## Monetization — lives & in-app purchase
+
+The app is **free to download and play** on a lives (energy) model:
+
+```
+Start with     10 lives (a fresh install seeds a full pool)
+Each run costs  1 life
+Regeneration    1 life every 15 minutes
+Maximum         10 lives
+```
+
+Lives regenerate from the **wall clock**, so they keep accruing while the app is
+backgrounded or closed. `LivesManager` stores the current count plus a single
+anchor timestamp and reconciles on demand (launch, foreground, and once a second
+while the menu is visible), granting whole lives and carrying sub-interval
+progress forward so no partial regen is lost. The menu shows the current pool and
+a live countdown to the next life; when the pool is empty, Start Run and Reboot
+Run become an **Out of Lives** prompt that opens the store (the player can also
+just wait).
+
+### Unlimited Lives Forever (one-time IAP)
+
+A single **non-consumable** in-app purchase removes the lives limit entirely —
+runs never cost a life. It is implemented with **StoreKit 2** in `StoreManager`:
+
+- Ownership is derived from `Transaction.currentEntitlements` (the source of
+  truth, resolved even offline once purchased) and mirrored into a cached
+  `PersistenceManager.unlimitedLives` flag so the UI is correct instantly at
+  launch. A `Transaction.updates` listener picks up Ask-to-Buy approvals,
+  purchases made on another device, and refunds.
+- A **Restore Purchases** action (`AppStore.sync()`) is offered in the paywall
+  and in Settings, satisfying App Store Review Guideline 3.1.1.
+- The paywall (`LivesStoreView`) is reachable from the menu lives panel, the
+  Out-of-Lives prompts (menu and game-over), and Settings.
+
+Create a single **Non-Consumable** IAP in **App Store Connect → your app →
+Features → In-App Purchases** with this exact Product ID (suggested price Tier 3,
+$2.99), or edit `StoreProductID` in `Services/StoreManager.swift`:
+
+```
+com.whahn1983.techflowrunner.unlimitedlives   Unlimited Lives Forever
+```
+
+No entitlement changes are needed (StoreKit 2 auto-links via `import StoreKit`);
+enable the **In-App Purchase** capability on the App ID in App Store Connect.
+
+**Local testing without App Store Connect:** the shared scheme references
+`Products.storekit` (a StoreKit configuration file defining the same product), so
+the purchase and restore flows work in the simulator. In `Debug` builds you can
+also drive the state from code via `LivesManager.debugRefill()` /
+`debugDrain()`. In the simulator you can clear a test purchase with
+**Debug → StoreKit → Manage Transactions**.
 
 ## Game Center leaderboards
 

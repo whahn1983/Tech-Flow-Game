@@ -27,8 +27,12 @@ struct TechFlowRunnerApp: App {
                 .persistentSystemOverlays(.hidden)
                 .onAppear { app.onLaunch() }
                 .onChange(of: scenePhase) { _, phase in
-                    // Auto-pause when the app leaves the foreground mid-run.
-                    if phase != .active && app.runState == .running {
+                    if phase == .active {
+                        // Reconcile the lives pool for time elapsed while away so
+                        // regenerated lives appear the moment we come forward.
+                        app.refreshLives()
+                    } else if app.runState == .running {
+                        // Auto-pause when the app leaves the foreground mid-run.
                         app.pause()
                     }
                 }
@@ -60,6 +64,12 @@ struct RootView: View {
                 onConnect: { app.resolveGameCenterConsent(connect: true) },
                 onOffline: { app.resolveGameCenterConsent(connect: false) }
             )
+        }
+        // Unlimited Lives store / paywall. Hosted at the root so it can appear
+        // over both the menu (lives panel / out-of-lives) and the game-over
+        // overlay (out-of-lives on Reboot).
+        .sheet(isPresented: $app.showLivesStore) {
+            LivesStoreView()
         }
     }
 }

@@ -73,7 +73,13 @@ final class AppState: ObservableObject {
     /// player has never been asked. The dialog itself records the decision.
     @Published var showGameCenterConsent = false
 
+    /// Drives the Unlimited Lives store / paywall sheet. Set true when the
+    /// player runs out of lives (menu or game-over) or taps the store CTA.
+    @Published var showLivesStore = false
+
     let gameCenter = GameCenterManager.shared
+    let lives = LivesManager.shared
+    let store = StoreManager.shared
     // The scene is locked to the fixed reference design size and uniformly
     // scaled (aspect-fit) onto every device, so the playable area is identical
     // regardless of screen size.
@@ -160,7 +166,21 @@ final class AppState: ObservableObject {
         // (.notAsked) or an offline player never triggers Game Center sign-in
         // here — App Store Review Guideline 5.1.2.
         gameCenter.authenticateIfConsented()
+        // Load the Unlimited Lives product and reconcile ownership with StoreKit,
+        // then bring the lives pool up to date for time elapsed while away.
+        store.start()
+        lives.refresh()
     }
+
+    /// Reconciles the lives pool with the wall clock. Called when the app
+    /// returns to the foreground so regenerated lives appear immediately.
+    func refreshLives() {
+        lives.refresh()
+    }
+
+    /// True when a run can begin right now (a life is available or Unlimited
+    /// Lives is owned).
+    var canStartRun: Bool { lives.canStartRun }
 
     /// Called by the main menu after it first appears. Presents the one-time
     /// Game Center consent dialog when the player has never been asked, so the
@@ -210,6 +230,14 @@ final class AppState: ObservableObject {
     // MARK: Run control
 
     func startRun() {
+        // Free-to-play gate: each run spends one life (Unlimited Lives bypasses
+        // this). When the pool is empty, surface the store / wait prompt instead
+        // of starting — this also covers "Reboot Run" from the game-over screen.
+        guard lives.consume() else {
+            showLivesStore = true
+            return
+        }
+
         // Don't force a rotation here. The interface is left free to follow the
         // device's physical orientation so that, if it's already landscape, the
         // geometry callback locks it in; if it's portrait, the player sees the
@@ -314,6 +342,10 @@ extension AppState: TechFlowGameSceneDelegate {
     }
 
     private func handleRunEnd(points: Int, bits: Int, bossKills: Int) {
+        // Reconcile the lives pool so the game-over overlay's badge and the
+        // Reboot / Out-of-Lives button reflect any lives regenerated during play.
+        lives.refresh()
+
         let modifier = selectedModifier
         let daily = dailyEnabled
         let seedDate = daily ? RandomSource.dailySeedDateString() : ""

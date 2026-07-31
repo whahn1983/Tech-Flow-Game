@@ -9,6 +9,26 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+- **Free-to-play lives system + Unlimited Lives in-app purchase (iOS).** The iOS
+  app (Tech Flow Runner) moves from a paid download to a free-to-play model. The
+  game now runs on a regenerating pool of lives: players start with **10 lives**,
+  each run spends one, and **one life regenerates every 15 minutes** up to a
+  maximum of **10**. Regeneration is computed from the wall clock (via a new
+  `LivesManager`), so it keeps accruing while the app is backgrounded or closed;
+  the menu shows the current pool and a live countdown to the next life. When the
+  pool is empty, Start Run / Reboot Run become an **Out of Lives** prompt.
+  A single one-time non-consumable in-app purchase, **Unlimited Lives Forever**
+  ($2.99), removes the limit so runs never cost a life. It is implemented with
+  **StoreKit 2** (`StoreManager`): ownership is derived from
+  `Transaction.currentEntitlements` (authoritative, resolves offline once bought)
+  with a `Transaction.updates` listener for Ask-to-Buy / cross-device / refund
+  events, plus a **Restore Purchases** action (`AppStore.sync()`) in the paywall
+  and Settings (App Store Review Guideline 3.1.1). A new `LivesStoreView` paywall
+  is reachable from the menu, the out-of-lives prompts, and Settings. A
+  scheme-referenced `Products.storekit` configuration file enables purchase/
+  restore testing in the simulator without App Store Connect. Product ID:
+  `com.whahn1983.techflowrunner.unlimitedlives`.
+
 - **Game Center consent flow (App Store Review Guideline 5.1.2).** The iOS app
   (Tech Flow Runner) no longer authenticates Game Center automatically on first
   launch. A first-run dialog ("Game Center Leaderboards") lets the player choose

@@ -1,0 +1,43 @@
+{
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "0F1E2D3C-4B5A-6978-8796-A5B4C3D2E1F0",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "2.99",
+      "familyShareable" : false,
+      "internalID" : "6740000001",
+      "localizations" : [
+        {
+          "description" : "Unlock unlimited lives forever — play as much as you want with no waiting for lives to refill.",
+          "displayName" : "Unlimited Lives Forever",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.whahn1983.techflowrunner.unlimitedlives",
+      "referenceName" : "Unlimited Lives Forever",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_askToBuyEnabled" : false
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}
