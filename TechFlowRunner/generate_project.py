@@ -51,6 +51,7 @@ COMMON_SETTINGS = f"""\t\t\t\tASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 \t\t\t\tENABLE_PREVIEWS = YES;
 \t\t\t\tGENERATE_INFOPLIST_FILE = YES;
 \t\t\t\tINFOPLIST_KEY_CFBundleDisplayName = "Tech Flow Runner";
+\t\t\t\tINFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 \t\t\t\tINFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
 \t\t\t\tINFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 \t\t\t\tINFOPLIST_KEY_UILaunchScreen_Generation = YES;
