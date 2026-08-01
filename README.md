@@ -19,6 +19,12 @@ drives the action.
 
 ---
 
+> [!IMPORTANT]
+> **Development is now focused entirely on the native iOS app.** The web / PWA
+> version has been **archived** and is no longer maintained or developed — it
+> remains in the repo under [`web-app/`](web-app/) for reference only. All new
+> features and fixes ship to the [iOS app](TechFlowRunner/README.md).
+
 ## 📑 Contents
 
 - [About the Game](#-about-the-game)
@@ -69,13 +75,14 @@ combo, collect bits, and climb the leaderboard.**
 
 ## 📲 Where to Play
 
-Tech Flow Runner shares the same gameplay identity across platforms. Each
-platform has its own setup and technical notes:
+**Tech Flow Runner is now an iOS-first game.** All active development happens in
+the native iOS app; the web version has been archived (see the note above) and
+is kept only for reference.
 
-| Platform | Highlights | Details |
-| --- | --- | --- |
-| **📱 Native iOS** | iPhone & iPad, Game Center leaderboards & achievements, unlockable skins, Daily Seed, fully offline | [`TechFlowRunner/README.md`](TechFlowRunner/README.md) |
-| **🌐 Web / PWA** | Plays in any modern browser, installable as an app, offline after first load, global leaderboard | [`web-app/README.md`](web-app/README.md) |
+| Platform | Status | Highlights | Details |
+| --- | --- | --- | --- |
+| **📱 Native iOS** | ✅ **Actively developed** | iPhone & iPad, Game Center leaderboards & achievements, unlockable skins, Daily Seed, free-to-play lives, fully offline | [`TechFlowRunner/README.md`](TechFlowRunner/README.md) |
+| **🌐 Web / PWA** | 🗄️ **Archived — no longer maintained** | Plays in any modern browser, installable as an app, offline after first load, global leaderboard | [`web-app/README.md`](web-app/README.md) |
 
 ---
 
