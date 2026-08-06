@@ -121,11 +121,12 @@ script exists only to recreate the project file from scratch if it is ever lost
     grandfathering). Priority: verified IAP → verified legacy paid app → cached →
     none. The rest of the app asks `hasUnlimitedLives` and never cares which.
   - `LegacyPaidAppEligibility` — grandfathers everyone who PAID for the app into
-    Unlimited Lives via `AppTransaction.shared` (verified only). Qualifies if the
-    original build ≤ `lastPaidBuildNumber` (`"7"`, compared component-wise, not
-    as strings) **or** `originalPurchaseDate` < `freeTransitionDate` (the
-    transition window before the price drops). The free build number (`8`) MUST
-    stay strictly greater than the cutoff.
+    Unlimited Lives via `AppTransaction.shared` (verified only). Decided purely
+    by purchase date: qualifies iff `originalPurchaseDate` < `freeTransitionDate`
+    (the instant the price drops to free). The build/version number is NOT used —
+    this app resets its build number per marketing version (paid 1.0 = build 7,
+    free 1.1 = build 2+), so no build comparison can separate paid from free.
+    `freeTransitionDate` is the one value to set before the free release ships.
   - `LivesManager` — free-to-play energy pool (regenerates off the wall clock).
   - `AudioManager` — looping soundtrack + SFX via AVFoundation.
   - `OrientationManager` (+ `AppDelegate`) — orientation gating.

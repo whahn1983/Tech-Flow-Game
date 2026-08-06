@@ -153,17 +153,24 @@ free** — they are never asked to pay the $2.99. This is handled by
 `Services/LegacyPaidAppEligibility.swift` together with `StoreManager`:
 
 - Eligibility uses StoreKit 2's **app-level** transaction,
-  `AppTransaction.shared` (the **verified** result only). On iOS its
-  `originalAppVersion` is the `CFBundleVersion` (build number) the customer
-  first acquired, and `originalPurchaseDate` is when they acquired it.
-- A user counts as **paid** (and is grandfathered) if **either**:
-  1. their original build is **at or before** `lastPaidBuildNumber` — compared
-     **component-wise numerically** (so `"10"` sorts after `"2"`), covering the
-     whole paid ($0.99) era; **or**
-  2. their `originalPurchaseDate` is **before** `freeTransitionDate` — covering
-     the transition window where the free-model build is already live but its
-     price hasn't been dropped yet, so those buyers download the *same build* as
-     later free users and can only be told apart by purchase date.
+  `AppTransaction.shared` (the **verified** result only), and is decided purely
+  by **purchase date**:
+
+  > paid ⇔ `originalPurchaseDate` **before** `freeTransitionDate`
+
+  The app was paid from launch until the moment its price drops to free, so
+  acquiring it before that date means the user paid — on **any build**. This
+  covers the whole $0.99 1.0 era *and* anyone who buys the free-model build at
+  $0.99 during the window before the price actually changes, and excludes
+  everyone who downloads free afterward.
+- **Why not the build/version number?** On iOS `originalAppVersion` is the
+  `CFBundleVersion`, and this app **resets its build number per marketing
+  version** — paid 1.0 was build 7 while free 1.1 is build 2 (climbing to 3, 4,
+  … as Apple requests changes). The free build's number is *lower* than the
+  paid build's, so any "build ≤ cutoff" test would wrongly grandfather every new
+  free user and would break again on each re-review. A date is immune to that
+  churn. `lastPaidBuildNumber` is kept only as a documented reference / DEBUG
+  diagnostic, never for the decision.
 - We do **not** grant based on merely having a receipt/app transaction — free
   downloads have one too.
 - Both entitlement sources are unified under `UnlimitedLivesSource`
@@ -175,25 +182,21 @@ free** — they are never asked to pay the $2.99. This is handled by
   (gated by the separate `legacySupporterMessageShown` flag), and the store /
   Settings show **"Early Supporter Access"** instead of the purchase button.
 
-> ⚠️ **Release-engineering invariants — verify before every submission:**
+> ⚠️ **The one value to set before the free release ships:**
 >
-> 1. `LegacyPaidAppEligibility.lastPaidBuildNumber` **must equal the final
->    `CFBundleVersion` that was live on the App Store while the app cost $0.99**
->    (check the paid version's Build number in App Store Connect). It is `"7"`
->    (marketing 1.0 shipped at build 7). Note iOS compares the **build number**,
->    not the marketing version.
-> 2. The shipping build's **`CURRENT_PROJECT_VERSION` must be strictly greater
->    than that cutoff.** It is `8` for the free release (also the next valid
->    build after the paid build 7). If a free build ever shipped at a number ≤
->    the cutoff, those free users would be wrongly grandfathered.
-> 3. To grandfather **transition-window buyers** (people who pay $0.99 for the
->    build 8 release before you remove the price), set
->    `LegacyPaidAppEligibility.freeTransitionDate` to at/before the moment you
->    change the App Store price to free. Leaving it `nil` relies on the build
->    cutoff alone — safe (never grandfathers a free user) but does not cover the
->    transition window. Since build 8 is the *same* build whether bought at
->    $0.99 or downloaded free later, the purchase date is the only signal that
->    separates those two groups.
+> `LegacyPaidAppEligibility.freeTransitionDate` **must be the instant the App
+> Store price becomes free.** Everyone who acquired the app before it is
+> grandfathered; everyone after is not. `nil` disables grandfathering entirely
+> (no one is granted), so it must be set.
+>
+> The robust way to make reality match the constant, despite Apple's
+> unpredictable review timing, is an App Store Connect **scheduled price
+> change** (price changes need no review): schedule the price → Free for a
+> specific date `D`, and set `freeTransitionDate` to that same `D`. Whatever
+> build number finally clears review (2, 3, 4 …) is irrelevant — the date is
+> unchanged. Set it too early and real payers during an extended $0.99 period
+> are missed (they can Restore once it's corrected); too late and free
+> downloaders before `D` are wrongly grandfathered.
 
 **Simulating entitlement states:** because the StoreKit sandbox's
 `originalAppVersion` doesn't reproduce real paid-app history, `Debug` builds get

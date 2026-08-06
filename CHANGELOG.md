@@ -12,19 +12,20 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - **Legacy paid-app grandfathering (iOS).** Anyone who PAID for Tech Flow Runner
   before it went free now receives **Unlimited Lives permanently, for free** — no
   purchase required. Eligibility is determined from StoreKit 2's app-level
-  transaction (`AppTransaction.shared`, verified only): a user qualifies if the
-  originally-acquired `CFBundleVersion` is at/before
-  `LegacyPaidAppEligibility.lastPaidBuildNumber` (`"7"`, the final build sold at
-  $0.99, compared **component-wise numerically** — not by naive string
-  comparison) **or** `originalPurchaseDate` precedes `freeTransitionDate`. The
-  date rule covers the transition window where the free-model build is already
-  live but still priced $0.99: those buyers download the *same build* as later
-  free users, so only the purchase date can distinguish them. Eligibility is
-  never based on mere receipt/app-transaction existence (free downloads have one
-  too). To keep new free users distinct from paid buyers, the free-model
-  `CURRENT_PROJECT_VERSION` is bumped to **8** (strictly above the paid cutoff of
-  `7`, and the next valid build after the paid build 7). A new
-  `UnlimitedLivesSource`
+  transaction (`AppTransaction.shared`, verified only) purely by **purchase
+  date**: a user qualifies iff `originalPurchaseDate` precedes
+  `LegacyPaidAppEligibility.freeTransitionDate` (the instant the price drops to
+  free). Because the app was paid from launch until that moment, this
+  grandfathers every paying customer on **any build** — the whole $0.99 1.0 era
+  and anyone who buys the free-model build at $0.99 before the price actually
+  changes — and excludes everyone who downloads free afterward. The build/version
+  number is deliberately **not** used: `originalAppVersion` is the
+  `CFBundleVersion`, which this app resets per marketing version (paid 1.0 was
+  build 7, free 1.1 is build 2 and climbs as Apple requests changes), so the free
+  build's number is *lower* than the paid build's and no build comparison can
+  separate the two. A date is also immune to that re-review build churn.
+  Eligibility is never based on mere receipt/app-transaction existence (free
+  downloads have one too). A new `UnlimitedLivesSource`
   (`.none` / `.purchasedIAP` / `.legacyPaidApp`) unifies both entitlement
   sources behind a single `hasUnlimitedLives`; `StoreManager` resolves ownership
   by priority (verified IAP → verified legacy → locally cached → none) and
