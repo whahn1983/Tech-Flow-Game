@@ -72,25 +72,30 @@ enum LegacyPaidAppEligibility {
     /// price actually changes — and is grandfathered. Anyone who acquires it
     /// at/after this got it free and is not.
     ///
-    /// Configured to **2026-08-14 06:00 America/Chicago (CDT, UTC−5)** — the
-    /// same date/time set in App Store Connect for both the scheduled price →
-    /// Free change and the version's "Automatically release … no earlier than"
-    /// (NET). App Store Connect uses your local time, so this matches. Building
-    /// it from the `America/Chicago` IANA zone (rather than a fixed offset) makes
-    /// the daylight-saving offset correct by construction: 06:00 CDT = 11:00 UTC.
+    /// Configured to **2026-08-15 00:00 America/Chicago (CDT, UTC−5)** — local
+    /// midnight at the END of the changeover day (Aug 14), when the App Store
+    /// price → Free change and the version's auto-release (NET) are scheduled.
     ///
-    /// To change it, edit the components below (or set `nil` to disable
-    /// grandfathering entirely — no one is granted, so it must stay set for the
-    /// free release). Keep it aligned with the App Store price-change instant:
-    ///   • Too early → real payers during any extended $0.99 period are missed
-    ///     (they can still Restore Purchases once this is corrected).
-    ///   • Too late  → free downloaders before this date are wrongly grandfathered.
+    /// Why midnight, not the release time: App Store price changes are
+    /// DATE-granular — you can't specify a time, and Apple doesn't confirm the
+    /// exact instant the new price takes effect. So we deliberately set the
+    /// cutoff to the end of the changeover day and err GENEROUS: everyone who
+    /// buys at any point during Aug 14 stays grandfathered even if Apple flips
+    /// the price earlier in the day. It is far better to let a few people get
+    /// the app free on the changeover day than to make a paying customer buy
+    /// Unlimited Lives again. (This is the later of the two possible midnights;
+    /// 00:00 CDT = 05:00 UTC.)
+    ///
+    /// Built from the `America/Chicago` IANA zone (not a fixed offset) so the
+    /// daylight-saving offset is correct by construction. To change it, edit the
+    /// components below (or set `nil` to disable grandfathering entirely — no one
+    /// is granted, so it must stay set for the free release).
     static let freeTransitionDate: Date? = {
         var components = DateComponents()
         components.year = 2026
         components.month = 8
-        components.day = 14
-        components.hour = 6
+        components.day = 15
+        components.hour = 0
         components.minute = 0
         components.second = 0
         components.timeZone = TimeZone(identifier: "America/Chicago")  // CDT in August

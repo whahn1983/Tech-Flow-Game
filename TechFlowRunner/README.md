@@ -198,10 +198,14 @@ free** — they are never asked to pay the $2.99. This is handled by
 > are missed (they can Restore once it's corrected); too late and free
 > downloaders before `D` are wrongly grandfathered.
 >
-> **Currently set to `2026-08-14 06:00 America/Chicago` (CDT, = 11:00 UTC)** —
-> aligned with the App Store Connect scheduled price → Free change and the
-> version's auto-release NET (both set to that local date/time). If you move
-> either, update `freeTransitionDate` to match.
+> **Currently set to `2026-08-15 00:00 America/Chicago` (CDT, = 05:00 UTC)** —
+> local midnight at the end of the changeover day (Aug 14), when the price →
+> Free change and auto-release NET are scheduled. App Store price changes are
+> date-granular with no confirmed time, so the cutoff is the end of that day and
+> deliberately errs generous: everyone who buys during Aug 14 stays
+> grandfathered even if Apple flips the price earlier — better a few free
+> changeover-day downloads than a paying customer charged twice. If you move the
+> price-change date, update `freeTransitionDate` to match.
 
 **Simulating entitlement states:** because the StoreKit sandbox's
 `originalAppVersion` doesn't reproduce real paid-app history, `Debug` builds get
