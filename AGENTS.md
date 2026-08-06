@@ -116,7 +116,14 @@ script exists only to recreate the project file from scratch if it is ever lost
   - `PersistenceManager` — the only persistence layer, `UserDefaults`-backed.
     All keys are namespaced `tfr.*`. Never introduce a different storage layer.
   - `GameCenterManager` — auth, score submission, achievements, board UI.
-  - `StoreManager` — StoreKit 2, the single "Unlimited Lives" non-consumable.
+  - `StoreManager` — StoreKit 2. Owns the unified Unlimited Lives entitlement
+    (`UnlimitedLivesSource`: `.purchasedIAP` non-consumable **or** `.legacyPaidApp`
+    grandfathering). Priority: verified IAP → verified legacy paid app → cached →
+    none. The rest of the app asks `hasUnlimitedLives` and never cares which.
+  - `LegacyPaidAppEligibility` — grandfathers original $0.99 paid-app owners into
+    Unlimited Lives via `AppTransaction.shared` (`originalAppVersion` vs the
+    `lastPaidBuildNumber` cutoff, compared component-wise, not as strings). The
+    free build number MUST stay strictly greater than that cutoff.
   - `LivesManager` — free-to-play energy pool (regenerates off the wall clock).
   - `AudioManager` — looping soundtrack + SFX via AVFoundation.
   - `OrientationManager` (+ `AppDelegate`) — orientation gating.

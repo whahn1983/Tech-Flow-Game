@@ -67,6 +67,11 @@ final class PersistenceManager {
         static let lives = "tfr.lives"
         static let livesAnchor = "tfr.livesAnchor"
         static let unlimitedLives = "tfr.unlimitedLives"
+        static let unlimitedLivesSource = "tfr.unlimitedLivesSource"
+        static let legacySupporterMessageShown = "tfr.legacySupporterMessageShown"
+        #if DEBUG
+        static let entitlementTestScenario = "tfr.debug.entitlementTestScenario"
+        #endif
     }
 
     // MARK: Game Center consent (App Store Review Guideline 5.1.2)
@@ -229,4 +234,60 @@ final class PersistenceManager {
         get { defaults.bool(forKey: Key.unlimitedLives) }
         set { defaults.set(newValue, forKey: Key.unlimitedLives) }
     }
+
+    // MARK: Unlimited Lives entitlement source
+    //
+    // The single cached model for WHY Unlimited Lives is active (see
+    // `UnlimitedLivesSource`). StoreKit's verified transactions are the source
+    // of truth (StoreManager); this caches the last verified result so the
+    // entitlement keeps working offline and the UI can distinguish an original
+    // paid-app owner from an IAP purchaser.
+    //
+    // Migration: installs that predate this key stored only the `unlimitedLives`
+    // bool. A previously-owned entitlement there could only have come from the
+    // $2.99 IAP (legacy grandfathering did not exist yet), so we map a legacy
+    // `true` to `.purchasedIAP`. StoreManager re-verifies on next launch either
+    // way.
+    var unlimitedLivesSource: UnlimitedLivesSource {
+        get {
+            if let raw = defaults.string(forKey: Key.unlimitedLivesSource),
+               let source = UnlimitedLivesSource(rawValue: raw) {
+                return source
+            }
+            return defaults.bool(forKey: Key.unlimitedLives) ? .purchasedIAP : .none
+        }
+        set {
+            defaults.set(newValue.rawValue, forKey: Key.unlimitedLivesSource)
+            // Keep the legacy bool mirror in lockstep so `LivesManager` and any
+            // older code path still read a correct "is unlimited" value.
+            defaults.set(newValue != .none, forKey: Key.unlimitedLives)
+        }
+    }
+
+    // MARK: Early Supporter message (one-time)
+    //
+    // Whether the one-time "Early Supporter Upgrade" message has been shown and
+    // acknowledged. Tracked SEPARATELY from the entitlement itself so the
+    // entitlement flag can never be mistaken for "message already shown".
+    // Defaults to false; set true (and persisted immediately) when the user
+    // taps Continue on the message.
+    var legacySupporterMessageShown: Bool {
+        get { defaults.bool(forKey: Key.legacySupporterMessageShown) }
+        set { defaults.set(newValue, forKey: Key.legacySupporterMessageShown) }
+    }
+
+    #if DEBUG
+    // MARK: Developer entitlement override (DEBUG builds only)
+    //
+    // Simulates each entitlement state without real StoreKit history. Compiled
+    // out of Release builds entirely (see EntitlementTestScenario). Persisted so
+    // a chosen scenario survives relaunch during testing.
+    var entitlementTestScenario: EntitlementTestScenario {
+        get {
+            EntitlementTestScenario(rawValue: defaults.string(forKey: Key.entitlementTestScenario) ?? "")
+                ?? .disabled
+        }
+        set { defaults.set(newValue.rawValue, forKey: Key.entitlementTestScenario) }
+    }
+    #endif
 }

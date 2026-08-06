@@ -42,6 +42,7 @@ struct TechFlowRunnerApp: App {
 
 struct RootView: View {
     @EnvironmentObject var app: AppState
+    @ObservedObject private var store = StoreManager.shared
 
     var body: some View {
         ZStack {
@@ -70,6 +71,15 @@ struct RootView: View {
         // overlay (out-of-lives on Reboot).
         .sheet(isPresented: $app.showLivesStore) {
             LivesStoreView()
+        }
+        // One-time "Early Supporter Upgrade" message. Shown exactly once, after
+        // a legacy paid-app entitlement has been verified and granted, and never
+        // for IAP purchasers or new free users. Tapping Continue records that it
+        // was shown so it never appears again (StoreManager persists the flag).
+        .alert("Early Supporter Upgrade", isPresented: $store.presentEarlySupporterMessage) {
+            Button("Continue") { store.acknowledgeEarlySupporterMessage() }
+        } message: {
+            Text("Thank you for purchasing Tech Flow Runner before it became free. Unlimited Lives have been unlocked automatically—no additional purchase required.")
         }
     }
 }

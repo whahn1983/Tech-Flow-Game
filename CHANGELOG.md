@@ -9,6 +9,30 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+- **Legacy paid-app grandfathering (iOS).** Anyone who bought the original paid
+  ($0.99) version of Tech Flow Runner before it went free now receives
+  **Unlimited Lives permanently, for free** — no purchase required. Eligibility
+  is determined from StoreKit 2's app-level transaction
+  (`AppTransaction.shared`, verified only): the originally-acquired
+  `CFBundleVersion` is compared **component-wise numerically** against a
+  documented cutoff (`LegacyPaidAppEligibility.lastPaidBuildNumber`, the final
+  build sold at $0.99) — not by mere receipt existence (free downloads have one
+  too) and not by naive string comparison. To keep new free users distinct from
+  legacy buyers, the free-to-play `CURRENT_PROJECT_VERSION` is bumped to **2**
+  (strictly above the paid cutoff of `1`). A new `UnlimitedLivesSource`
+  (`.none` / `.purchasedIAP` / `.legacyPaidApp`) unifies both entitlement
+  sources behind a single `hasUnlimitedLives`; `StoreManager` resolves ownership
+  by priority (verified IAP → verified legacy → locally cached → none) and
+  **never revokes a previously-verified entitlement just because a later check
+  fails offline**. A grandfathered user sees a one-time **"Early Supporter
+  Upgrade"** message (tracked by a separate `legacySupporterMessageShown` flag,
+  never shown to IAP purchasers or new free users), never sees the $2.99 button
+  (the store and Settings show "Early Supporter Access" instead), and Restore
+  Purchases rechecks both the IAP and legacy eligibility with distinct success
+  messages. A DEBUG-only entitlement override in Settings simulates each state
+  (StoreKit sandbox can't reproduce real paid-app history); it is compiled out
+  of Release builds.
+
 - **Free-to-play lives system + Unlimited Lives in-app purchase (iOS).** The iOS
   app (Tech Flow Runner) moves from a paid download to a free-to-play model. The
   game now runs on a regenerating pool of lives: players start with **10 lives**,
