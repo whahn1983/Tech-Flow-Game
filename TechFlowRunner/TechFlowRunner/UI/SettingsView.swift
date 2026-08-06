@@ -18,6 +18,9 @@ struct SettingsView: View {
     @State private var hapticsEnabled = HapticsManager.shared.enabled
     @State private var showConnectConsent = false
     @State private var showLivesStore = false
+    #if DEBUG
+    @State private var testScenario = PersistenceManager.shared.entitlementTestScenario
+    #endif
 
     var body: some View {
         NavigationStack {
@@ -59,17 +62,28 @@ struct SettingsView: View {
                 }
 
                 Section("Lives") {
-                    if store.isUnlimitedUnlocked {
-                        LabeledContent("Unlimited Lives", value: "Unlocked")
+                    switch store.entitlementSource {
+                    case .legacyPaidApp:
+                        // Original paid-app owner: never show the $2.99 button.
+                        LabeledContent("Unlimited Lives", value: "Early Supporter Access")
+                        Text("Thank you for supporting Tech Flow Runner from the beginning. Unlimited Lives are unlocked automatically — runs never cost a life.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    case .purchasedIAP:
+                        LabeledContent("Unlimited Lives", value: "Purchased")
                         Text("You own Unlimited Lives Forever — runs never cost a life. Thanks for your support!")
                             .font(.caption).foregroundStyle(.secondary)
-                    } else {
+                    case .none:
                         Text("Play free with up to \(LivesManager.maxLives) lives — one refills every 15 minutes. Unlock Unlimited Lives Forever to play without waiting.")
                             .font(.caption).foregroundStyle(.secondary)
                         Button("Unlimited Lives — \(store.displayPrice)") { showLivesStore = true }
                     }
                     Button("Restore Purchases") { Task { await store.restore() } }
                         .disabled(store.isBusy)
+                    if case .info(let message) = store.phase {
+                        Text(message).font(.caption).foregroundStyle(.secondary)
+                    } else if case .failed(let message) = store.phase {
+                        Text(message).font(.caption).foregroundStyle(Color.red)
+                    }
                     Link("Terms of Use (EULA)", destination: TermsOfUse.url)
                         .font(.callout)
                     Link("Privacy Policy", destination: PrivacyPolicy.url)
@@ -109,6 +123,25 @@ struct SettingsView: View {
                         }
                     }
                 }
+
+                #if DEBUG
+                Section("Developer") {
+                    Picker("Entitlement Override", selection: $testScenario) {
+                        ForEach(EntitlementTestScenario.allCases) { scenario in
+                            Text(scenario.label).tag(scenario)
+                        }
+                    }
+                    .onChange(of: testScenario) { _, newValue in
+                        PersistenceManager.shared.entitlementTestScenario = newValue
+                        Task { await store.refreshEntitlements() }
+                    }
+                    Text("DEBUG builds only. Simulates each Unlimited Lives entitlement state (StoreKit sandbox can't reproduce real paid-app history). Never compiled into a Release build.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Button("Re-run Entitlement Check") {
+                        Task { await store.refreshEntitlements() }
+                    }
+                }
+                #endif
 
                 Section {
                     Text("Tech Flow Runner — neon circuit-board endless runner. Music and audio © whahn1983.")

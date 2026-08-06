@@ -27,7 +27,7 @@ struct LivesStoreView: View {
                     VStack(spacing: 22) {
                         header
 
-                        if lives.unlimited {
+                        if store.hasUnlimitedLives {
                             unlockedPanel
                         } else {
                             livesStatusPanel
@@ -38,6 +38,11 @@ struct LivesStoreView: View {
                             Text(message)
                                 .font(.caption)
                                 .foregroundStyle(Theme.danger)
+                                .multilineTextAlignment(.center)
+                        } else if case .info(let message) = store.phase {
+                            Text(message)
+                                .font(.caption)
+                                .foregroundStyle(Theme.cyan)
                                 .multilineTextAlignment(.center)
                         }
 
@@ -134,16 +139,37 @@ struct LivesStoreView: View {
         .panel()
     }
 
+    /// The "already owned" panel. It reflects WHY Unlimited Lives is active:
+    /// original paid-app owners see Early Supporter Access (never the $2.99
+    /// button), IAP purchasers see Purchased.
     private var unlockedPanel: some View {
         VStack(spacing: 10) {
             Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 40, weight: .bold))
                 .foregroundStyle(Theme.gold)
-            Text("You have Unlimited Lives")
+
+            Text("Unlimited Lives")
                 .font(.headline).foregroundStyle(Theme.text)
-            Text("Thanks for your support! Runs never cost a life.")
-                .font(.caption).foregroundStyle(Theme.dim)
-                .multilineTextAlignment(.center)
+
+            switch store.entitlementSource {
+            case .legacyPaidApp:
+                Text("Early Supporter Access")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(Theme.gold)
+                Text("Thank you for supporting Tech Flow Runner from the beginning.")
+                    .font(.caption).foregroundStyle(Theme.dim)
+                    .multilineTextAlignment(.center)
+            case .purchasedIAP:
+                Text("Purchased")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(Theme.gold)
+                Text("Thanks for your support! Runs never cost a life.")
+                    .font(.caption).foregroundStyle(Theme.dim)
+                    .multilineTextAlignment(.center)
+            case .none:
+                // Not reachable — this panel only shows when unlimited is active.
+                EmptyView()
+            }
         }
         .frame(maxWidth: .infinity)
         .panel()

@@ -145,6 +145,74 @@ also drive the state from code via `LivesManager.debugRefill()` /
 `debugDrain()`. In the simulator you can clear a test purchase with
 **Debug → StoreKit → Manage Transactions**.
 
+### Early Supporter grandfathering (original paid-app owners)
+
+Tech Flow Runner was originally a **paid ($0.99)** download before it went free.
+Anyone who bought that version is granted **Unlimited Lives permanently, for
+free** — they are never asked to pay the $2.99. This is handled by
+`Services/LegacyPaidAppEligibility.swift` together with `StoreManager`:
+
+- Eligibility uses StoreKit 2's **app-level** transaction,
+  `AppTransaction.shared` (the **verified** result only), and is decided purely
+  by **purchase date**:
+
+  > paid ⇔ `originalPurchaseDate` **before** `freeTransitionDate`
+
+  The app was paid from launch until the moment its price drops to free, so
+  acquiring it before that date means the user paid — on **any build**. This
+  covers the whole $0.99 1.0 era *and* anyone who buys the free-model build at
+  $0.99 during the window before the price actually changes, and excludes
+  everyone who downloads free afterward.
+- **Why not the build/version number?** On iOS `originalAppVersion` is the
+  `CFBundleVersion`, and this app **resets its build number per marketing
+  version** — paid 1.0 was build 7 while free 1.1 is build 2 (climbing to 3, 4,
+  … as Apple requests changes). The free build's number is *lower* than the
+  paid build's, so any "build ≤ cutoff" test would wrongly grandfather every new
+  free user and would break again on each re-review. A date is immune to that
+  churn. `lastPaidBuildNumber` is kept only as a documented reference / DEBUG
+  diagnostic, never for the decision.
+- We do **not** grant based on merely having a receipt/app transaction — free
+  downloads have one too.
+- Both entitlement sources are unified under `UnlimitedLivesSource`
+  (`.purchasedIAP` / `.legacyPaidApp`); the app reasons about
+  `StoreManager.hasUnlimitedLives`. Resolution priority: verified IAP → verified
+  legacy → locally cached (kept offline) → none. A previously-verified
+  entitlement is **never revoked** because a later check fails on a bad network.
+- Grandfathered users see a one-time **"Early Supporter Upgrade"** message
+  (gated by the separate `legacySupporterMessageShown` flag), and the store /
+  Settings show **"Early Supporter Access"** instead of the purchase button.
+
+> ⚠️ **The one value to set before the free release ships:**
+>
+> `LegacyPaidAppEligibility.freeTransitionDate` **must be the instant the App
+> Store price becomes free.** Everyone who acquired the app before it is
+> grandfathered; everyone after is not. `nil` disables grandfathering entirely
+> (no one is granted), so it must be set.
+>
+> The robust way to make reality match the constant, despite Apple's
+> unpredictable review timing, is an App Store Connect **scheduled price
+> change** (price changes need no review): schedule the price → Free for a
+> specific date `D`, and set `freeTransitionDate` to that same `D`. Whatever
+> build number finally clears review (2, 3, 4 …) is irrelevant — the date is
+> unchanged. Set it too early and real payers during an extended $0.99 period
+> are missed (they can Restore once it's corrected); too late and free
+> downloaders before `D` are wrongly grandfathered.
+>
+> **Currently set to `2026-08-15 00:00 America/Chicago` (CDT, = 05:00 UTC)** —
+> local midnight at the end of the changeover day (Aug 14), when the price →
+> Free change and auto-release NET are scheduled. App Store price changes are
+> date-granular with no confirmed time, so the cutoff is the end of that day and
+> deliberately errs generous: everyone who buys during Aug 14 stays
+> grandfathered even if Apple flips the price earlier — better a few free
+> changeover-day downloads than a paying customer charged twice. If you move the
+> price-change date, update `freeTransitionDate` to match.
+
+**Simulating entitlement states:** because the StoreKit sandbox's
+`originalAppVersion` doesn't reproduce real paid-app history, `Debug` builds get
+a **Developer → Entitlement Override** picker in Settings that forces a legacy
+owner (message pending or already seen), an IAP owner, or a free user. It is
+compiled out of Release builds entirely.
+
 ## Game Center leaderboards
 
 Authentication runs automatically at launch and gracefully degrades when

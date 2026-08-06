@@ -46,6 +46,9 @@ COMMON_SETTINGS = f"""\t\t\t\tASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 \t\t\t\tASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 \t\t\t\tCODE_SIGN_ENTITLEMENTS = "TechFlowRunner/{entitlements}";
 \t\t\t\tCODE_SIGN_STYLE = Automatic;
+\t\t\t\t// Build number (CFBundleVersion). Managed per release; it resets per
+\t\t\t\t// marketing version, so it is NOT used for legacy grandfathering —
+\t\t\t\t// that is decided by purchase date (LegacyPaidAppEligibility).
 \t\t\t\tCURRENT_PROJECT_VERSION = 1;
 \t\t\t\tDEVELOPMENT_TEAM = "";
 \t\t\t\tENABLE_PREVIEWS = YES;
