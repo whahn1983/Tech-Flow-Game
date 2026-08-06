@@ -197,6 +197,11 @@ free** — they are never asked to pay the $2.99. This is handled by
 > unchanged. Set it too early and real payers during an extended $0.99 period
 > are missed (they can Restore once it's corrected); too late and free
 > downloaders before `D` are wrongly grandfathered.
+>
+> **Currently set to `2026-08-14 06:00 America/Chicago` (CDT, = 11:00 UTC)** —
+> aligned with the App Store Connect scheduled price → Free change and the
+> version's auto-release NET (both set to that local date/time). If you move
+> either, update `freeTransitionDate` to match.
 
 **Simulating entitlement states:** because the StoreKit sandbox's
 `originalAppVersion` doesn't reproduce real paid-app history, `Debug` builds get

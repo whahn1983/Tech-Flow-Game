@@ -66,24 +66,36 @@ enum UnlimitedLivesSource: String, Codable {
 /// StoreKit app transaction.
 enum LegacyPaidAppEligibility {
 
-    /// The instant the App Store price is (or will be) dropped from $0.99 to
-    /// free. Anyone whose app was first acquired STRICTLY BEFORE this paid for
-    /// it — the entire paid era plus anyone who buys the free-model build at
-    /// $0.99 before the price actually changes — and is grandfathered. Anyone
-    /// who acquires it at/after this got it free and is not.
+    /// The instant the App Store price is dropped from $0.99 to free. Anyone
+    /// whose app was first acquired STRICTLY BEFORE this paid for it — the entire
+    /// paid era plus anyone who buys the free-model build at $0.99 before the
+    /// price actually changes — and is grandfathered. Anyone who acquires it
+    /// at/after this got it free and is not.
     ///
-    /// ⚠️ REPLACE with your real price-drop date. Recommended: schedule the App
-    /// Store price → Free for a specific date/time in App Store Connect (this
-    /// needs no app review), and set this constant to that exact date.
-    ///   • Too early → real payers who buy during any extended $0.99 period are
-    ///     missed (they can still Restore Purchases once this is corrected).
+    /// Configured to **2026-08-14 06:00 America/Chicago (CDT, UTC−5)** — the
+    /// same date/time set in App Store Connect for both the scheduled price →
+    /// Free change and the version's "Automatically release … no earlier than"
+    /// (NET). App Store Connect uses your local time, so this matches. Building
+    /// it from the `America/Chicago` IANA zone (rather than a fixed offset) makes
+    /// the daylight-saving offset correct by construction: 06:00 CDT = 11:00 UTC.
+    ///
+    /// To change it, edit the components below (or set `nil` to disable
+    /// grandfathering entirely — no one is granted, so it must stay set for the
+    /// free release). Keep it aligned with the App Store price-change instant:
+    ///   • Too early → real payers during any extended $0.99 period are missed
+    ///     (they can still Restore Purchases once this is corrected).
     ///   • Too late  → free downloaders before this date are wrongly grandfathered.
-    /// `nil` disables grandfathering entirely (no one is granted) — so this MUST
-    /// be set before the free release ships.
-    ///
-    /// Placeholder below is a stand-in date — change it to your scheduled
-    /// price-drop instant.
-    static let freeTransitionDate: Date? = isoDate("2026-09-01T00:00:00Z")
+    static let freeTransitionDate: Date? = {
+        var components = DateComponents()
+        components.year = 2026
+        components.month = 8
+        components.day = 14
+        components.hour = 6
+        components.minute = 0
+        components.second = 0
+        components.timeZone = TimeZone(identifier: "America/Chicago")  // CDT in August
+        return Calendar(identifier: .gregorian).date(from: components)
+    }()
 
     /// Reference only: the `CFBundleVersion` the paid marketing-1.0 release
     /// shipped as. NOT used to decide eligibility (build numbers reset per
@@ -135,12 +147,6 @@ enum LegacyPaidAppEligibility {
     static func isLegacyPaidPurchase(purchaseDate: Date) -> Bool {
         guard let transition = freeTransitionDate else { return false }
         return purchaseDate < transition
-    }
-
-    /// Parses an ISO 8601 timestamp (e.g. "2026-09-01T00:00:00Z"). Convenience
-    /// for configuring `freeTransitionDate` without hand-building DateComponents.
-    static func isoDate(_ string: String) -> Date? {
-        ISO8601DateFormatter().date(from: string)
     }
 
     private static func log(_ message: String) {
