@@ -4,44 +4,50 @@
 //
 //  Grandfathering for original paying customers. Tech Flow Runner was first sold
 //  as a one-time paid app ($0.99). It has since moved to a free download with an
-//  optional $2.99 non-consumable "Unlimited Lives" purchase. Anyone who bought
-//  the original paid app must receive Unlimited Lives permanently, for free.
+//  optional $2.99 non-consumable "Unlimited Lives" purchase. Anyone who PAID for
+//  the app must receive Unlimited Lives permanently, for free.
 //
 //  ───────────────────────────────────────────────────────────────────────────
-//  HOW WE TELL A LEGACY PAYER FROM A NEW FREE USER
+//  HOW WE TELL A PAYER FROM A FREE DOWNLOADER
 //  ───────────────────────────────────────────────────────────────────────────
 //  StoreKit 2 exposes an *app-level* transaction — `AppTransaction.shared` —
-//  that records the version of the app the customer ORIGINALLY acquired. On iOS
+//  that records how the customer first acquired the app. On iOS
 //  `AppTransaction.originalAppVersion` is the `CFBundleVersion` (the build
-//  number) of that first-acquired build.
+//  number) of that first-acquired build, and `originalPurchaseDate` is when it
+//  was acquired.
 //
 //  We CANNOT simply check "does an app transaction / receipt exist?" — free
-//  downloads have an app transaction too. Instead we compare the original build
-//  number against a fixed cutoff: the final build that was ever distributed
-//  while the app cost money. A user whose original build is at or before that
-//  cutoff paid for the app; anyone whose original build is after it downloaded
-//  the free version.
+//  downloads have one too. Nor is a "price paid" field available. Instead we
+//  decide a user PAID if EITHER of these holds:
+//
+//    1. Build cutoff — they first acquired a build at or before the last build
+//       that ever shipped while the app was paid (`lastPaidBuildNumber`). This
+//       cleanly covers everyone from the paid ($0.99) era.
+//
+//    2. Transition window — they first acquired the app BEFORE the App Store
+//       price was actually dropped to free (`freeTransitionDate`). This covers
+//       the gap where the free-model build is already live but still priced
+//       $0.99: those buyers download the SAME build as later free users, so the
+//       build number can't distinguish them, but their purchase date can.
 //
 //  ───────────────────────────────────────────────────────────────────────────
-//  ⚠️  TWO VALUES YOU MUST GET RIGHT BEFORE SHIPPING
+//  ⚠️  VALUES YOU MUST GET RIGHT BEFORE SHIPPING
 //  ───────────────────────────────────────────────────────────────────────────
-//  1. `lastPaidBuildNumber` below MUST equal the actual final `CFBundleVersion`
-//     that was live on the App Store while Tech Flow Runner cost $0.99. Confirm
-//     it in App Store Connect (the paid version's Build number). The repository
-//     history shows the paid era shipped at build `1` (marketing 1.0), so the
-//     cutoff is set to `"1"`.
+//  • `lastPaidBuildNumber` MUST equal the final `CFBundleVersion` that was live
+//    on the App Store while the app cost $0.99. Marketing 1.0 shipped at build
+//    `7`, so the cutoff is "7". (Marketing version — 1.0, 1.1 — is NOT what iOS
+//    compares; it compares the build number.)
 //
-//  2. The FREE-TO-PLAY build's `CURRENT_PROJECT_VERSION` MUST be STRICTLY
-//     GREATER than `lastPaidBuildNumber`. If the free build shipped with the
-//     same build number as the cutoff, a brand-new free downloader's
-//     `originalAppVersion` would also satisfy "<= cutoff" and be wrongly
-//     grandfathered. The project's `CURRENT_PROJECT_VERSION` is therefore
-//     bumped to `2` for the free release (see project.pbxproj /
-//     generate_project.py). Keep every future build number above the cutoff.
+//  • The FREE-model release's `CURRENT_PROJECT_VERSION` MUST be STRICTLY GREATER
+//    than `lastPaidBuildNumber`. It is `8` (see project.pbxproj /
+//    generate_project.py). The App Store also enforces monotonically increasing
+//    builds, so build 8 is the next valid build after the paid build 7.
 //
-//  If the free-to-play version had ALREADY been released to the App Store under
-//  a build number <= this cutoff, those free users would incorrectly qualify;
-//  in that case raise the cutoff below the free build and re-verify.
+//  • `freeTransitionDate` should be set to (at or before) the moment you change
+//    the App Store price to free, to grandfather transition-window buyers. Until
+//    you know that date it is `nil`, which disables the date rule and relies on
+//    the build cutoff alone — the safe default (it can never grandfather a free
+//    user). See the constant below.
 //
 
 import Foundation
@@ -53,16 +59,17 @@ import StoreKit
 ///
 ///   - `.none`          No Unlimited Lives entitlement.
 ///   - `.purchasedIAP`  The $2.99 non-consumable was purchased (or restored).
-///   - `.legacyPaidApp` The user owned the original paid ($0.99) app and was
-///                      grandfathered in — no purchase required.
+///   - `.legacyPaidApp` The user paid for the app itself (the paid $0.99 era, or
+///                      during the transition window before the price dropped)
+///                      and was grandfathered in — no IAP required.
 enum UnlimitedLivesSource: String, Codable {
     case none
     case purchasedIAP
     case legacyPaidApp
 }
 
-/// The paid-app cutoff and the StoreKit app-transaction check that decides
-/// whether the current user is an original paying customer.
+/// The paid-app cutoffs and the StoreKit app-transaction check that decides
+/// whether the current user paid for the app.
 enum LegacyPaidAppEligibility {
 
     /// The final `CFBundleVersion` (build number) distributed while Tech Flow
@@ -70,19 +77,36 @@ enum LegacyPaidAppEligibility {
     /// build is at or before this value paid for the app and is grandfathered
     /// into Unlimited Lives for free.
     ///
-    /// ⚠️ Verify against App Store Connect before release (see file header). The
-    /// free-to-play build number MUST be strictly greater than this.
-    static let lastPaidBuildNumber = "1"
+    /// ⚠️ Marketing 1.0 shipped at build 7 — verify against App Store Connect
+    /// before release. The free-model build number MUST be strictly greater.
+    static let lastPaidBuildNumber = "7"
+
+    /// The moment the App Store price was (or will be) dropped from $0.99 to
+    /// free. Anyone who first acquired the app strictly BEFORE this paid for it —
+    /// including buyers of the free-model build (build 8) during the window
+    /// where its price hadn't been removed yet — and is grandfathered.
+    ///
+    /// Set this to at/before the instant you actually change the price to free:
+    ///   • Set it earlier than the real price drop → a few late paid buyers are
+    ///     missed (they can still Restore Purchases).
+    ///   • Set it later than the real price drop → a few free downloaders would
+    ///     be wrongly grandfathered.
+    /// `nil` disables the date rule entirely, relying on `lastPaidBuildNumber`
+    /// alone — the safe default that can never grandfather a free user.
+    ///
+    /// Example (grandfather everyone who bought before 1 Sep 2026, 00:00 UTC):
+    ///   static let freeTransitionDate: Date? = isoDate("2026-09-01T00:00:00Z")
+    static let freeTransitionDate: Date? = nil
 
     /// The result of the app-transaction eligibility check. We deliberately
     /// distinguish "verified not eligible" from "couldn't verify", because a
     /// transient verification failure must never revoke an entitlement that was
     /// already granted and cached (see `StoreManager.refreshEntitlements`).
     enum Result {
-        /// Verified app transaction whose original build is at/before the cutoff.
+        /// Verified app transaction that qualifies as a paid acquisition.
         case qualified
-        /// Verified app transaction whose original build is after the cutoff
-        /// (a genuine free-era download).
+        /// Verified app transaction that does not qualify (a genuine free-era
+        /// download).
         case notQualified
         /// The app transaction was unavailable or failed verification, so
         /// eligibility can't be determined right now (e.g. offline first run).
@@ -90,19 +114,21 @@ enum LegacyPaidAppEligibility {
     }
 
     /// Asynchronously retrieves and verifies the StoreKit app transaction and
-    /// decides whether the current user is an original paid-app owner. Only the
-    /// verified transaction is trusted; unverified or failed lookups return
+    /// decides whether the current user paid for the app. Only the verified
+    /// transaction is trusted; unverified or failed lookups return
     /// `.indeterminate` so callers can preserve any previously-granted state.
     static func check() async -> Result {
         do {
             let verification = try await AppTransaction.shared
             switch verification {
             case .verified(let appTransaction):
-                // On iOS this is the CFBundleVersion (build number) of the build
-                // the customer first acquired.
+                // On iOS `originalAppVersion` is the CFBundleVersion (build
+                // number) of the build the customer first acquired.
                 let originalBuild = appTransaction.originalAppVersion
-                let qualifies = isLegacyPaidVersion(originalBuild)
-                log("app transaction verified; originalAppVersion=\(originalBuild), legacyPaid=\(qualifies)")
+                let purchaseDate = appTransaction.originalPurchaseDate
+                let qualifies = isLegacyPaidPurchase(originalBuild: originalBuild,
+                                                     purchaseDate: purchaseDate)
+                log("app transaction verified; originalAppVersion=\(originalBuild), originalPurchaseDate=\(purchaseDate), legacyPaid=\(qualifies)")
                 return qualifies ? .qualified : .notQualified
             case .unverified(_, let error):
                 // Never grant an entitlement from unverified data.
@@ -114,6 +140,15 @@ enum LegacyPaidAppEligibility {
             log("app transaction lookup failed: \(error.localizedDescription)")
             return .indeterminate
         }
+    }
+
+    /// True when the user paid for the app: either they first acquired a paid-era
+    /// build (build cutoff), or they acquired it before the price dropped to free
+    /// (transition window). Either path means they paid.
+    static func isLegacyPaidPurchase(originalBuild: String, purchaseDate: Date) -> Bool {
+        if isLegacyPaidVersion(originalBuild) { return true }
+        if let transition = freeTransitionDate, purchaseDate < transition { return true }
+        return false
     }
 
     /// True when `originalAppVersion` is at or before the last paid build — i.e.
@@ -150,6 +185,12 @@ enum LegacyPaidAppEligibility {
                 let digits = String(component.filter(\.isNumber))
                 return Int(digits) ?? 0
             }
+    }
+
+    /// Parses an ISO 8601 timestamp (e.g. "2026-09-01T00:00:00Z"). Convenience
+    /// for configuring `freeTransitionDate` without hand-building DateComponents.
+    static func isoDate(_ string: String) -> Date? {
+        ISO8601DateFormatter().date(from: string)
     }
 
     private static func log(_ message: String) {

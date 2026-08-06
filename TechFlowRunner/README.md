@@ -153,12 +153,19 @@ free** — they are never asked to pay the $2.99. This is handled by
 `Services/LegacyPaidAppEligibility.swift` together with `StoreManager`:
 
 - Eligibility uses StoreKit 2's **app-level** transaction,
-  `AppTransaction.shared` (the **verified** result only). Its
-  `originalAppVersion` is, on iOS, the `CFBundleVersion` the customer first
-  acquired. That build number is compared **component-wise numerically** (so
-  `"10"` sorts after `"2"`) against `lastPaidBuildNumber`.
+  `AppTransaction.shared` (the **verified** result only). On iOS its
+  `originalAppVersion` is the `CFBundleVersion` (build number) the customer
+  first acquired, and `originalPurchaseDate` is when they acquired it.
+- A user counts as **paid** (and is grandfathered) if **either**:
+  1. their original build is **at or before** `lastPaidBuildNumber` — compared
+     **component-wise numerically** (so `"10"` sorts after `"2"`), covering the
+     whole paid ($0.99) era; **or**
+  2. their `originalPurchaseDate` is **before** `freeTransitionDate` — covering
+     the transition window where the free-model build is already live but its
+     price hasn't been dropped yet, so those buyers download the *same build* as
+     later free users and can only be told apart by purchase date.
 - We do **not** grant based on merely having a receipt/app transaction — free
-  downloads have one too — only on the original build being at/before the cutoff.
+  downloads have one too.
 - Both entitlement sources are unified under `UnlimitedLivesSource`
   (`.purchasedIAP` / `.legacyPaidApp`); the app reasons about
   `StoreManager.hasUnlimitedLives`. Resolution priority: verified IAP → verified
@@ -168,16 +175,25 @@ free** — they are never asked to pay the $2.99. This is handled by
   (gated by the separate `legacySupporterMessageShown` flag), and the store /
   Settings show **"Early Supporter Access"** instead of the purchase button.
 
-> ⚠️ **Two release-engineering invariants — verify before every submission:**
+> ⚠️ **Release-engineering invariants — verify before every submission:**
 >
 > 1. `LegacyPaidAppEligibility.lastPaidBuildNumber` **must equal the final
 >    `CFBundleVersion` that was live on the App Store while the app cost $0.99**
->    (check the paid version's Build number in App Store Connect). It is
->    currently `"1"` (the paid era shipped at build 1 / marketing 1.0).
+>    (check the paid version's Build number in App Store Connect). It is `"7"`
+>    (marketing 1.0 shipped at build 7). Note iOS compares the **build number**,
+>    not the marketing version.
 > 2. The shipping build's **`CURRENT_PROJECT_VERSION` must be strictly greater
->    than that cutoff.** It is bumped to `2` for the free release. If a free
->    build ever shipped at a number ≤ the cutoff, those free users would be
->    wrongly grandfathered — raise the cutoff accordingly and re-verify.
+>    than that cutoff.** It is `8` for the free release (also the next valid
+>    build after the paid build 7). If a free build ever shipped at a number ≤
+>    the cutoff, those free users would be wrongly grandfathered.
+> 3. To grandfather **transition-window buyers** (people who pay $0.99 for the
+>    build 8 release before you remove the price), set
+>    `LegacyPaidAppEligibility.freeTransitionDate` to at/before the moment you
+>    change the App Store price to free. Leaving it `nil` relies on the build
+>    cutoff alone — safe (never grandfathers a free user) but does not cover the
+>    transition window. Since build 8 is the *same* build whether bought at
+>    $0.99 or downloaded free later, the purchase date is the only signal that
+>    separates those two groups.
 
 **Simulating entitlement states:** because the StoreKit sandbox's
 `originalAppVersion` doesn't reproduce real paid-app history, `Debug` builds get

@@ -48,9 +48,9 @@ COMMON_SETTINGS = f"""\t\t\t\tASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 \t\t\t\tCODE_SIGN_STYLE = Automatic;
 \t\t\t\t// Build number (CFBundleVersion). MUST stay strictly greater than
 \t\t\t\t// LegacyPaidAppEligibility.lastPaidBuildNumber so new free downloads
-\t\t\t\t// are never mistaken for original paid-app purchases. Bumped to 2 for
-\t\t\t\t// the free-to-play release (paid era shipped at build 1).
-\t\t\t\tCURRENT_PROJECT_VERSION = 2;
+\t\t\t\t// are never mistaken for original paid-app purchases. The paid era
+\t\t\t\t// (marketing 1.0) ended at build 7, so the free-model release is 8.
+\t\t\t\tCURRENT_PROJECT_VERSION = 8;
 \t\t\t\tDEVELOPMENT_TEAM = "";
 \t\t\t\tENABLE_PREVIEWS = YES;
 \t\t\t\tGENERATE_INFOPLIST_FILE = YES;
